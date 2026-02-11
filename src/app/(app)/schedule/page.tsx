@@ -56,9 +56,13 @@ export default function SchedulePage() {
 
   const fetchBlocks = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/schedule?weekStart=${weekStart}&weekEnd=${weekEnd}`);
-    const data = await res.json();
-    setBlocks(data);
+    try {
+      const res = await fetch(`/api/schedule?weekStart=${weekStart}&weekEnd=${weekEnd}`);
+      const data = await res.json();
+      setBlocks(Array.isArray(data) ? data : []);
+    } catch {
+      setBlocks([]);
+    }
     setLoading(false);
   }, [weekStart, weekEnd]);
 
@@ -86,19 +90,27 @@ export default function SchedulePage() {
 
   async function handleGenerate() {
     setGenerating(true);
-    const res = await fetch("/api/schedule/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        weekDates: weekDates.map(formatDate),
-        keepLocked,
-        keepManual,
-        generateFromNow,
-      }),
-    });
-    const data = await res.json();
-    setBlocks(data.blocks);
-    setWarnings(data.warnings || []);
+    try {
+      const res = await fetch("/api/schedule/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          weekDates: weekDates.map(formatDate),
+          keepLocked,
+          keepManual,
+          generateFromNow,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWarnings([data.error || "Failed to generate schedule"]);
+      } else {
+        setBlocks(Array.isArray(data.blocks) ? data.blocks : []);
+        setWarnings(data.warnings || []);
+      }
+    } catch {
+      setWarnings(["Failed to generate schedule"]);
+    }
     setGenerating(false);
   }
 

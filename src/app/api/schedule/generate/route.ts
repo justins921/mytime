@@ -12,10 +12,10 @@ export async function POST(req: NextRequest) {
     generateFromNow?: boolean;
   };
 
-  // Load settings
-  const settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
+  // Load settings (auto-create if missing)
+  let settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
   if (!settings) {
-    return NextResponse.json({ error: "Settings not found" }, { status: 500 });
+    settings = await prisma.settings.create({ data: { id: "singleton" } });
   }
 
   // Load clients with projects
