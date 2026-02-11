@@ -64,6 +64,7 @@ function makeDefaultInput(overrides?: Partial<SchedulerInput>): SchedulerInput {
     supportSweepMinutes: 30,
     generateFromNow: false,
     uc30WeeklyHours: 0,
+    monthlyHoursUsed: {},
     ...overrides,
   };
 }

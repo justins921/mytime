@@ -42,6 +42,7 @@ export default function SchedulePage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generatingDay, setGeneratingDay] = useState<string | null>(null);
   const [keepLocked, setKeepLocked] = useState(true);
   const [keepManual, setKeepManual] = useState(true);
   const [generateFromNow, setGenerateFromNow] = useState(false);
@@ -112,6 +113,36 @@ export default function SchedulePage() {
       setWarnings(["Failed to generate schedule"]);
     }
     setGenerating(false);
+  }
+
+  async function handleGenerateDay(dateStr: string) {
+    setGeneratingDay(dateStr);
+    try {
+      const res = await fetch("/api/schedule/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          weekDates: [dateStr],
+          keepLocked,
+          keepManual,
+          generateFromNow,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWarnings([data.error || "Failed to generate schedule"]);
+      } else {
+        const newDayBlocks: ScheduleBlock[] = Array.isArray(data.blocks) ? data.blocks : [];
+        setBlocks((prev) => [
+          ...prev.filter((b) => b.date !== dateStr),
+          ...newDayBlocks,
+        ]);
+        setWarnings(data.warnings || []);
+      }
+    } catch {
+      setWarnings(["Failed to generate schedule"]);
+    }
+    setGeneratingDay(null);
   }
 
   async function toggleLock(block: ScheduleBlock) {
@@ -235,11 +266,21 @@ export default function SchedulePage() {
               <Card key={dateStr} className={isToday ? "ring-2 ring-primary" : ""}>
                 <CardHeader className="py-3 px-4">
                   <CardTitle className="text-sm flex items-center justify-between">
-                    <span className="hidden md:inline">{DAY_NAMES[i]}</span>
-                    <span className="md:hidden">{DAY_NAMES_SHORT[i]}</span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </span>
+                    <div>
+                      <span className="hidden md:inline">{DAY_NAMES[i]}</span>
+                      <span className="md:hidden">{DAY_NAMES_SHORT[i]}</span>
+                      <span className="text-xs font-normal text-muted-foreground ml-2">
+                        {new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleGenerateDay(dateStr)}
+                      disabled={generatingDay === dateStr}
+                      className="opacity-50 hover:opacity-100 disabled:opacity-30"
+                      title={`Generate ${DAY_NAMES[i]}`}
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
+                    </button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-3 space-y-1.5 relative">

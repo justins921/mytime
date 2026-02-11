@@ -241,42 +241,45 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
     // Sort by priority weight descending (higher priority first)
     deepWorkAllocations.sort((a, b) => b.client.priorityWeight - a.client.priorityWeight);
 
-    // Assign blocks from remaining slots
+    // Assign blocks from remaining slots, split by project
     for (const alloc of deepWorkAllocations) {
       if (alloc.minutesNeeded <= 0) continue;
-      let minutesLeft = alloc.minutesNeeded;
 
-      // Pick project for this client
-      const project = pickProject(alloc.client, uc30WeeklyHours, clientAllocated[alloc.client.id] || 0);
+      // Split time across projects by weight
+      const projectAllocations = splitByProject(alloc.client, alloc.minutesNeeded, uc30WeeklyHours, clientAllocated[alloc.client.id] || 0);
 
-      for (let si = 0; si < remainingSlots.length && minutesLeft > 0; si++) {
-        const slot = remainingSlots[si];
-        const available = slot.end - slot.start;
-        if (available < 15) continue;
+      for (const pa of projectAllocations) {
+        let minutesLeft = pa.minutes;
 
-        const blockDuration = Math.min(minutesLeft, available);
-        allBlocks.push({
-          date: dateStr,
-          startTime: minutesToTime(slot.start),
-          endTime: minutesToTime(slot.start + blockDuration),
-          clientId: alloc.client.id,
-          projectId: project?.id || null,
-          title: `${alloc.client.name} Deep Work`,
-          type: "DeepWork",
-          locked: false,
-          generated: true,
-          notes: "",
-        });
-        clientAllocated[alloc.client.id] += blockDuration / 60;
-        minutesLeft -= blockDuration;
+        for (let si = 0; si < remainingSlots.length && minutesLeft > 0; si++) {
+          const slot = remainingSlots[si];
+          const available = slot.end - slot.start;
+          if (available < 15) continue;
 
-        // Mark daily touch
-        if (dailyTouchFulfilled[alloc.client.id]) {
-          dailyTouchFulfilled[alloc.client.id].add(dateStr);
+          const blockDuration = Math.min(minutesLeft, available);
+          allBlocks.push({
+            date: dateStr,
+            startTime: minutesToTime(slot.start),
+            endTime: minutesToTime(slot.start + blockDuration),
+            clientId: alloc.client.id,
+            projectId: pa.projectId,
+            title: pa.title,
+            type: "DeepWork",
+            locked: false,
+            generated: true,
+            notes: "",
+          });
+          clientAllocated[alloc.client.id] += blockDuration / 60;
+          minutesLeft -= blockDuration;
+
+          // Mark daily touch
+          if (dailyTouchFulfilled[alloc.client.id]) {
+            dailyTouchFulfilled[alloc.client.id].add(dateStr);
+          }
+
+          // Shrink slot
+          slot.start += blockDuration;
         }
-
-        // Shrink slot
-        slot.start += blockDuration;
       }
     }
 
@@ -420,6 +423,95 @@ function pickProject(
   // No UC30 distinction, pick highest-weight project
   const sorted = [...client.projects].sort((a, b) => b.weight - a.weight);
   return sorted[0];
+}
+
+/**
+ * Split a client's total minutes across their projects by weight.
+ * Returns project allocations sorted by minutes descending.
+ * Minimum block size is 15 minutes; remainders go to highest-weight project.
+ */
+function splitByProject(
+  client: ClientConfig,
+  totalMinutes: number,
+  uc30WeeklyHours: number,
+  hoursAllocated: number
+): { projectId: string | null; title: string; minutes: number }[] {
+  if (client.projects.length === 0) {
+    return [{ projectId: null, title: `${client.name} Deep Work`, minutes: totalMinutes }];
+  }
+
+  if (client.projects.length === 1) {
+    const p = client.projects[0];
+    return [{ projectId: p.id, title: `${client.name} - ${p.name}`, minutes: totalMinutes }];
+  }
+
+  // Handle UC30 carve-out: reserve UC30 hours first, rest goes to other projects
+  const uc30Projects = client.projects.filter((p) => p.tags.includes("UC30"));
+  const nonUc30Projects = client.projects.filter((p) => !p.tags.includes("UC30"));
+
+  let projectsToSplit = client.projects;
+  const result: { projectId: string | null; title: string; minutes: number }[] = [];
+  let minutesRemaining = totalMinutes;
+
+  if (uc30Projects.length > 0 && nonUc30Projects.length > 0 && uc30WeeklyHours > 0) {
+    // UC30 gets a fixed portion, not weight-based
+    const uc30MinutesTarget = Math.max(0, (uc30WeeklyHours - hoursAllocated) * 60);
+    const uc30Minutes = Math.min(roundTo15(Math.min(uc30MinutesTarget, totalMinutes)), totalMinutes);
+    if (uc30Minutes >= 15) {
+      result.push({
+        projectId: uc30Projects[0].id,
+        title: `${client.name} - ${uc30Projects[0].name}`,
+        minutes: uc30Minutes,
+      });
+      minutesRemaining -= uc30Minutes;
+    }
+    projectsToSplit = nonUc30Projects;
+  }
+
+  if (minutesRemaining < 15 || projectsToSplit.length === 0) {
+    return result.length > 0 ? result : [{ projectId: null, title: `${client.name} Deep Work`, minutes: totalMinutes }];
+  }
+
+  // Distribute remaining minutes by weight
+  const totalWeight = projectsToSplit.reduce((sum, p) => sum + p.weight, 0);
+  if (totalWeight <= 0) {
+    result.push({
+      projectId: projectsToSplit[0].id,
+      title: `${client.name} - ${projectsToSplit[0].name}`,
+      minutes: minutesRemaining,
+    });
+    return result;
+  }
+
+  const rawAllocations = projectsToSplit.map((p) => ({
+    project: p,
+    minutes: roundTo15((p.weight / totalWeight) * minutesRemaining),
+  }));
+
+  // Adjust so total matches minutesRemaining (rounding can cause drift)
+  const allocatedSoFar = rawAllocations.reduce((sum, a) => sum + a.minutes, 0);
+  let diff = minutesRemaining - allocatedSoFar;
+  // Sort by weight desc so adjustment goes to highest-weight project
+  rawAllocations.sort((a, b) => b.project.weight - a.project.weight);
+  if (diff !== 0 && rawAllocations.length > 0) {
+    rawAllocations[0].minutes += diff;
+  }
+
+  for (const a of rawAllocations) {
+    if (a.minutes >= 15) {
+      result.push({
+        projectId: a.project.id,
+        title: `${client.name} - ${a.project.name}`,
+        minutes: a.minutes,
+      });
+    }
+  }
+
+  return result.length > 0 ? result : [{ projectId: null, title: `${client.name} Deep Work`, minutes: totalMinutes }];
+}
+
+function roundTo15(minutes: number): number {
+  return Math.round(minutes / 15) * 15;
 }
 
 /**
