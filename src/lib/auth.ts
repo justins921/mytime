@@ -1,29 +1,34 @@
 import NextAuth from "next-auth";
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import Resend from "next-auth/providers/resend";
-import { prisma } from "@/lib/db";
+import Credentials from "next-auth/providers/credentials";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
   providers: [
-    Resend({
-      apiKey: process.env.RESEND_API_KEY,
-      from: "MyTime <noreply@resend.dev>",
+    Credentials({
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const allowedEmail = process.env.ALLOWED_EMAIL;
+        const allowedPassword = process.env.AUTH_PASSWORD;
+        if (!allowedEmail || !allowedPassword) return null;
+
+        const email = credentials.email as string;
+        const password = credentials.password as string;
+
+        if (
+          email.toLowerCase() === allowedEmail.toLowerCase() &&
+          password === allowedPassword
+        ) {
+          return { id: "1", email: allowedEmail, name: "Admin" };
+        }
+        return null;
+      },
     }),
   ],
+  session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
-    verifyRequest: "/login?verify=true",
-  },
-  callbacks: {
-    async signIn({ user }) {
-      const allowedEmail = process.env.ALLOWED_EMAIL;
-      if (!allowedEmail) return false;
-      return user.email?.toLowerCase() === allowedEmail.toLowerCase();
-    },
-    async session({ session }) {
-      return session;
-    },
   },
   trustHost: true,
 });

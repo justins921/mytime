@@ -8,33 +8,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Check if this is a verify page
-  const isVerify = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("verify") === "true";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await signIn("resend", { email, redirect: false });
-    setSent(true);
-    setLoading(false);
-  }
-
-  if (isVerify || sent) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Check your email</CardTitle>
-            <CardDescription>
-              A magic link has been sent to your email address. Click the link to sign in.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
+    setError("");
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+    if (result?.error) {
+      setError("Invalid email or password");
+      setLoading(false);
+    } else {
+      window.location.href = "/";
+    }
   }
 
   return (
@@ -55,8 +47,18 @@ export default function LoginPage() {
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Sending..." : "Sign in with Email"}
+              {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
         </CardContent>
