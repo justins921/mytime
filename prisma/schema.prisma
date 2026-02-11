@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth.js models ──────────────────────────────────────
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── App models ──────────────────────────────────────────
+model Client {
+  id                    String          @id @default(cuid())
+  name                  String
+  retainerMonthly       Float           @default(2000)
+  baselineRateHourly    Float           @default(50)
+  weeklyTargetHours     Float           @default(10)
+  monthlyCapHours       Float           @default(40)
+  priorityWeight        Float           @default(1.0)
+  style                 String          @default("DeepWork") // DeepWork | Support | Mixed
+  dailyTouch            Boolean         @default(false)
+  color                 String          @default("#3b82f6")
+  sortOrder             Int             @default(0)
+  archived              Boolean         @default(false)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  projects              Project[]
+  scheduleBlocks        ScheduleBlock[]
+  timeEntries           TimeEntry[]
+}
+
+model Project {
+  id             String          @id @default(cuid())
+  clientId       String
+  name           String
+  tags           String          @default("") // comma-separated: "UC30", etc.
+  weight         Float           @default(1.0)
+  archived       Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tasks          Task[]
+  scheduleBlocks ScheduleBlock[]
+  timeEntries    TimeEntry[]
+}
+
+model Task {
+  id              String      @id @default(cuid())
+  projectId       String
+  title           String
+  description     String      @default("")
+  priority        String      @default("P2") // P1 | P2 | P3
+  estimateMinutes Int?
+  dueDate         DateTime?
+  status          String      @default("Backlog") // Backlog | InProgress | Done
+  url             String      @default("")
+  tags            String      @default("") // comma-separated
+  sortOrder       Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timeEntries     TimeEntry[]
+}
+
+model ScheduleBlock {
+  id          String      @id @default(cuid())
+  date        String      // YYYY-MM-DD
+  startTime   String      // HH:mm
+  endTime     String      // HH:mm
+  clientId    String?
+  projectId   String?
+  title       String
+  type        String      // Support | DeepWork | Break | Admin | Lunch
+  locked      Boolean     @default(false)
+  generated   Boolean     @default(true)
+  notes       String      @default("")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  client      Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project     Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  timeEntries TimeEntry[]
+}
+
+model TimeEntry {
+  id              String         @id @default(cuid())
+  startAt         DateTime
+  endAt           DateTime?
+  durationMinutes Float?
+  clientId        String
+  projectId       String?
+  taskId          String?
+  scheduleBlockId String?
+  notes           String         @default("")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  task            Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  scheduleBlock   ScheduleBlock? @relation(fields: [scheduleBlockId], references: [id], onDelete: SetNull)
+}
+
+model Settings {
+  id                    String   @id @default("singleton")
+  timezone              String   @default("America/Chicago")
+  // Availability: JSON string of per-day config
+  // Format: {"mon":{"start":"09:00","end":"15:30","enabled":true},...}
+  availabilityJson      String   @default("{\"mon\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"tue\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"wed\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"thu\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"fri\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true}}")
+  // Fixed breaks JSON: [{"start":"10:15","end":"10:45","title":"Pickup","locked":true}]
+  fixedBreaksJson       String   @default("[{\"start\":\"10:15\",\"end\":\"10:45\",\"title\":\"School Pickup\",\"locked\":true}]")
+  // Lunch reserve JSON: {"start":"12:45","end":"13:15","title":"Lunch"}
+  lunchReserveJson      String   @default("{\"start\":\"12:45\",\"end\":\"13:15\",\"title\":\"Lunch\"}")
+  // Night work per day: {"mon":{"enabled":false,"start":"20:00","end":"22:00"},...}
+  nightWorkJson         String   @default("{\"mon\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"tue\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"wed\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"thu\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"fri\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"}}")
+  // Deep work split JSON: {"splits":[{"clientId":"...","weight":70},{"clientId":"...","weight":30}]}
+  deepWorkSplitJson     String   @default("{\"splits\":[]}")
+  supportSweepMinutes   Int      @default(30)
+  generateFromNow       Boolean  @default(false)
+  uc30WeeklyHours       Float    @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
