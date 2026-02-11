@@ -65,6 +65,33 @@ export async function POST(req: NextRequest) {
   });
   const todayStr = now.toLocaleDateString("en-CA", { timeZone: tz });
 
+  // Calculate monthly hours already scheduled (outside the current week)
+  // Get month boundaries from the first weekDate
+  const firstDate = weekDates[0]; // YYYY-MM-DD
+  const monthStart = firstDate.slice(0, 7) + "-01"; // YYYY-MM-01
+  const monthYear = parseInt(firstDate.slice(0, 4));
+  const monthNum = parseInt(firstDate.slice(5, 7));
+  const lastDay = new Date(monthYear, monthNum, 0).getDate();
+  const monthEnd = firstDate.slice(0, 7) + "-" + String(lastDay).padStart(2, "0");
+
+  const monthBlocks = await prisma.scheduleBlock.findMany({
+    where: {
+      date: { gte: monthStart, lte: monthEnd },
+      NOT: { date: { in: weekDates } },
+      clientId: { not: null },
+      type: { in: ["DeepWork", "Support"] },
+    },
+  });
+
+  const monthlyHoursUsed: Record<string, number> = {};
+  for (const b of monthBlocks) {
+    if (!b.clientId) continue;
+    const startMins = parseInt(b.startTime.split(":")[0]) * 60 + parseInt(b.startTime.split(":")[1]);
+    const endMins = parseInt(b.endTime.split(":")[0]) * 60 + parseInt(b.endTime.split(":")[1]);
+    const hours = (endMins - startMins) / 60;
+    monthlyHoursUsed[b.clientId] = (monthlyHoursUsed[b.clientId] || 0) + hours;
+  }
+
   // Build scheduler input
   const clientConfigs: ClientConfig[] = clients.map((c) => ({
     id: c.id,
@@ -109,6 +136,7 @@ export async function POST(req: NextRequest) {
       notes: b.notes,
     })),
     uc30WeeklyHours: settings.uc30WeeklyHours,
+    monthlyHoursUsed,
   };
 
   // Generate schedule
@@ -168,7 +196,8 @@ export async function POST(req: NextRequest) {
       generated: b.generated,
       notes: b.notes,
     })),
-    clientConfigs
+    clientConfigs,
+    monthlyHoursUsed
   );
 
   return NextResponse.json({ blocks: allBlocks, warnings });

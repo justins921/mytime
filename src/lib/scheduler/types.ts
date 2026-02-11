@@ -50,6 +50,7 @@ export interface SchedulerInput {
   lockedBlockIds?: string[];
   existingBlocks?: GeneratedBlock[];
   uc30WeeklyHours: number;
+  monthlyHoursUsed: Record<string, number>; // clientId -> hours already scheduled this month (outside current week)
 }
 
 export interface GeneratedBlock {

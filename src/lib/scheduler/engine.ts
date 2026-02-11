@@ -29,6 +29,7 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
     currentTime,
     today,
     uc30WeeklyHours,
+    monthlyHoursUsed,
   } = input;
 
   const allBlocks: GeneratedBlock[] = [];
@@ -46,7 +47,15 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
   // We'll compute per-day then allocate
   const dayKeys = ["mon", "tue", "wed", "thu", "fri"];
 
-  // Track allocated hours per client
+  // Calculate effective weekly target capped by remaining monthly capacity
+  const effectiveWeeklyTarget: Record<string, number> = {};
+  for (const client of clients) {
+    const usedThisMonth = monthlyHoursUsed[client.id] || 0;
+    const remainingMonthly = Math.max(0, client.monthlyCapHours - usedThisMonth);
+    effectiveWeeklyTarget[client.id] = Math.min(client.weeklyTargetHours, remainingMonthly);
+  }
+
+  // Track allocated hours per client (within this week's generation)
   const clientAllocated: Record<string, number> = {};
   clients.forEach((c) => (clientAllocated[c.id] = 0));
 
@@ -159,7 +168,8 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
     // 1. Support sweep at START of day
     if (supportClient && remainingSlots.length > 0) {
       const firstSlot = remainingSlots[0];
-      const sweepDuration = Math.min(supportSweepMinutes, firstSlot.end - firstSlot.start);
+      const supportRemaining = Math.max(0, (effectiveWeeklyTarget[supportClient.id] - clientAllocated[supportClient.id]) * 60);
+      const sweepDuration = Math.min(supportSweepMinutes, firstSlot.end - firstSlot.start, supportRemaining);
       if (sweepDuration >= 15) {
         const defaultProject = supportClient.projects[0];
         allBlocks.push({
@@ -195,7 +205,8 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
 
       // Support sweep at end (30 min)
       if (supportClient) {
-        const sweepDuration = Math.min(supportSweepMinutes, lastSlot.end - lastSlot.start);
+        const supportRemainingEnd = Math.max(0, (effectiveWeeklyTarget[supportClient.id] - clientAllocated[supportClient.id]) * 60);
+        const sweepDuration = Math.min(supportSweepMinutes, lastSlot.end - lastSlot.start, supportRemainingEnd);
         if (sweepDuration >= 15) {
           endSweepSlot = { start: totalEnd - sweepDuration, end: totalEnd };
           lastSlot.end = totalEnd - sweepDuration;
@@ -219,7 +230,7 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
 
     for (const client of deepWorkClients) {
       const hoursAllocatedSoFar = clientAllocated[client.id] || 0;
-      const hoursRemaining = Math.max(0, client.weeklyTargetHours - hoursAllocatedSoFar);
+      const hoursRemaining = Math.max(0, effectiveWeeklyTarget[client.id] - hoursAllocatedSoFar);
       const dailyShare = hoursRemaining / workingDaysLeft;
       deepWorkAllocations.push({
         client,
@@ -347,7 +358,7 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
       const neediest = deepWorkClients
         .map((c) => ({
           client: c,
-          remaining: c.weeklyTargetHours - (clientAllocated[c.id] || 0),
+          remaining: effectiveWeeklyTarget[c.id] - (clientAllocated[c.id] || 0),
         }))
         .filter((x) => x.remaining > 0)
         .sort((a, b) => b.client.priorityWeight - a.client.priorityWeight);
@@ -474,7 +485,8 @@ export function computeAvailableSlots(
  */
 export function generateWarnings(
   blocks: GeneratedBlock[],
-  clients: ClientConfig[]
+  clients: ClientConfig[],
+  monthlyHoursUsed: Record<string, number> = {}
 ): string[] {
   const warnings: string[] = [];
   const clientHours: Record<string, number> = {};
@@ -487,17 +499,18 @@ export function generateWarnings(
   }
 
   for (const client of clients) {
-    const hours = clientHours[client.id] || 0;
-    if (hours > client.weeklyTargetHours * 1.1) {
+    const weekHours = clientHours[client.id] || 0;
+    if (weekHours > client.weeklyTargetHours * 1.1) {
       warnings.push(
-        `${client.name}: ${hours.toFixed(1)}h scheduled exceeds weekly target of ${client.weeklyTargetHours}h`
+        `${client.name}: ${weekHours.toFixed(1)}h scheduled this week exceeds weekly target of ${client.weeklyTargetHours}h`
       );
     }
-    // Monthly projection (4.33 weeks/month)
-    const projectedMonthly = hours * 4.33;
-    if (projectedMonthly > client.monthlyCapHours) {
+    // Check actual monthly total (hours already used + this week's scheduled hours)
+    const priorMonthHours = monthlyHoursUsed[client.id] || 0;
+    const totalMonthly = priorMonthHours + weekHours;
+    if (totalMonthly > client.monthlyCapHours) {
       warnings.push(
-        `${client.name}: Projected ${projectedMonthly.toFixed(1)}h/mo exceeds monthly cap of ${client.monthlyCapHours}h`
+        `${client.name}: ${totalMonthly.toFixed(1)}h total this month exceeds monthly cap of ${client.monthlyCapHours}h`
       );
     }
   }
