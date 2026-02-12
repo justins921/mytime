@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink, Palmtree, CalendarClock, Plus } from "lucide-react";
+import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink, Palmtree, CalendarClock, Plus, CreditCard, Lock, ChevronDown, BookOpen, Plug } from "lucide-react";
 
 interface AvailabilityWindow {
   start: string;
@@ -76,6 +76,10 @@ export default function SettingsPage() {
   const [newFeed, setNewFeed] = useState({ name: "", url: "", color: "#8b5cf6" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [plan, setPlan] = useState("free");
+  const [billingLoading, setBillingLoading] = useState(false);
+
+  const canUseIntegrations = plan === "pro" || plan === "business";
 
   useEffect(() => {
     fetch("/api/settings")
@@ -108,6 +112,20 @@ export default function SettingsPage() {
     fetch("/api/calendar-feeds")
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setCalendarFeeds(data); });
+    // Fetch plan from session
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then(() => {
+        // Plan comes from user record; fetch via a lightweight endpoint
+        fetch("/api/settings")
+          .then((r) => r.json())
+          .then(() => {}); // plan is loaded separately below
+      })
+      .catch(() => {});
+    fetch("/api/stripe/plan")
+      .then((r) => r.json())
+      .then((data) => { if (data.plan) setPlan(data.plan); })
+      .catch(() => {});
     // Handle OAuth redirect params
     const params = new URLSearchParams(window.location.search);
     const slackConnected = params.get("slack_connected");
@@ -167,6 +185,83 @@ export default function SettingsPage() {
           {saving ? "Saving..." : saved ? "Saved!" : "Save Settings"}
         </Button>
       </div>
+
+      {/* Plan & Billing */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            Plan & Billing
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm">Current plan:</span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary capitalize">
+              {plan}
+            </span>
+          </div>
+          {plan === "free" && (
+            <div className="p-4 rounded-lg border bg-blue-50/50 space-y-3">
+              <p className="text-sm font-medium">Upgrade to unlock integrations, unlimited clients, and more</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={billingLoading}
+                  onClick={async () => {
+                    setBillingLoading(true);
+                    const res = await fetch("/api/stripe/checkout", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ plan: "pro", billing: "monthly" }),
+                    });
+                    const data = await res.json();
+                    if (data.url) window.location.href = data.url;
+                    setBillingLoading(false);
+                  }}
+                >
+                  Upgrade to Pro — $19/mo
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={billingLoading}
+                  onClick={async () => {
+                    setBillingLoading(true);
+                    const res = await fetch("/api/stripe/checkout", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ plan: "business", billing: "monthly" }),
+                    });
+                    const data = await res.json();
+                    if (data.url) window.location.href = data.url;
+                    setBillingLoading(false);
+                  }}
+                >
+                  Business — $39/mo
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">All plans include a 14-day free trial. Cancel anytime.</p>
+            </div>
+          )}
+          {plan !== "free" && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={billingLoading}
+              onClick={async () => {
+                setBillingLoading(true);
+                const res = await fetch("/api/stripe/portal", { method: "POST" });
+                const data = await res.json();
+                if (data.url) window.location.href = data.url;
+                setBillingLoading(false);
+              }}
+            >
+              Manage Billing
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       {/* General */}
       <Card>
@@ -635,12 +730,71 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Integrations header with plan gate */}
+      <div className="flex items-center gap-2 pt-4">
+        <Plug className="h-5 w-5" />
+        <h2 className="text-lg font-semibold">Integrations</h2>
+        {!canUseIntegrations && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+            <Lock className="h-3 w-3" />
+            Pro plan required
+          </span>
+        )}
+      </div>
+
+      {!canUseIntegrations && (
+        <Card>
+          <CardContent className="py-8 text-center space-y-3">
+            <Lock className="h-8 w-8 mx-auto text-muted-foreground" />
+            <p className="text-sm font-medium">Integrations require a Pro or Business plan</p>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              Connect Slack, Gmail, Notion, ClickUp, and Calendar feeds to manage all your communication in one place.
+              Upgrade to Pro to unlock all integrations.
+            </p>
+            <Button
+              size="sm"
+              onClick={async () => {
+                setBillingLoading(true);
+                const res = await fetch("/api/stripe/checkout", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ plan: "pro", billing: "monthly" }),
+                });
+                const data = await res.json();
+                if (data.url) window.location.href = data.url;
+                setBillingLoading(false);
+              }}
+              disabled={billingLoading}
+            >
+              Upgrade to Pro — $19/mo
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {canUseIntegrations && (
+        <>
       {/* ClickUp integration */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">ClickUp Integration</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <details className="text-xs mb-3">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
+              <ChevronDown className="h-3 w-3" />
+              How to connect ClickUp (step by step)
+            </summary>
+            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
+              <li>Go to ClickUp &rarr; click your avatar (bottom-left) &rarr; <strong>Settings</strong></li>
+              <li>Click <strong>Apps</strong> in the left sidebar</li>
+              <li>Under &quot;API Token&quot;, click <strong>Generate</strong> (or copy your existing token)</li>
+              <li>Paste the token below and click <strong>Test</strong></li>
+              <li>Once connected, map each ClickUp workspace to a MyTime client</li>
+              <li>Tasks from mapped workspaces will appear in the <strong>Triage</strong> tab</li>
+            </ol>
+          </details>
+
           <div className="space-y-1">
             <Label className="text-xs">Personal API Token</Label>
             <div className="flex gap-2">
@@ -738,14 +892,24 @@ export default function SettingsPage() {
             </p>
           )}
 
-          <div className="space-y-1">
-            <p className="text-[10px] text-muted-foreground">
-              Connect your Slack workspaces and map them to clients. Messages will be filtered based on your current schedule.
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              Requires <code className="bg-muted px-1 rounded">SLACK_CLIENT_ID</code> and <code className="bg-muted px-1 rounded">SLACK_CLIENT_SECRET</code> env vars from your Slack App.
-            </p>
-          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Connect your Slack workspaces and map them to clients. Messages will be filtered based on your current schedule.
+          </p>
+
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
+              <ChevronDown className="h-3 w-3" />
+              How to connect Slack (step by step)
+            </summary>
+            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
+              <li>Click <strong>&quot;Connect Slack Workspace&quot;</strong> below</li>
+              <li>You&apos;ll be redirected to Slack&apos;s authorization page</li>
+              <li>Select the workspace you want to connect</li>
+              <li>Click <strong>&quot;Allow&quot;</strong> to grant MyTime access</li>
+              <li>You&apos;ll be redirected back here — your workspace will appear below</li>
+              <li>Map each workspace to a client using the dropdown</li>
+            </ol>
+          </details>
 
           <Button
             variant="outline"
@@ -825,14 +989,25 @@ export default function SettingsPage() {
             </p>
           )}
 
-          <div className="space-y-1">
-            <p className="text-[10px] text-muted-foreground">
-              Connect your Gmail accounts and map them to clients. Emails will be available in your unified inbox and kanban board.
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              Requires <code className="bg-muted px-1 rounded">GOOGLE_CLIENT_ID</code> and <code className="bg-muted px-1 rounded">GOOGLE_CLIENT_SECRET</code> env vars from Google Cloud Console.
-            </p>
-          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Connect your Gmail accounts and map them to clients. Emails will be available in your unified inbox and kanban board.
+          </p>
+
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
+              <ChevronDown className="h-3 w-3" />
+              How to connect Gmail (step by step)
+            </summary>
+            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
+              <li>Click <strong>&quot;Connect Gmail Account&quot;</strong> below</li>
+              <li>You&apos;ll be redirected to Google&apos;s sign-in page</li>
+              <li>Choose the Gmail account you want to connect</li>
+              <li>Review the permissions and click <strong>&quot;Allow&quot;</strong></li>
+              <li>You&apos;ll be redirected back here — your account will appear below</li>
+              <li>Map each account to a client using the dropdown</li>
+              <li>Emails from this account will now appear in the <strong>Email</strong> tab</li>
+            </ol>
+          </details>
 
           <Button
             variant="outline"
@@ -896,6 +1071,8 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }

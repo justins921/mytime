@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 import { fetchAndParseICS } from "@/lib/ics";
 
 export interface CalendarEvent {
@@ -14,6 +15,9 @@ export interface CalendarEvent {
 }
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const startDate = req.nextUrl.searchParams.get("startDate"); // YYYY-MM-DD
   const endDate = req.nextUrl.searchParams.get("endDate");     // YYYY-MM-DD
 
@@ -25,7 +29,7 @@ export async function GET(req: NextRequest) {
   const rangeEnd = new Date(endDate + "T23:59:59");
 
   const feeds = await prisma.calendarFeed.findMany({
-    where: { enabled: true },
+    where: { enabled: true, userId: user.id },
   });
 
   const allEvents: CalendarEvent[] = [];

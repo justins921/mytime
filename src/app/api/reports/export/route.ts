@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const startDate = req.nextUrl.searchParams.get("startDate");
   const endDate = req.nextUrl.searchParams.get("endDate");
 
@@ -11,6 +15,7 @@ export async function GET(req: NextRequest) {
 
   const entries = await prisma.timeEntry.findMany({
     where: {
+      userId: user.id,
       startAt: {
         gte: new Date(startDate),
         lte: new Date(endDate + "T23:59:59"),

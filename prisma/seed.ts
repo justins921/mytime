@@ -3,11 +3,22 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  // Upsert settings singleton
-  await prisma.settings.upsert({
-    where: { id: "singleton" },
+  // Create or find seed user
+  const seedUser = await prisma.user.upsert({
+    where: { email: "dev@example.com" },
     update: {},
-    create: { id: "singleton" },
+    create: {
+      id: "seed-user",
+      email: "dev@example.com",
+      name: "Dev User",
+    },
+  });
+
+  // Upsert settings for seed user
+  await prisma.settings.upsert({
+    where: { userId: seedUser.id },
+    update: {},
+    create: { userId: seedUser.id },
   });
 
   // Create clients
@@ -16,6 +27,7 @@ async function main() {
     update: {},
     create: {
       id: "client-natalie",
+      userId: seedUser.id,
       name: "Natalie",
       retainerMonthly: 2000,
       baselineRateHourly: 50,
@@ -34,6 +46,7 @@ async function main() {
     update: {},
     create: {
       id: "client-chandler",
+      userId: seedUser.id,
       name: "Chandler",
       retainerMonthly: 2000,
       baselineRateHourly: 50,
@@ -52,6 +65,7 @@ async function main() {
     update: {},
     create: {
       id: "client-payton",
+      userId: seedUser.id,
       name: "Payton",
       retainerMonthly: 2000,
       baselineRateHourly: 50,
@@ -66,7 +80,6 @@ async function main() {
   });
 
   // Create projects
-  // Natalie
   await prisma.project.upsert({
     where: { id: "proj-natalie-general" },
     update: {},
@@ -78,7 +91,6 @@ async function main() {
     },
   });
 
-  // Chandler
   await prisma.project.upsert({
     where: { id: "proj-chandler-uc30" },
     update: {},
@@ -113,7 +125,6 @@ async function main() {
     },
   });
 
-  // Payton
   await prisma.project.upsert({
     where: { id: "proj-payton-support" },
     update: {},
@@ -149,7 +160,7 @@ async function main() {
 
   // Update deep work split in settings
   await prisma.settings.update({
-    where: { id: "singleton" },
+    where: { userId: seedUser.id },
     data: {
       deepWorkSplitJson: JSON.stringify({
         splits: [

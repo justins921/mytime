@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 /**
  * GET /api/triage-dismissals — returns all dismissed task IDs and notes
  */
 export async function GET() {
-  const dismissals = await prisma.triageDismissal.findMany();
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
+  const dismissals = await prisma.triageDismissal.findMany({
+    where: { userId: user.id },
+  });
   return NextResponse.json(dismissals);
 }
 
@@ -14,6 +20,9 @@ export async function GET() {
  * Body: { clickupTaskId, action, notes? }
  */
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
   const { clickupTaskId, action, notes } = body as {
     clickupTaskId: string;
@@ -29,8 +38,8 @@ export async function POST(req: NextRequest) {
   }
 
   const dismissal = await prisma.triageDismissal.upsert({
-    where: { clickupTaskId },
-    create: { clickupTaskId, action, notes: notes || "" },
+    where: { userId_clickupTaskId: { userId: user.id, clickupTaskId } },
+    create: { userId: user.id, clickupTaskId, action, notes: notes || "" },
     update: { action, notes: notes ?? undefined },
   });
 
@@ -42,6 +51,9 @@ export async function POST(req: NextRequest) {
  * Body: { clickupTaskId, notes }
  */
 export async function PUT(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
   const { clickupTaskId, notes } = body as {
     clickupTaskId: string;
@@ -55,13 +67,13 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const existing = await prisma.triageDismissal.findUnique({
-    where: { clickupTaskId },
+  const existing = await prisma.triageDismissal.findFirst({
+    where: { userId: user.id, clickupTaskId },
   });
 
   if (existing) {
     const updated = await prisma.triageDismissal.update({
-      where: { clickupTaskId },
+      where: { id: existing.id },
       data: { notes },
     });
     return NextResponse.json(updated);
@@ -69,7 +81,7 @@ export async function PUT(req: NextRequest) {
 
   // Create a record just for notes (no dismissal action yet)
   const created = await prisma.triageDismissal.create({
-    data: { clickupTaskId, action: "noted", notes },
+    data: { userId: user.id, clickupTaskId, action: "noted", notes },
   });
   return NextResponse.json(created);
 }
@@ -79,6 +91,9 @@ export async function PUT(req: NextRequest) {
  * Body: { clickupTaskId }
  */
 export async function DELETE(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
   const { clickupTaskId } = body as { clickupTaskId: string };
 
@@ -90,7 +105,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   await prisma.triageDismissal.deleteMany({
-    where: { clickupTaskId },
+    where: { userId: user.id, clickupTaskId },
   });
 
   return NextResponse.json({ ok: true });

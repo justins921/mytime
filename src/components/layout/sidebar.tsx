@@ -18,6 +18,7 @@ import {
   StickyNote,
   BookOpen,
   LogOut,
+  HelpCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/notion", label: "Notion", icon: BookOpen },
   { href: "/triage", label: "Triage", icon: Inbox },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/support", label: "Support", icon: HelpCircle },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

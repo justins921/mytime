@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getValidToken, sendEmail } from "@/lib/gmail";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const { accountId, to, subject, body, threadId, inReplyTo, references } = await req.json();
 
   if (!accountId || !to || !body?.trim()) {
@@ -13,7 +17,7 @@ export async function POST(req: NextRequest) {
   }
 
   const account = await prisma.gmailAccount.findUnique({ where: { id: accountId } });
-  if (!account) {
+  if (!account || account.userId !== user.id) {
     return NextResponse.json({ error: "Account not found" }, { status: 404 });
   }
 

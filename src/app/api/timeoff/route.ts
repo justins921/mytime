@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const startDate = req.nextUrl.searchParams.get("startDate");
   const endDate = req.nextUrl.searchParams.get("endDate");
 
-  const where: { startDate?: { lte: string }; endDate?: { gte: string } } = {};
+  const where: { userId: string; startDate?: { lte: string }; endDate?: { gte: string } } = { userId: user.id };
 
   // Filter by date range overlap: time-off that overlaps with [startDate, endDate]
   if (endDate) where.startDate = { lte: endDate };
@@ -20,6 +24,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
   const { startDate, endDate, title, type, notes } = body;
 
@@ -29,6 +36,7 @@ export async function POST(req: NextRequest) {
 
   const timeOff = await prisma.timeOff.create({
     data: {
+      userId: user.id,
       startDate,
       endDate,
       title,
@@ -41,6 +49,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
   const { id, ...updates } = body;
 
@@ -49,7 +60,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const timeOff = await prisma.timeOff.update({
-    where: { id },
+    where: { id, userId: user.id },
     data: updates,
   });
 
@@ -57,6 +68,9 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
   const { id } = body;
 
@@ -64,6 +78,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
 
-  await prisma.timeOff.delete({ where: { id } });
+  await prisma.timeOff.delete({ where: { id, userId: user.id } });
   return NextResponse.json({ ok: true });
 }

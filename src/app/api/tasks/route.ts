@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   // Return just the set of imported ClickUp task IDs
   const clickupIds = req.nextUrl.searchParams.get("clickupIds");
   if (clickupIds === "true") {
     const tasks = await prisma.task.findMany({
-      where: { clickupTaskId: { not: null } },
+      where: { clickupTaskId: { not: null }, project: { client: { userId: user.id } } },
       select: { clickupTaskId: true },
     });
     return NextResponse.json(tasks.map((t) => t.clickupTaskId));
@@ -16,10 +20,12 @@ export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   const status = req.nextUrl.searchParams.get("status");
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = {
+    project: { client: { userId: user.id } },
+  };
   if (projectId) where.projectId = projectId;
   if (status) where.status = status;
-  if (clientId) where.project = { clientId };
+  if (clientId) where.project = { clientId, client: { userId: user.id } };
 
   const tasks = await prisma.task.findMany({
     where,
@@ -30,7 +36,17 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
+
+  // Verify the project belongs to the user through client
+  const project = await prisma.project.findFirst({
+    where: { id: body.projectId, client: { userId: user.id } },
+  });
+  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+
   const task = await prisma.task.create({
     data: {
       projectId: body.projectId,

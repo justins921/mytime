@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 const CLICKUP_API = "https://api.clickup.com/api/v2";
 
@@ -17,10 +18,10 @@ interface ClickUpTaskItem {
   tags?: { name: string }[];
 }
 
-async function getSettings() {
-  let settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
+async function getSettings(userId: string) {
+  let settings = await prisma.settings.findUnique({ where: { userId } });
   if (!settings) {
-    settings = await prisma.settings.create({ data: { id: "singleton" } });
+    settings = await prisma.settings.create({ data: { userId } });
   }
   return settings;
 }
@@ -42,7 +43,10 @@ async function clickupFetch(path: string, token: string) {
  * GET /api/clickup?action=tasks       — get tasks with user activity across all mapped workspaces
  */
 export async function GET(req: NextRequest) {
-  const settings = await getSettings();
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
+  const settings = await getSettings(user.id);
   const token = settings.clickupApiToken;
 
   if (!token) {
@@ -138,6 +142,9 @@ export async function GET(req: NextRequest) {
  * Body: { clickupTask, clientId, projectId }
  */
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
   const { clickupTask, clientId, projectId } = body as {
     clickupTask: ClickUpTaskItem;
@@ -175,8 +182,8 @@ export async function POST(req: NextRequest) {
   // Auto-dismiss the task from triage after adding to MyTime
   if (clickupTask.id) {
     await prisma.triageDismissal.upsert({
-      where: { clickupTaskId: clickupTask.id },
-      create: { clickupTaskId: clickupTask.id, action: "added" },
+      where: { userId_clickupTaskId: { userId: user.id, clickupTaskId: clickupTask.id } },
+      create: { userId: user.id, clickupTaskId: clickupTask.id, action: "added" },
       update: { action: "added" },
     });
   }

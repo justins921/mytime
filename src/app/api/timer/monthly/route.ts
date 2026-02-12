@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const month = req.nextUrl.searchParams.get("month"); // YYYY-MM
   if (!month) {
     return NextResponse.json({ error: "month parameter required (YYYY-MM)" }, { status: 400 });
@@ -17,6 +21,7 @@ export async function GET(req: NextRequest) {
 
   const entries = await prisma.timeEntry.findMany({
     where: {
+      userId: user.id,
       startAt: { gte: monthStart, lte: monthEnd },
       endAt: { not: null },
       durationMinutes: { not: null },

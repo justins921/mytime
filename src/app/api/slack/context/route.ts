@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { format } from "date-fns";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET() {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const now = new Date();
   const today = format(now, "yyyy-MM-dd");
   const currentTime = format(now, "HH:mm");
 
   // 1. Check for an active timer first
   const activeTimer = await prisma.timeEntry.findFirst({
-    where: { endAt: null },
+    where: { endAt: null, userId: user.id },
     include: { client: { select: { id: true, name: true, color: true } } },
   });
 
@@ -24,6 +28,7 @@ export async function GET() {
   // 2. Check current schedule block
   const currentBlock = await prisma.scheduleBlock.findFirst({
     where: {
+      userId: user.id,
       date: today,
       startTime: { lte: currentTime },
       endTime: { gt: currentTime },

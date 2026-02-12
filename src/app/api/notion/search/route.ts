@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const workspaceId = req.nextUrl.searchParams.get("workspaceId");
   const query = req.nextUrl.searchParams.get("query") || "";
   const startCursor = req.nextUrl.searchParams.get("cursor") || undefined;
@@ -13,7 +17,7 @@ export async function GET(req: NextRequest) {
   const workspace = await prisma.notionWorkspace.findUnique({
     where: { id: workspaceId },
   });
-  if (!workspace) {
+  if (!workspace || workspace.userId !== user.id) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
@@ -24,7 +28,7 @@ export async function GET(req: NextRequest) {
   if (query) body.query = query;
   if (startCursor) body.start_cursor = startCursor;
 
-  const res = await fetch("https://api.notion.com/v1/search", {
+  const notionRes = await fetch("https://api.notion.com/v1/search", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${workspace.accessToken}`,
@@ -34,12 +38,12 @@ export async function GET(req: NextRequest) {
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    return NextResponse.json({ error: `Notion API error: ${err}` }, { status: res.status });
+  if (!notionRes.ok) {
+    const err = await notionRes.text();
+    return NextResponse.json({ error: `Notion API error: ${err}` }, { status: notionRes.status });
   }
 
-  const data = await res.json();
+  const data = await notionRes.json();
 
   // Extract page info
   const pages = (data.results || []).map((page: Record<string, unknown>) => {

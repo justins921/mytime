@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET() {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const clients = await prisma.client.findMany({
-    where: { archived: false },
+    where: { archived: false, userId: user.id },
     include: { projects: { where: { archived: false } } },
     orderBy: { sortOrder: "asc" },
   });
@@ -11,9 +15,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
   const client = await prisma.client.create({
     data: {
+      userId: user.id,
       name: body.name,
       retainerMonthly: body.isPersonal ? 0 : (body.retainerMonthly ?? 2000),
       baselineRateHourly: body.isPersonal ? 0 : (body.baselineRateHourly ?? 50),

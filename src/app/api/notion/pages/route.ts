@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 // GET: retrieve a page's content blocks
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const pageId = req.nextUrl.searchParams.get("pageId");
   const workspaceId = req.nextUrl.searchParams.get("workspaceId");
 
@@ -13,7 +17,7 @@ export async function GET(req: NextRequest) {
   const workspace = await prisma.notionWorkspace.findUnique({
     where: { id: workspaceId },
   });
-  if (!workspace) {
+  if (!workspace || workspace.userId !== user.id) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 

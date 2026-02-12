@@ -15,8 +15,28 @@ model User {
   passwordHash  String?
   emailVerified DateTime?
   image         String?
+
+  // Stripe
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?
+  plan                 String    @default("free") // free | starter | pro | business
+  planExpiresAt        DateTime?
+
   accounts      Account[]
   sessions      Session[]
+  clients       Client[]
+  settings      Settings?
+  timeOff       TimeOff[]
+  calendarFeeds CalendarFeed[]
+  notes         Note[]
+  floatingTasks FloatingTask[]
+  scheduleBlocks ScheduleBlock[]
+  timeEntries   TimeEntry[]
+  slackWorkspaces  SlackWorkspace[]
+  gmailAccounts    GmailAccount[]
+  notionWorkspaces NotionWorkspace[]
+  triageDismissals TriageDismissal[]
+  supportTickets   SupportTicket[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -59,6 +79,7 @@ model VerificationToken {
 // ─── App models ──────────────────────────────────────────
 model Client {
   id                    String          @id @default(cuid())
+  userId                String
   name                  String
   retainerMonthly       Float           @default(2000)
   baselineRateHourly    Float           @default(50)
@@ -73,6 +94,7 @@ model Client {
   archived              Boolean         @default(false)
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   projects              Project[]
   scheduleBlocks        ScheduleBlock[]
   timeEntries           TimeEntry[]
@@ -80,6 +102,8 @@ model Client {
   gmailAccounts         GmailAccount[]
   floatingTasks         FloatingTask[]
   notes                 Note[]
+
+  @@index([userId])
 }
 
 model Project {
@@ -119,6 +143,7 @@ model Task {
 
 model ScheduleBlock {
   id          String      @id @default(cuid())
+  userId      String
   date        String      // YYYY-MM-DD
   startTime   String      // HH:mm
   endTime     String      // HH:mm
@@ -131,13 +156,17 @@ model ScheduleBlock {
   notes       String      @default("")
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   client      Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
   project     Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
   timeEntries TimeEntry[]
+
+  @@index([userId])
 }
 
 model TimeEntry {
   id              String         @id @default(cuid())
+  userId          String
   startAt         DateTime
   endAt           DateTime?
   durationMinutes Float?
@@ -148,36 +177,48 @@ model TimeEntry {
   notes           String         @default("")
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   task            Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
   scheduleBlock   ScheduleBlock? @relation(fields: [scheduleBlockId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }
 
 model TriageDismissal {
   id            String   @id @default(cuid())
-  clickupTaskId String   @unique
+  userId        String
+  clickupTaskId String
   action        String   // "dismissed" | "ignored" | "deleted"
   notes         String   @default("")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clickupTaskId])
 }
 
 model SlackWorkspace {
   id          String   @id @default(cuid())
-  teamId      String   @unique
+  userId      String
+  teamId      String
   teamName    String
   accessToken String
   scope       String   @default("")
   clientId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, teamId])
 }
 
 model GmailAccount {
   id           String      @id @default(cuid())
-  email        String      @unique
+  userId       String
+  email        String
   accessToken  String
   refreshToken String
   expiresAt    Int?        // Unix timestamp (seconds)
@@ -185,8 +226,11 @@ model GmailAccount {
   clientId     String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   client       Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
   emailCards   EmailCard[]
+
+  @@unique([userId, email])
 }
 
 model EmailCard {
@@ -208,6 +252,7 @@ model EmailCard {
 
 model TimeOff {
   id        String   @id @default(cuid())
+  userId    String
   startDate String   // YYYY-MM-DD
   endDate   String   // YYYY-MM-DD (inclusive)
   title     String
@@ -216,10 +261,14 @@ model TimeOff {
   notes     String   @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model FloatingTask {
   id              String    @id @default(cuid())
+  userId          String
   title           String
   estimateMinutes Int       @default(60)
   clientId        String?
@@ -232,12 +281,16 @@ model FloatingTask {
   notes           String    @default("")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   client          Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
   project         Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }
 
 model CalendarFeed {
   id            String    @id @default(cuid())
+  userId        String
   name          String    // "Work Calendar", "Personal", etc.
   url           String    // ICS/CalDAV feed URL
   color         String    @default("#8b5cf6")
@@ -246,10 +299,14 @@ model CalendarFeed {
   lastSyncError String    @default("")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Note {
   id        String   @id @default(cuid())
+  userId    String
   title     String   @default("Untitled")
   content   String   @default("") // rich text / markdown
   clientId  String?
@@ -257,19 +314,26 @@ model Note {
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }
 
 model NotionWorkspace {
   id            String              @id @default(cuid())
-  workspaceId   String              @unique // Notion workspace ID
+  userId        String
+  workspaceId   String
   workspaceName String
   accessToken   String
   botId         String              @default("")
   icon          String              @default("")
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   favoritePages NotionFavoritePage[]
+
+  @@unique([userId, workspaceId])
 }
 
 model NotionFavoritePage {
@@ -287,7 +351,8 @@ model NotionFavoritePage {
 }
 
 model Settings {
-  id                    String   @id @default("singleton")
+  id                    String   @id @default(cuid())
+  userId                String   @unique
   timezone              String   @default("America/Chicago")
   // Availability: JSON string of per-day config
   // Format: {"mon":{"start":"09:00","end":"15:30","enabled":true},...}
@@ -309,4 +374,20 @@ model Settings {
   clickupWorkspaceMapJson String  @default("{}")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Support ──────────────────────────────────────────
+model SupportTicket {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // "bug" | "feature" | "integration" | "feedback" | "support"
+  subject     String
+  message     String
+  status      String   @default("open") // open | in_progress | resolved | closed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

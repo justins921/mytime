@@ -8,8 +8,12 @@ import {
   getHeader,
   getBody,
 } from "@/lib/gmail";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const accountId = req.nextUrl.searchParams.get("accountId");
   const messageId = req.nextUrl.searchParams.get("messageId");
   const query = req.nextUrl.searchParams.get("q") || undefined;
@@ -22,7 +26,7 @@ export async function GET(req: NextRequest) {
   // Single message detail
   if (messageId) {
     const account = await prisma.gmailAccount.findUnique({ where: { id: accountId } });
-    if (!account) {
+    if (!account || account.userId !== user.id) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 });
     }
 
@@ -76,7 +80,7 @@ export async function GET(req: NextRequest) {
     await Promise.all(
       accountIds.map(async (acctId) => {
         const account = await prisma.gmailAccount.findUnique({ where: { id: acctId } });
-        if (!account) return;
+        if (!account || account.userId !== user.id) return;
 
         let token: string;
         try {

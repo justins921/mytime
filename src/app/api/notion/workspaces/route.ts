@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET() {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const workspaces = await prisma.notionWorkspace.findMany({
+    where: { userId: user.id },
     include: { favoritePages: { orderBy: { sortOrder: "asc" } } },
     orderBy: { createdAt: "asc" },
   });
@@ -14,6 +19,9 @@ export async function GET() {
 
 // POST: connect a workspace via internal integration token
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const { token, name } = await req.json();
   if (!token) {
     return NextResponse.json({ error: "token is required" }, { status: 400 });
@@ -43,12 +51,13 @@ export async function POST(req: NextRequest) {
   const workspaceId = `internal_${botId}`;
 
   const workspace = await prisma.notionWorkspace.upsert({
-    where: { workspaceId },
+    where: { userId_workspaceId: { userId: user.id, workspaceId } },
     create: {
       workspaceId,
       workspaceName: name || botName,
       accessToken: token,
       botId,
+      userId: user.id,
     },
     update: {
       workspaceName: name || botName,
@@ -65,7 +74,17 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const { id } = await req.json();
+
+  // Verify ownership
+  const existing = await prisma.notionWorkspace.findUnique({ where: { id } });
+  if (!existing || existing.userId !== user.id) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   await prisma.notionWorkspace.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

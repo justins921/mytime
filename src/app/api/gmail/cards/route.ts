@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 // GET: list all kanban cards, optionally filtered by accountId or status
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const accountId = req.nextUrl.searchParams.get("accountId");
   const status = req.nextUrl.searchParams.get("status");
   const clientId = req.nextUrl.searchParams.get("clientId");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {};
+  const where: any = { account: { userId: user.id } };
   if (accountId) where.accountId = accountId;
   if (status) where.status = status;
   if (clientId) {
-    where.account = { clientId };
+    where.account = { ...where.account, clientId };
   }
 
   const cards = await prisma.emailCard.findMany({
@@ -30,10 +34,19 @@ export async function GET(req: NextRequest) {
 
 // POST: create or update a kanban card for an email
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const { gmailMessageId, accountId, subject, fromAddress, snippet, receivedAt, status } = await req.json();
 
   if (!gmailMessageId || !accountId) {
     return NextResponse.json({ error: "gmailMessageId and accountId required" }, { status: 400 });
+  }
+
+  // Verify account belongs to user
+  const account = await prisma.gmailAccount.findUnique({ where: { id: accountId } });
+  if (!account || account.userId !== user.id) {
+    return NextResponse.json({ error: "Account not found" }, { status: 404 });
   }
 
   const card = await prisma.emailCard.upsert({
@@ -67,10 +80,19 @@ export async function POST(req: NextRequest) {
 
 // PATCH: update card status or sort order
 export async function PATCH(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const { id, status, sortOrder } = await req.json();
 
   if (!id) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
+
+  // Verify card's account belongs to user
+  const existing = await prisma.emailCard.findUnique({ where: { id }, include: { account: true } });
+  if (!existing || existing.account.userId !== user.id) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -93,7 +115,17 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE: remove a card from the kanban board
 export async function DELETE(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const { id } = await req.json();
+
+  // Verify card's account belongs to user
+  const existing = await prisma.emailCard.findUnique({ where: { id }, include: { account: true } });
+  if (!existing || existing.account.userId !== user.id) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   await prisma.emailCard.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

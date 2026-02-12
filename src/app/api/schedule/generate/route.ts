@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 import { generateSchedule, generateWarnings } from "@/lib/scheduler";
 import type { SchedulerInput, ClientConfig, FloatingTaskConfig, ExternalEvent } from "@/lib/scheduler/types";
 import { fetchAndParseICS } from "@/lib/ics";
 
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
   const { weekDates, keepLocked, keepManual, generateFromNow } = body as {
     weekDates: string[];
@@ -13,17 +17,19 @@ export async function POST(req: NextRequest) {
     generateFromNow?: boolean;
   };
 
-  // Load settings (auto-create if missing)
-  let settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
-  if (!settings) {
-    settings = await prisma.settings.create({ data: { id: "singleton" } });
-  }
+  // Load settings (auto-create if missing) — scoped to user
+  const settings = await prisma.settings.upsert({
+    where: { userId: user.id },
+    create: { userId: user.id },
+    update: {},
+  });
 
   // Load time-off entries that overlap with the requested dates
   const firstWeekDate = weekDates[0];
   const lastWeekDate = weekDates[weekDates.length - 1];
   const timeOffs = await prisma.timeOff.findMany({
     where: {
+      userId: user.id,
       startDate: { lte: lastWeekDate },
       endDate: { gte: firstWeekDate },
     },
@@ -43,9 +49,9 @@ export async function POST(req: NextRequest) {
   // Filter out time-off dates from schedule generation
   const availableWeekDates = weekDates.filter((d) => !timeOffDates.has(d));
 
-  // Load clients with projects
+  // Load clients with projects — scoped to user
   const clients = await prisma.client.findMany({
-    where: { archived: false },
+    where: { archived: false, userId: user.id },
     include: { projects: { where: { archived: false } } },
   });
 
@@ -56,9 +62,10 @@ export async function POST(req: NextRequest) {
   const nightWork = JSON.parse(settings.nightWorkJson);
   const deepWorkSplit = JSON.parse(settings.deepWorkSplitJson).splits || [];
 
-  // Get existing blocks for the week
+  // Get existing blocks for the week — scoped to user
   const existingBlocks = await prisma.scheduleBlock.findMany({
     where: {
+      userId: user.id,
       date: { in: weekDates },
     },
   });
@@ -106,6 +113,7 @@ export async function POST(req: NextRequest) {
 
   const monthEntries = await prisma.timeEntry.findMany({
     where: {
+      userId: user.id,
       startAt: { gte: monthStartDate, lte: monthEndDate },
       endAt: { not: null },
       durationMinutes: { not: null },
@@ -118,9 +126,9 @@ export async function POST(req: NextRequest) {
     monthlyHoursUsed[entry.clientId] = (monthlyHoursUsed[entry.clientId] || 0) + entry.durationMinutes / 60;
   }
 
-  // Load floating tasks (pending only)
+  // Load floating tasks (pending only) — scoped to user
   const floatingTaskRows = await prisma.floatingTask.findMany({
-    where: { status: "pending" },
+    where: { status: "pending", userId: user.id },
   });
   const floatingTaskConfigs: FloatingTaskConfig[] = floatingTaskRows.map((t) => ({
     id: t.id,
@@ -133,8 +141,8 @@ export async function POST(req: NextRequest) {
     mustSchedule: t.mustSchedule,
   }));
 
-  // Load external calendar events from ICS feeds
-  const calendarFeeds = await prisma.calendarFeed.findMany({ where: { enabled: true } });
+  // Load external calendar events from ICS feeds — scoped to user
+  const calendarFeeds = await prisma.calendarFeed.findMany({ where: { enabled: true, userId: user.id } });
   const externalEvents: ExternalEvent[] = [];
 
   const rangeStart = new Date(firstWeekDate + "T00:00:00");
@@ -241,6 +249,7 @@ export async function POST(req: NextRequest) {
       blocksToSave.map((b) =>
         prisma.scheduleBlock.create({
           data: {
+            userId: user.id,
             date: b.date,
             startTime: b.startTime,
             endTime: b.endTime,
@@ -268,9 +277,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Fetch all blocks for the week to return
+  // Fetch all blocks for the week to return — scoped to user
   const allBlocks = await prisma.scheduleBlock.findMany({
-    where: { date: { in: weekDates } },
+    where: { userId: user.id, date: { in: weekDates } },
     include: { client: true, project: true },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });

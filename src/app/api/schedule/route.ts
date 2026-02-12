@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const weekStart = req.nextUrl.searchParams.get("weekStart");
   const weekEnd = req.nextUrl.searchParams.get("weekEnd");
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { userId: user.id };
   if (weekStart && weekEnd) {
     where.date = { gte: weekStart, lte: weekEnd };
   }
@@ -19,6 +23,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
 
   // If body is an array, bulk create (from schedule generator)
@@ -27,6 +34,7 @@ export async function POST(req: NextRequest) {
       body.map((b: Record<string, unknown>) =>
         prisma.scheduleBlock.create({
           data: {
+            userId: user.id,
             date: b.date as string,
             startTime: b.startTime as string,
             endTime: b.endTime as string,
@@ -47,6 +55,7 @@ export async function POST(req: NextRequest) {
   // Single block create
   const block = await prisma.scheduleBlock.create({
     data: {
+      userId: user.id,
       date: body.date,
       startTime: body.startTime,
       endTime: body.endTime,

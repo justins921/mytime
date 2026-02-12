@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { exchangeOAuthCode, SLACK_USER_SCOPES } from "@/lib/slack";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
   const origin = req.nextUrl.origin;
@@ -47,9 +51,9 @@ export async function GET(req: NextRequest) {
   }
 
   await prisma.slackWorkspace.upsert({
-    where: { teamId },
+    where: { userId_teamId: { userId: user.id, teamId } },
     update: { teamName, accessToken, scope },
-    create: { teamId, teamName, accessToken, scope },
+    create: { teamId, teamName, accessToken, scope, userId: user.id },
   });
 
   return NextResponse.redirect(

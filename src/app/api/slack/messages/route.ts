@@ -7,8 +7,12 @@ import {
   resolveUserIds,
   userDisplayName,
 } from "@/lib/slack";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const workspaceId = req.nextUrl.searchParams.get("workspaceId");
   const channel = req.nextUrl.searchParams.get("channel");
 
@@ -22,7 +26,7 @@ export async function GET(req: NextRequest) {
   const workspace = await prisma.slackWorkspace.findUnique({
     where: { id: workspaceId },
   });
-  if (!workspace) {
+  if (!workspace || workspace.userId !== user.id) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
@@ -63,6 +67,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const { workspaceId, channel, text } = await req.json();
 
   if (!workspaceId || !channel || !text?.trim()) {
@@ -75,7 +82,7 @@ export async function POST(req: NextRequest) {
   const workspace = await prisma.slackWorkspace.findUnique({
     where: { id: workspaceId },
   });
-  if (!workspace) {
+  if (!workspace || workspace.userId !== user.id) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 

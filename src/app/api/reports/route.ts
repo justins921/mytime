@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const period = req.nextUrl.searchParams.get("period") || "weekly"; // daily|weekly|monthly
   const startDate = req.nextUrl.searchParams.get("startDate");
   const endDate = req.nextUrl.searchParams.get("endDate");
@@ -12,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   const entries = await prisma.timeEntry.findMany({
     where: {
+      userId: user.id,
       startAt: {
         gte: new Date(startDate),
         lte: new Date(endDate + "T23:59:59"),
@@ -48,7 +53,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Build warnings
-  const clients = await prisma.client.findMany({ where: { archived: false } });
+  const clients = await prisma.client.findMany({ where: { archived: false, userId: user.id } });
   const warnings: string[] = [];
 
   for (const client of clients) {

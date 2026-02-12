@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { exchangeGoogleCode, getUserEmail, GMAIL_SCOPES } from "@/lib/gmail";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
   const origin = req.nextUrl.origin;
@@ -55,9 +59,9 @@ export async function GET(req: NextRequest) {
   }
 
   await prisma.gmailAccount.upsert({
-    where: { email },
+    where: { userId_email: { userId: user.id, email } },
     update: { accessToken, refreshToken, expiresAt, scope },
-    create: { email, accessToken, refreshToken, expiresAt, scope },
+    create: { email, accessToken, refreshToken, expiresAt, scope, userId: user.id },
   });
 
   return NextResponse.redirect(

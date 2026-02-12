@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const active = req.nextUrl.searchParams.get("active");
 
   if (active === "true") {
     // Get the currently running timer (no endAt)
     const entry = await prisma.timeEntry.findFirst({
-      where: { endAt: null },
+      where: { endAt: null, userId: user.id },
       include: { client: true, project: true, task: true, scheduleBlock: true },
       orderBy: { startAt: "desc" },
     });
@@ -18,7 +22,7 @@ export async function GET(req: NextRequest) {
   const startDate = req.nextUrl.searchParams.get("startDate");
   const endDate = req.nextUrl.searchParams.get("endDate");
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { userId: user.id };
   if (clientId) where.clientId = clientId;
   if (startDate && endDate) {
     where.startAt = {
@@ -36,6 +40,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const body = await req.json();
 
   // Manual entry: explicit startAt + endAt
@@ -45,6 +52,7 @@ export async function POST(req: NextRequest) {
     const duration = (end.getTime() - start.getTime()) / 60000;
     const entry = await prisma.timeEntry.create({
       data: {
+        userId: user.id,
         startAt: start,
         endAt: end,
         durationMinutes: Math.round(duration * 10) / 10,
@@ -61,7 +69,7 @@ export async function POST(req: NextRequest) {
 
   // Check for existing active timer
   const active = await prisma.timeEntry.findFirst({
-    where: { endAt: null },
+    where: { endAt: null, userId: user.id },
   });
 
   if (active) {
@@ -77,6 +85,7 @@ export async function POST(req: NextRequest) {
   // Start new timer
   const entry = await prisma.timeEntry.create({
     data: {
+      userId: user.id,
       startAt: new Date(),
       clientId: body.clientId,
       projectId: body.projectId || null,

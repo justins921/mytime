@@ -6,8 +6,9 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isPublicPage = pathname === "/" || pathname === "/login" || pathname === "/signup";
   const isAuthApi = pathname.startsWith("/api/auth");
+  const isStripeWebhook = pathname === "/api/stripe/webhook";
 
-  if (isAuthApi) {
+  if (isAuthApi || isStripeWebhook) {
     return NextResponse.next();
   }
 

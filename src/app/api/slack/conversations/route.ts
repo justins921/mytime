@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { listConversations, getUsersList, resolveUserIds } from "@/lib/slack";
+import { getAuthUser } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const { user, res } = await getAuthUser();
+  if (!user) return res;
+
   const workspaceId = req.nextUrl.searchParams.get("workspaceId");
   if (!workspaceId) {
     return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
@@ -30,7 +34,7 @@ export async function GET(req: NextRequest) {
       const workspace = await prisma.slackWorkspace.findUnique({
         where: { id: wsId },
       });
-      if (!workspace) return;
+      if (!workspace || workspace.userId !== user.id) return;
 
       const [convResult, usersResult] = await Promise.all([
         listConversations(workspace.accessToken),
