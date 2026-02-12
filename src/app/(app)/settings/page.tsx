@@ -80,6 +80,8 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [plan, setPlan] = useState("free");
   const [role, setRole] = useState("user");
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
   const [billingLoading, setBillingLoading] = useState(false);
 
   const canUseIntegrations = plan === "pro" || plan === "business";
@@ -131,6 +133,8 @@ export default function SettingsPage() {
       .then((data) => {
         if (data.plan) setPlan(data.plan);
         if (data.role) setRole(data.role);
+        if (data.email) setUserEmail(data.email);
+        if (data.name) setUserName(data.name);
       })
       .catch(() => {});
     // Handle OAuth redirect params
@@ -192,6 +196,25 @@ export default function SettingsPage() {
           {saving ? "Saving..." : saved ? "Saved!" : "Save Settings"}
         </Button>
       </div>
+
+      {/* Account */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Account</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">Signed in as</span>
+            <span className="text-sm font-medium">{userEmail}</span>
+          </div>
+          {userName && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">Name</span>
+              <span className="text-sm font-medium">{userName}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Plan & Billing */}
       <Card>

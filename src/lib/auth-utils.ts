@@ -38,8 +38,8 @@ export function hasPlan(userPlan: string, requiredPlan: string): boolean {
 
 /** Plan feature limits */
 export const PLAN_LIMITS = {
-  free: { clients: 2, integrations: false, reports: false, export: false, notes: false },
-  starter: { clients: 2, integrations: false, reports: false, export: false, notes: false },
+  free: { clients: 2, integrations: false, reports: false, export: false, notes: true },
+  starter: { clients: 2, integrations: false, reports: false, export: false, notes: true },
   pro: { clients: Infinity, integrations: true, reports: true, export: true, notes: true },
   business: { clients: Infinity, integrations: true, reports: true, export: true, notes: true },
 } as const;

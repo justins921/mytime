@@ -16,6 +16,9 @@ export async function POST(req: Request) {
     }
 
     const priceId = billing === "annual" ? prices.annual : prices.monthly;
+    if (!priceId) {
+      return NextResponse.json({ error: "Price not configured" }, { status: 400 });
+    }
 
     // Get or create Stripe customer
     let customerId = user.stripeCustomerId;
@@ -32,12 +35,15 @@ export async function POST(req: Request) {
       });
     }
 
+    // Use request origin so redirects work in both local dev and production
+    const origin = req.headers.get("origin") || process.env.NEXTAUTH_URL || "http://localhost:3000";
+
     const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.NEXTAUTH_URL}/settings?payment=success`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/settings?payment=cancelled`,
+      success_url: `${origin}/settings?payment=success`,
+      cancel_url: `${origin}/settings?payment=cancelled`,
       subscription_data: {
         trial_period_days: 14,
         metadata: { userId: user.id },

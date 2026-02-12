@@ -8,6 +8,8 @@ export async function GET() {
   return NextResponse.json({
     plan: user.plan,
     role: user.role,
+    email: user.email,
+    name: user.name,
     planExpiresAt: user.planExpiresAt,
     stripeCustomerId: !!user.stripeCustomerId,
     stripeSubscriptionId: !!user.stripeSubscriptionId,

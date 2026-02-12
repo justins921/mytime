@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth-utils";
 import { getStripe } from "@/lib/stripe";
 
-export async function POST() {
+export async function POST(req: Request) {
   const { user, res } = await getAuthUser();
   if (!user) return res;
 
@@ -11,9 +11,11 @@ export async function POST() {
   }
 
   try {
+    const origin = req.headers.get("origin") || process.env.NEXTAUTH_URL || "http://localhost:3000";
+
     const session = await getStripe().billingPortal.sessions.create({
       customer: user.stripeCustomerId,
-      return_url: `${process.env.NEXTAUTH_URL}/settings`,
+      return_url: `${origin}/settings`,
     });
 
     return NextResponse.json({ url: session.url });
