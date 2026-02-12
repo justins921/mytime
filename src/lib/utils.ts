@@ -35,13 +35,14 @@ export function formatDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Returns Mon–Sun (7 days) for the week containing refDate */
 export function getWeekDates(refDate: Date): Date[] {
   const d = new Date(refDate);
   const day = d.getDay();
   const monday = new Date(d);
   monday.setDate(d.getDate() - ((day + 6) % 7));
   const dates: Date[] = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 7; i++) {
     const date = new Date(monday);
     date.setDate(monday.getDate() + i);
     dates.push(date);

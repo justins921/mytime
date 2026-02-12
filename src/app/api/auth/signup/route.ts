@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { ADMIN_EMAIL } from "@/lib/auth-utils";
 
 export async function POST(req: Request) {
   try {
@@ -29,10 +30,12 @@ export async function POST(req: Request) {
     // If account exists but has no password (pre-auth migration), let them set one
     if (existing && !existing.passwordHash) {
       const passwordHash = await bcrypt.hash(password, 12);
+      const role = normalizedEmail === ADMIN_EMAIL.toLowerCase() ? "admin" : existing.role;
       await prisma.user.update({
         where: { id: existing.id },
         data: {
           passwordHash,
+          role,
           name: existing.name || name?.trim() || null,
         },
       });
@@ -51,11 +54,15 @@ export async function POST(req: Request) {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
+    // Auto-promote admin email
+    const role = normalizedEmail === ADMIN_EMAIL.toLowerCase() ? "admin" : "user";
+
     const user = await prisma.user.create({
       data: {
         name: name?.trim() || null,
         email: normalizedEmail,
         passwordHash,
+        role,
       },
     });
 

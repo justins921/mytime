@@ -40,6 +40,8 @@ const DAY_LABELS: Record<string, string> = {
   wed: "Wednesday",
   thu: "Thursday",
   fri: "Friday",
+  sat: "Saturday",
+  sun: "Sunday",
 };
 
 export default function SettingsPage() {
@@ -77,9 +79,11 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [plan, setPlan] = useState("free");
+  const [role, setRole] = useState("user");
   const [billingLoading, setBillingLoading] = useState(false);
 
   const canUseIntegrations = plan === "pro" || plan === "business";
+  const isAdmin = role === "admin";
 
   useEffect(() => {
     fetch("/api/settings")
@@ -124,7 +128,10 @@ export default function SettingsPage() {
       .catch(() => {});
     fetch("/api/stripe/plan")
       .then((r) => r.json())
-      .then((data) => { if (data.plan) setPlan(data.plan); })
+      .then((data) => {
+        if (data.plan) setPlan(data.plan);
+        if (data.role) setRole(data.role);
+      })
       .catch(() => {});
     // Handle OAuth redirect params
     const params = new URLSearchParams(window.location.search);
@@ -282,15 +289,17 @@ export default function SettingsPage() {
                 onChange={(e) => setSupportSweepMinutes(parseInt(e.target.value) || 30)}
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">UC30 Weekly Hours Allocation</Label>
-              <Input
-                type="number"
-                step="0.5"
-                value={uc30WeeklyHours}
-                onChange={(e) => setUc30WeeklyHours(parseFloat(e.target.value) || 0)}
-              />
-            </div>
+            {isAdmin && (
+              <div className="space-y-1">
+                <Label className="text-xs">UC30 Weekly Hours Allocation</Label>
+                <Input
+                  type="number"
+                  step="0.5"
+                  value={uc30WeeklyHours}
+                  onChange={(e) => setUc30WeeklyHours(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            )}
             <div className="flex items-center gap-2 pt-5">
               <Switch checked={generateFromNow} onCheckedChange={setGenerateFromNow} />
               <Label className="text-xs">Default: Generate from now</Label>

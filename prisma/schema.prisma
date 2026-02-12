@@ -359,13 +359,13 @@ model Settings {
   timezone              String   @default("America/Chicago")
   // Availability: JSON string of per-day config
   // Format: {"mon":{"start":"09:00","end":"15:30","enabled":true},...}
-  availabilityJson      String   @default("{\"mon\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"tue\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"wed\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"thu\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"fri\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true}}")
+  availabilityJson      String   @default("{\"mon\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"tue\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"wed\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"thu\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"fri\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":true},\"sat\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":false},\"sun\":{\"start\":\"09:00\",\"end\":\"15:30\",\"enabled\":false}}")
   // Fixed breaks JSON: [{"start":"10:15","end":"10:45","title":"Pickup","locked":true}]
   fixedBreaksJson       String   @default("[{\"start\":\"10:15\",\"end\":\"10:45\",\"title\":\"School Pickup\",\"locked\":true}]")
   // Lunch reserve JSON: {"start":"12:45","end":"13:15","title":"Lunch"}
   lunchReserveJson      String   @default("{\"start\":\"12:45\",\"end\":\"13:15\",\"title\":\"Lunch\"}")
   // Night work per day: {"mon":{"enabled":false,"start":"20:00","end":"22:00"},...}
-  nightWorkJson         String   @default("{\"mon\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"tue\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"wed\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"thu\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"fri\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"}}")
+  nightWorkJson         String   @default("{\"mon\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"tue\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"wed\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"thu\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"fri\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"sat\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"},\"sun\":{\"enabled\":false,\"start\":\"20:00\",\"end\":\"22:00\"}}")
   // Deep work split JSON: {"splits":[{"clientId":"...","weight":70},{"clientId":"...","weight":30}]}
   deepWorkSplitJson     String   @default("{\"splits\":[]}")
   supportSweepMinutes   Int      @default(30)

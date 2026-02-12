@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   Calendar,
@@ -20,44 +20,63 @@ import {
   LogOut,
   HelpCircle,
   ShieldAlert,
+  Lock,
+  type LucideIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 
-const navItems = [
-  { href: "/schedule", label: "Schedule", icon: Calendar },
-  { href: "/clients", label: "Clients", icon: Users },
-  { href: "/tasks", label: "Tasks", icon: CheckSquare },
-  { href: "/timer", label: "Timer", icon: Timer },
-  { href: "/notes", label: "Notes", icon: StickyNote },
-  { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/email", label: "Email", icon: Mail },
-  { href: "/notion", label: "Notion", icon: BookOpen },
-  { href: "/triage", label: "Triage", icon: Inbox },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/support", label: "Support", icon: HelpCircle },
-  { href: "/settings", label: "Settings", icon: Settings },
+// requiredPlan: "free" = everyone, "pro" = pro+, "business" = business only
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  requiredPlan: "free" | "pro" | "business";
+};
+
+const navItems: NavItem[] = [
+  { href: "/schedule", label: "Schedule", icon: Calendar, requiredPlan: "free" },
+  { href: "/clients", label: "Clients", icon: Users, requiredPlan: "free" },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare, requiredPlan: "free" },
+  { href: "/timer", label: "Timer", icon: Timer, requiredPlan: "free" },
+  { href: "/notes", label: "Notes", icon: StickyNote, requiredPlan: "pro" },
+  { href: "/messages", label: "Messages", icon: MessageSquare, requiredPlan: "pro" },
+  { href: "/email", label: "Email", icon: Mail, requiredPlan: "pro" },
+  { href: "/notion", label: "Notion", icon: BookOpen, requiredPlan: "pro" },
+  { href: "/triage", label: "Triage", icon: Inbox, requiredPlan: "pro" },
+  { href: "/reports", label: "Reports", icon: BarChart3, requiredPlan: "pro" },
+  { href: "/support", label: "Support", icon: HelpCircle, requiredPlan: "free" },
+  { href: "/settings", label: "Settings", icon: Settings, requiredPlan: "free" },
 ];
+
+const PLAN_LEVEL: Record<string, number> = { free: 0, starter: 1, pro: 2, business: 3 };
+
+function hasAccess(userPlan: string, requiredPlan: string): boolean {
+  return (PLAN_LEVEL[userPlan] ?? 0) >= (PLAN_LEVEL[requiredPlan] ?? 0);
+}
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [plan, setPlan] = useState("free");
+  const [showUpgrade, setShowUpgrade] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user has admin/manager role to show admin link
     fetch("/api/stripe/plan")
       .then((r) => r.json())
       .then((data) => {
         if (data.role === "admin" || data.role === "manager") {
           setIsAdmin(true);
         }
+        if (data.plan) setPlan(data.plan);
       })
       .catch(() => {});
   }, []);
 
-  const allItems = isAdmin
-    ? [...navItems, { href: "/admin", label: "Admin", icon: ShieldAlert }]
+  const allItems: NavItem[] = isAdmin
+    ? [...navItems, { href: "/admin", label: "Admin", icon: ShieldAlert, requiredPlan: "free" as const }]
     : navItems;
 
   return (
@@ -78,6 +97,40 @@ export function Sidebar() {
         />
       )}
 
+      {/* Upgrade modal */}
+      {showUpgrade && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setShowUpgrade(null)}>
+          <div className="bg-background rounded-lg border shadow-lg p-6 max-w-sm mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-muted-foreground" />
+              <h3 className="font-semibold">Upgrade Required</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              <strong>{showUpgrade}</strong> requires a Pro plan or higher.
+              Upgrade to unlock all features including integrations, reports, notes, and more.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowUpgrade(null);
+                  setOpen(false);
+                  router.push("/settings");
+                }}
+                className="flex-1 bg-primary text-primary-foreground font-medium px-4 py-2 rounded-md text-sm hover:bg-primary/90 transition-colors"
+              >
+                View Plans
+              </button>
+              <button
+                onClick={() => setShowUpgrade(null)}
+                className="px-4 py-2 rounded-md text-sm border hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside
         className={cn(
@@ -93,6 +146,22 @@ export function Sidebar() {
           {allItems.map((item) => {
             const Icon = item.icon;
             const active = pathname.startsWith(item.href);
+            const locked = !hasAccess(plan, item.requiredPlan);
+
+            if (locked) {
+              return (
+                <button
+                  key={item.href}
+                  onClick={() => setShowUpgrade(item.label)}
+                  className="flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full text-left text-muted-foreground/50 hover:bg-accent/50 transition-colors"
+                >
+                  <Icon className="h-4 w-4 opacity-40" />
+                  <span className="flex-1 opacity-50">{item.label}</span>
+                  <Lock className="h-3 w-3 opacity-40" />
+                </button>
+              );
+            }
+
             return (
               <Link
                 key={item.href}

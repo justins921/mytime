@@ -51,8 +51,8 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
   const deepWorkClients = workClients.filter((c) => c.style !== "Support");
 
   // Compute deep work total hours available per week
-  // We'll compute per-day then allocate
-  const dayKeys = ["mon", "tue", "wed", "thu", "fri"];
+  // We'll compute per-day then allocate (dynamically from availability, supports weekends)
+  const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
   // Calculate effective weekly target capped by remaining monthly capacity (work clients only)
   const effectiveWeeklyTarget: Record<string, number> = {};

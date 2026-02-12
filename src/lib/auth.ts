@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { ADMIN_EMAIL } from "@/lib/auth-utils";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -26,6 +27,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
+
+        // Auto-promote admin email on login if not already admin
+        if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && user.role !== "admin") {
+          await prisma.user.update({ where: { id: user.id }, data: { role: "admin" } });
+        }
 
         return { id: user.id, email: user.email, name: user.name };
       },

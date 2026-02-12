@@ -91,8 +91,8 @@ interface ScheduleBlock {
   project?: { name: string } | null;
 }
 
-const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-const DAY_NAMES_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAY_NAMES_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function SchedulePage() {
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([]);
@@ -124,7 +124,7 @@ export default function SchedulePage() {
     new Date(Date.now() + weekOffset * 7 * 24 * 60 * 60 * 1000)
   );
   const weekStart = formatDate(weekDates[0]);
-  const weekEnd = formatDate(weekDates[4]);
+  const weekEnd = formatDate(weekDates[6]);
 
   const currentMonth = weekStart.slice(0, 7); // YYYY-MM
 
@@ -735,9 +735,23 @@ export default function SchedulePage() {
       {/* Schedule grid */}
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading schedule...</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          {weekDates.map((date, i) => {
+      ) : (() => {
+        const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+        // Show weekdays always, weekends only if enabled in availability or have blocks
+        const visibleDays = weekDates.filter((date, i) => {
+          if (i < 5) return true; // Mon-Fri always shown
+          const dk = dayKeys[i];
+          const avail = availabilityWindows[dk];
+          const dateStr = formatDate(date);
+          const hasBlocks = blocks.some((b) => b.date === dateStr);
+          return avail?.enabled || hasBlocks;
+        });
+        const colCount = Math.min(visibleDays.length, 7);
+        const gridClass = `grid grid-cols-1 md:grid-cols-${colCount} gap-3`;
+        return (
+        <div className={gridClass} style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
+          {visibleDays.map((date) => {
+            const i = weekDates.indexOf(date);
             const dateStr = formatDate(date);
             const dayBlocks = blocksByDate(dateStr);
             const isToday = dateStr === today;
@@ -919,7 +933,8 @@ export default function SchedulePage() {
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       {/* Legend */}
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
