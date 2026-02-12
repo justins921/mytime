@@ -9,6 +9,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -142,18 +143,29 @@ async function main() {
     console.log(`  ✓ SupportTicket table created`);
   }
 
-  // Set justin.sobojinski@gmail.com as admin
+  // Set justin.sobojinski@gmail.com as admin with password
   const ADMIN_EMAIL = "justin.sobojinski@gmail.com";
   await prisma.$executeRawUnsafe(
     `UPDATE "User" SET "role" = 'admin' WHERE "email" = $1 AND "role" != 'admin'`,
     ADMIN_EMAIL
   );
-  const adminCheck = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-    `SELECT id FROM "User" WHERE email = $1`,
+
+  // Set password if the admin account exists but has no password
+  const adminCheck = await prisma.$queryRawUnsafe<Array<{ id: string; passwordHash: string | null }>>(
+    `SELECT id, "passwordHash" FROM "User" WHERE email = $1`,
     ADMIN_EMAIL
   );
   if (adminCheck.length > 0) {
     console.log(`  ✓ Set ${ADMIN_EMAIL} as admin`);
+    if (!adminCheck[0].passwordHash) {
+      const hash = await bcrypt.hash("$Obojinski591321", 12);
+      await prisma.$executeRawUnsafe(
+        `UPDATE "User" SET "passwordHash" = $1 WHERE "email" = $2`,
+        hash,
+        ADMIN_EMAIL
+      );
+      console.log(`  ✓ Set password for ${ADMIN_EMAIL}`);
+    }
   }
 
   console.log("\nMigration complete!");

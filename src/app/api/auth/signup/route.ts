@@ -26,6 +26,22 @@ export async function POST(req: Request) {
       where: { email: normalizedEmail },
     });
 
+    // If account exists but has no password (pre-auth migration), let them set one
+    if (existing && !existing.passwordHash) {
+      const passwordHash = await bcrypt.hash(password, 12);
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          passwordHash,
+          name: existing.name || name?.trim() || null,
+        },
+      });
+      return NextResponse.json(
+        { id: existing.id, email: existing.email, name: existing.name || name },
+        { status: 200 }
+      );
+    }
+
     if (existing) {
       return NextResponse.json(
         { error: "An account with this email already exists" },
