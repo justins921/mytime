@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -144,6 +144,15 @@ model TimeEntry {
   project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   task            Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
   scheduleBlock   ScheduleBlock? @relation(fields: [scheduleBlockId], references: [id], onDelete: SetNull)
+}
+
+model TriageDismissal {
+  id            String   @id @default(cuid())
+  clickupTaskId String   @unique
+  action        String   // "dismissed" | "ignored" | "deleted"
+  notes         String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Settings {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,18 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Inbox, RefreshCw, Plus, ExternalLink, AlertTriangle, Calendar } from "lucide-react";
+import {
+  Inbox,
+  RefreshCw,
+  Plus,
+  ExternalLink,
+  AlertTriangle,
+  Calendar,
+  X,
+  EyeOff,
+  Trash2,
+  Clock,
+} from "lucide-react";
 
 interface ClickUpTask {
   id: string;
@@ -53,6 +64,27 @@ interface WorkspaceMap {
   [teamId: string]: string; // teamId -> clientId
 }
 
+interface TriageDismissal {
+  id: string;
+  clickupTaskId: string;
+  action: string;
+  notes: string;
+}
+
+const AUTO_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
+
+function isWithinWorkHours(): boolean {
+  // Check if current time is 9:00 AM – 3:30 PM Central (America/Chicago)
+  const nowCentral = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Chicago" })
+  );
+  const hours = nowCentral.getHours();
+  const minutes = nowCentral.getMinutes();
+  const timeInMinutes = hours * 60 + minutes;
+  // 9:00 AM = 540 min, 3:30 PM = 930 min
+  return timeInMinutes >= 540 && timeInMinutes < 930;
+}
+
 export default function TriagePage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [tasksByTeam, setTasksByTeam] = useState<Record<string, ClickUpTask[]>>({});
@@ -62,6 +94,9 @@ export default function TriagePage() {
   const [error, setError] = useState("");
   const [noToken, setNoToken] = useState(false);
 
+  // Dismissals
+  const [dismissals, setDismissals] = useState<Record<string, TriageDismissal>>({});
+
   // Add-to-tasks dialog
   const [addingTask, setAddingTask] = useState<ClickUpTask | null>(null);
   const [addClientId, setAddClientId] = useState("");
@@ -69,9 +104,23 @@ export default function TriagePage() {
   const [addingInProgress, setAddingInProgress] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
+  // Task detail dialog
+  const [detailTask, setDetailTask] = useState<{
+    task: ClickUpTask;
+    teamId: string;
+    teamName: string;
+  } | null>(null);
+  const [detailNotes, setDetailNotes] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+
   // Filters
   const [filterTeam, setFilterTeam] = useState("all");
   const [filterDue, setFilterDue] = useState("all");
+
+  // Auto-refresh
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [nextRefresh, setNextRefresh] = useState<Date | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadClients = useCallback(async () => {
     const data = await fetch("/api/clients").then((r) => r.json());
@@ -89,6 +138,19 @@ export default function TriagePage() {
     setWorkspaceMap(map);
   }, []);
 
+  const loadDismissals = useCallback(async () => {
+    try {
+      const data = await fetch("/api/triage-dismissals").then((r) => r.json());
+      const map: Record<string, TriageDismissal> = {};
+      for (const d of data) {
+        map[d.clickupTaskId] = d;
+      }
+      setDismissals(map);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -103,6 +165,7 @@ export default function TriagePage() {
       } else {
         setTeams(data.teams || []);
         setTasksByTeam(data.tasksByTeam || {});
+        setLastRefresh(new Date());
       }
     } catch {
       setError("Failed to connect to ClickUp");
@@ -110,10 +173,12 @@ export default function TriagePage() {
     setLoading(false);
   }, []);
 
+  // Initial load
   useEffect(() => {
     loadClients();
     loadSettings();
-  }, [loadClients, loadSettings]);
+    loadDismissals();
+  }, [loadClients, loadSettings, loadDismissals]);
 
   useEffect(() => {
     if (!noToken) {
@@ -121,9 +186,50 @@ export default function TriagePage() {
     }
   }, [noToken, fetchTasks]);
 
+  // Auto-refresh: every 30 min during 9 AM – 3:30 PM Central
+  useEffect(() => {
+    function scheduleCheck() {
+      if (isWithinWorkHours()) {
+        fetchTasks();
+        loadDismissals();
+        setNextRefresh(new Date(Date.now() + AUTO_REFRESH_MS));
+      } else {
+        setNextRefresh(null);
+      }
+    }
+
+    intervalRef.current = setInterval(scheduleCheck, AUTO_REFRESH_MS);
+    // Set initial next-refresh indicator
+    if (isWithinWorkHours()) {
+      setNextRefresh(new Date(Date.now() + AUTO_REFRESH_MS));
+    }
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchTasks, loadDismissals]);
+
+  function handleManualRefresh() {
+    fetchTasks();
+    loadDismissals();
+    if (isWithinWorkHours()) {
+      // Reset auto-refresh timer on manual refresh
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      setNextRefresh(new Date(Date.now() + AUTO_REFRESH_MS));
+      intervalRef.current = setInterval(() => {
+        if (isWithinWorkHours()) {
+          fetchTasks();
+          loadDismissals();
+          setNextRefresh(new Date(Date.now() + AUTO_REFRESH_MS));
+        } else {
+          setNextRefresh(null);
+        }
+      }, AUTO_REFRESH_MS);
+    }
+  }
+
   function openAddDialog(task: ClickUpTask, teamId: string) {
     setAddingTask(task);
-    // Pre-select client from workspace map
     const mappedClientId = workspaceMap[teamId] || "";
     setAddClientId(mappedClientId);
     setAddProjectId("");
@@ -152,6 +258,43 @@ export default function TriagePage() {
     setAddingInProgress(false);
   }
 
+  // Dismiss/ignore/delete a task from triage
+  async function handleDismiss(clickupTaskId: string, action: string) {
+    try {
+      await fetch("/api/triage-dismissals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clickupTaskId, action }),
+      });
+      setDismissals((prev) => ({
+        ...prev,
+        [clickupTaskId]: { id: "", clickupTaskId, action, notes: prev[clickupTaskId]?.notes || "" },
+      }));
+      setDetailTask(null);
+    } catch {
+      // ignore
+    }
+  }
+
+  // Save notes for a task
+  async function handleSaveNotes(clickupTaskId: string, notes: string) {
+    setSavingNotes(true);
+    try {
+      await fetch("/api/triage-dismissals", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clickupTaskId, notes }),
+      });
+      setDismissals((prev) => ({
+        ...prev,
+        [clickupTaskId]: { ...(prev[clickupTaskId] || { id: "", clickupTaskId, action: "noted" }), notes },
+      }));
+    } catch {
+      // ignore
+    }
+    setSavingNotes(false);
+  }
+
   const selectedClient = clients.find((c) => c.id === addClientId);
   const clientProjects = selectedClient?.projects || [];
 
@@ -167,6 +310,10 @@ export default function TriagePage() {
     if (filterTeam !== "all" && filterTeam !== team.id) continue;
     const tasks = tasksByTeam[team.id] || [];
     for (const task of tasks) {
+      // Skip dismissed/ignored/deleted tasks
+      const d = dismissals[task.id];
+      if (d && d.action !== "noted") continue;
+
       if (filterDue !== "all") {
         if (!task.due_date) continue;
         const due = new Date(parseInt(task.due_date));
@@ -184,6 +331,11 @@ export default function TriagePage() {
     if (aDue !== bDue) return aDue - bDue;
     return parseInt(b.task.date_updated) - parseInt(a.task.date_updated);
   });
+
+  // Count dismissed
+  const dismissedCount = Object.values(dismissals).filter(
+    (d) => d.action !== "noted"
+  ).length;
 
   function priorityBadge(priority: ClickUpTask["priority"]) {
     if (!priority) return null;
@@ -252,6 +404,25 @@ export default function TriagePage() {
     return `${diffDays}d ago`;
   }
 
+  function formatDate(timestamp: string) {
+    return new Date(parseInt(timestamp)).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  function formatRefreshTime(date: Date | null) {
+    if (!date) return null;
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "America/Chicago",
+    });
+  }
+
   if (noToken) {
     return (
       <div className="space-y-4">
@@ -287,6 +458,11 @@ export default function TriagePage() {
           <Badge variant="secondary" className="ml-2">
             {allFilteredTasks.length} tasks
           </Badge>
+          {dismissedCount > 0 && (
+            <span className="text-xs text-muted-foreground">
+              ({dismissedCount} hidden)
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Select value={filterDue} onValueChange={setFilterDue}>
@@ -313,11 +489,22 @@ export default function TriagePage() {
               </SelectContent>
             </Select>
           )}
-          <Button variant="outline" onClick={fetchTasks} disabled={loading}>
+          <Button variant="outline" onClick={handleManualRefresh} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
+      </div>
+
+      {/* Auto-refresh status */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Clock className="h-3 w-3" />
+        {lastRefresh && <span>Last refreshed {formatRefreshTime(lastRefresh)}</span>}
+        {nextRefresh ? (
+          <span>&middot; Next auto-refresh ~{formatRefreshTime(nextRefresh)}</span>
+        ) : (
+          <span>&middot; Auto-refresh active 9 AM – 3:30 PM CT</span>
+        )}
       </div>
 
       {error && (
@@ -343,8 +530,16 @@ export default function TriagePage() {
         <div className="space-y-2">
           {allFilteredTasks.map(({ task, teamId, teamName }) => {
             const isAdded = addedIds.has(task.id);
+            const hasNotes = !!dismissals[task.id]?.notes;
             return (
-              <Card key={`${teamId}-${task.id}`} className={isAdded ? "opacity-50" : ""}>
+              <Card
+                key={`${teamId}-${task.id}`}
+                className={`${isAdded ? "opacity-50" : "hover:border-primary/40 cursor-pointer"} transition-colors`}
+                onClick={() => {
+                  setDetailTask({ task, teamId, teamName });
+                  setDetailNotes(dismissals[task.id]?.notes || "");
+                }}
+              >
                 <CardContent className="py-3 px-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0 space-y-1">
@@ -355,6 +550,11 @@ export default function TriagePage() {
                           {task.status.status}
                         </Badge>
                         {dueDateBadge(task.due_date)}
+                        {hasNotes && (
+                          <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                            Has notes
+                          </Badge>
+                        )}
                       </div>
                       {task.description && (
                         <p className="text-xs text-muted-foreground line-clamp-2">
@@ -390,7 +590,7 @@ export default function TriagePage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {task.url && (
                         <a
                           href={task.url}
@@ -420,6 +620,171 @@ export default function TriagePage() {
           })}
         </div>
       )}
+
+      {/* Task detail dialog */}
+      <Dialog open={!!detailTask} onOpenChange={(open) => !open && setDetailTask(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base leading-snug pr-6">
+              {detailTask?.task.name}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Task details and actions
+            </DialogDescription>
+          </DialogHeader>
+          {detailTask && (
+            <div className="space-y-4">
+              {/* Meta badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {priorityBadge(detailTask.task.priority)}
+                <Badge variant="outline" className="text-[10px]">
+                  {detailTask.task.status.status}
+                </Badge>
+                {dueDateBadge(detailTask.task.due_date)}
+              </div>
+
+              {/* Description */}
+              {detailTask.task.description && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Description</label>
+                  <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-3 max-h-40 overflow-auto">
+                    {detailTask.task.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Info grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Workspace</span>
+                  <p className="font-medium">{detailTask.teamName}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Location</span>
+                  <p className="font-medium">{detailTask.task.folder?.name} / {detailTask.task.list?.name}</p>
+                </div>
+                {detailTask.task.assignees.length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground">Assignees</span>
+                    <p className="font-medium">{detailTask.task.assignees.map((a) => a.username).join(", ")}</p>
+                  </div>
+                )}
+                <div>
+                  <span className="text-muted-foreground">Created</span>
+                  <p className="font-medium">{formatDate(detailTask.task.date_created)}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Updated</span>
+                  <p className="font-medium">{formatDate(detailTask.task.date_updated)}</p>
+                </div>
+                {detailTask.task.due_date && (
+                  <div>
+                    <span className="text-muted-foreground">Due date</span>
+                    <p className="font-medium">{formatDate(detailTask.task.due_date)}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Tags */}
+              {detailTask.task.tags.length > 0 && (
+                <div className="flex gap-1 flex-wrap">
+                  {detailTask.task.tags.map((tag) => (
+                    <Badge
+                      key={tag.name}
+                      className="text-[10px] px-1.5 py-0.5"
+                      style={{ backgroundColor: tag.tag_bg, color: tag.tag_fg }}
+                    >
+                      {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              {/* My notes */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">My Notes</label>
+                <textarea
+                  className="w-full text-sm border rounded-md p-2 min-h-[80px] resize-y bg-background"
+                  placeholder="Add your own notes about this task..."
+                  value={detailNotes}
+                  onChange={(e) => setDetailNotes(e.target.value)}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    disabled={savingNotes || detailNotes === (dismissals[detailTask.task.id]?.notes || "")}
+                    onClick={() => handleSaveNotes(detailTask.task.id, detailNotes)}
+                  >
+                    {savingNotes ? "Saving..." : "Save Notes"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  {detailTask.task.url && (
+                    <a
+                      href={detailTask.task.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="outline" size="sm" className="text-xs">
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Open in ClickUp
+                      </Button>
+                    </a>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    disabled={addedIds.has(detailTask.task.id)}
+                    onClick={() => {
+                      openAddDialog(detailTask.task, detailTask.teamId);
+                      setDetailTask(null);
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    {addedIds.has(detailTask.task.id) ? "Already Added" : "Add to MyTime"}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs text-muted-foreground"
+                    onClick={() => handleDismiss(detailTask.task.id, "dismissed")}
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Dismiss
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs text-muted-foreground"
+                    onClick={() => handleDismiss(detailTask.task.id, "ignored")}
+                  >
+                    <EyeOff className="h-3 w-3 mr-1" />
+                    Ignore
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs text-red-600 hover:text-red-700"
+                    onClick={() => handleDismiss(detailTask.task.id, "deleted")}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Delete from Triage
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Add task dialog */}
       <Dialog open={!!addingTask} onOpenChange={(open) => !open && setAddingTask(null)}>
