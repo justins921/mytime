@@ -7,6 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { formatTime, timeToMinutes, getWeekDates, formatDate } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Calendar,
   ChevronLeft,
@@ -16,6 +24,12 @@ import {
   Unlock,
   AlertTriangle,
   Palmtree,
+  Plus,
+  X,
+  CheckCircle2,
+  Circle,
+  Clock,
+  CalendarClock,
 } from "lucide-react";
 
 interface ClientInfo {
@@ -23,6 +37,33 @@ interface ClientInfo {
   name: string;
   color: string;
   monthlyCapHours: number;
+  projects?: { id: string; name: string }[];
+}
+
+interface FloatingTask {
+  id: string;
+  title: string;
+  estimateMinutes: number;
+  clientId: string | null;
+  projectId: string | null;
+  dueDate: string | null;
+  priority: string;
+  mustSchedule: boolean;
+  status: string;
+  notes: string;
+  client?: { name: string; color: string } | null;
+  project?: { name: string } | null;
+}
+
+interface CalendarEvent {
+  uid: string;
+  summary: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  feedId: string;
+  feedName: string;
+  feedColor: string;
 }
 
 interface ScheduleBlock {
@@ -60,6 +101,10 @@ export default function SchedulePage() {
   const [monthlyHours, setMonthlyHours] = useState<Record<string, number>>({});
   const [timeOffDates, setTimeOffDates] = useState<Set<string>>(new Set());
   const [timeOffs, setTimeOffs] = useState<{ title: string; type: string; startDate: string; endDate: string }[]>([]);
+  const [floatingTasks, setFloatingTasks] = useState<FloatingTask[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [newTask, setNewTask] = useState({ title: "", estimateMinutes: 60, clientId: "", projectId: "", dueDate: "", priority: "P2", mustSchedule: true });
 
   const weekDates = getWeekDates(
     new Date(Date.now() + weekOffset * 7 * 24 * 60 * 60 * 1000)
@@ -80,11 +125,27 @@ export default function SchedulePage() {
 
   const fetchClients = useCallback(async () => {
     try {
-      const res = await fetch("/api/clients");
+      const res = await fetch("/api/clients?include=projects");
       const data = await res.json();
       setClients(Array.isArray(data) ? data : []);
     } catch { /* ignore */ }
   }, []);
+
+  const fetchFloatingTasks = useCallback(async () => {
+    try {
+      const res = await fetch("/api/schedule/floating-tasks");
+      const data = await res.json();
+      setFloatingTasks(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ }
+  }, []);
+
+  const fetchCalendarEvents = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/calendar-feeds/sync?startDate=${weekStart}&endDate=${weekEnd}`);
+      const data = await res.json();
+      setCalendarEvents(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ }
+  }, [weekStart, weekEnd]);
 
   const fetchBlocks = useCallback(async () => {
     setLoading(true);
@@ -124,11 +185,13 @@ export default function SchedulePage() {
     fetchBlocks();
     fetchMonthlyHours();
     fetchTimeOff();
-  }, [fetchBlocks, fetchMonthlyHours, fetchTimeOff]);
+    fetchCalendarEvents();
+  }, [fetchBlocks, fetchMonthlyHours, fetchTimeOff, fetchCalendarEvents]);
 
   useEffect(() => {
     fetchClients();
-  }, [fetchClients]);
+    fetchFloatingTasks();
+  }, [fetchClients, fetchFloatingTasks]);
 
   useEffect(() => {
     function tick() {
@@ -186,6 +249,7 @@ export default function SchedulePage() {
         if (data.monthlyHoursUsed) setMonthlyHours(data.monthlyHoursUsed);
         if (data.timeOffDates) setTimeOffDates(new Set(data.timeOffDates));
         if (data.timeOffs) setTimeOffs(data.timeOffs);
+        fetchFloatingTasks(); // refresh task statuses
       }
     } catch {
       setWarnings(["Failed to generate schedule"]);
@@ -242,6 +306,52 @@ export default function SchedulePage() {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
   }
 
+  async function addFloatingTask() {
+    if (!newTask.title.trim()) return;
+    try {
+      await fetch("/api/schedule/floating-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newTask.title,
+          estimateMinutes: newTask.estimateMinutes,
+          clientId: newTask.clientId || null,
+          projectId: newTask.projectId || null,
+          dueDate: newTask.dueDate || null,
+          priority: newTask.priority,
+          mustSchedule: newTask.mustSchedule,
+        }),
+      });
+      setNewTask({ title: "", estimateMinutes: 60, clientId: "", projectId: "", dueDate: "", priority: "P2", mustSchedule: true });
+      setShowAddTask(false);
+      fetchFloatingTasks();
+    } catch { /* ignore */ }
+  }
+
+  async function deleteFloatingTask(id: string) {
+    await fetch(`/api/schedule/floating-tasks/${id}`, { method: "DELETE" });
+    setFloatingTasks((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  async function toggleTaskComplete(task: FloatingTask) {
+    const nextStatus = task.status === "completed" ? "pending" : "completed";
+    await fetch(`/api/schedule/floating-tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    fetchFloatingTasks();
+  }
+
+  async function resetTaskToPending(task: FloatingTask) {
+    await fetch(`/api/schedule/floating-tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "pending" }),
+    });
+    fetchFloatingTasks();
+  }
+
   function blocksByDate(date: string) {
     return blocks.filter((b) => b.date === date);
   }
@@ -253,6 +363,8 @@ export default function SchedulePage() {
       Break: "block-break",
       Admin: "block-admin",
       Lunch: "block-lunch",
+      Task: "block-task",
+      External: "block-external",
     };
     return map[type] || "block-deepwork";
   }
@@ -368,6 +480,146 @@ export default function SchedulePage() {
         </Card>
       )}
 
+      {/* Floating Tasks */}
+      <Card>
+        <CardHeader className="py-3 px-4">
+          <CardTitle className="text-sm flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4" />
+              One-Off Tasks
+              {floatingTasks.filter((t) => t.status === "pending").length > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {floatingTasks.filter((t) => t.status === "pending").length} pending
+                </Badge>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setShowAddTask(!showAddTask)}>
+              {showAddTask ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-3">
+          {showAddTask && (
+            <div className="space-y-2 mb-3 p-3 rounded-md border bg-muted/30">
+              <Input
+                placeholder="Task title..."
+                value={newTask.title}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                className="h-8 text-sm"
+              />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Duration (min)</label>
+                  <Input
+                    type="number"
+                    value={newTask.estimateMinutes}
+                    onChange={(e) => setNewTask({ ...newTask, estimateMinutes: parseInt(e.target.value) || 60 })}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Priority</label>
+                  <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v })}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="P1" className="text-xs">P1 - High</SelectItem>
+                      <SelectItem value="P2" className="text-xs">P2 - Medium</SelectItem>
+                      <SelectItem value="P3" className="text-xs">P3 - Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Due date</label>
+                  <Input
+                    type="date"
+                    value={newTask.dueDate}
+                    onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Client</label>
+                  <Select value={newTask.clientId} onValueChange={(v) => setNewTask({ ...newTask, clientId: v, projectId: "" })}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="None" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" className="text-xs">None</SelectItem>
+                      {clients.map((c) => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={newTask.mustSchedule}
+                    onCheckedChange={(v) => setNewTask({ ...newTask, mustSchedule: v })}
+                  />
+                  <Label className="text-xs">Must schedule</Label>
+                </div>
+                <Button size="sm" className="h-7 text-xs" onClick={addFloatingTask} disabled={!newTask.title.trim()}>
+                  Add Task
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {floatingTasks.length === 0 && !showAddTask && (
+            <p className="text-xs text-muted-foreground text-center py-2">
+              No one-off tasks. Add tasks that need to be done this week and the generator will find the best time slot.
+            </p>
+          )}
+
+          {floatingTasks.length > 0 && (
+            <div className="space-y-1">
+              {floatingTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className={`flex items-center gap-2 p-2 rounded text-xs ${
+                    task.status === "completed" ? "opacity-50" : ""
+                  } ${task.status === "scheduled" ? "bg-violet-50" : ""}`}
+                >
+                  <button onClick={() => toggleTaskComplete(task)} className="shrink-0">
+                    {task.status === "completed" ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : task.status === "scheduled" ? (
+                      <Clock className="h-4 w-4 text-violet-500" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  <span className={`flex-1 truncate ${task.status === "completed" ? "line-through" : "font-medium"}`}>
+                    {task.title}
+                  </span>
+                  <Badge variant={task.priority === "P1" ? "destructive" : task.priority === "P2" ? "default" : "secondary"} className="text-[10px] px-1 py-0">
+                    {task.priority}
+                  </Badge>
+                  <span className="text-muted-foreground shrink-0">{task.estimateMinutes}m</span>
+                  {task.mustSchedule && <span className="shrink-0" title="Must schedule"><Lock className="h-3 w-3 text-muted-foreground" /></span>}
+                  {task.dueDate && (
+                    <span className="text-muted-foreground shrink-0">
+                      {new Date(task.dueDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </span>
+                  )}
+                  {task.client && (
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: task.client.color }} />
+                  )}
+                  {task.status === "scheduled" && (
+                    <button onClick={() => resetTaskToPending(task)} className="text-[10px] text-muted-foreground hover:text-foreground shrink-0" title="Reset to pending">
+                      Reset
+                    </button>
+                  )}
+                  <button onClick={() => deleteFloatingTask(task.id)} className="text-red-400 hover:text-red-600 shrink-0">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Schedule grid */}
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading schedule...</div>
@@ -419,6 +671,18 @@ export default function SchedulePage() {
                       </span>
                     </div>
                   )}
+                  {/* Calendar events (all-day) */}
+                  {calendarEvents
+                    .filter((e) => {
+                      const eventDate = e.start.slice(0, 10);
+                      return e.allDay && eventDate === dateStr;
+                    })
+                    .map((e) => (
+                      <div key={e.uid} className="p-1.5 rounded text-xs block-external mb-1" style={{ borderLeftColor: e.feedColor }}>
+                        <span className="font-medium">{e.summary}</span>
+                        <span className="text-[10px] opacity-60 ml-1">All day</span>
+                      </div>
+                    ))}
                   {isToday && currentTime && !isTimeOff && (
                     <div className="text-xs text-red-500 font-mono mb-2 text-center">
                       Now: {formatTime(currentTime)}
@@ -492,6 +756,8 @@ export default function SchedulePage() {
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-deepwork" /> Deep Work</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-support" /> Support</div>
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-task" /> Task</div>
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-external" /> Calendar</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-break" /> Break</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-admin" /> Admin</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-lunch" /> Lunch</div>

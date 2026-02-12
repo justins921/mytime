@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink, Palmtree } from "lucide-react";
+import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink, Palmtree, CalendarClock, Plus } from "lucide-react";
 
 interface AvailabilityWindow {
   start: string;
@@ -70,6 +70,10 @@ export default function SettingsPage() {
     { id: string; startDate: string; endDate: string; title: string; type: string; notes: string }[]
   >([]);
   const [newTimeOff, setNewTimeOff] = useState({ startDate: "", endDate: "", title: "", type: "Vacation", notes: "" });
+  const [calendarFeeds, setCalendarFeeds] = useState<
+    { id: string; name: string; url: string; color: string; enabled: boolean; lastSync: string | null; lastSyncError: string }[]
+  >([]);
+  const [newFeed, setNewFeed] = useState({ name: "", url: "", color: "#8b5cf6" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -101,6 +105,9 @@ export default function SettingsPage() {
     fetch("/api/timeoff")
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setTimeOffs(data); });
+    fetch("/api/calendar-feeds")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setCalendarFeeds(data); });
     // Handle OAuth redirect params
     const params = new URLSearchParams(window.location.search);
     const slackConnected = params.get("slack_connected");
@@ -495,6 +502,134 @@ export default function SettingsPage() {
               }}
             >
               Add Time Off
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Calendar Feeds (ICS/Apple Calendar) */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarClock className="h-4 w-4" />
+            Calendar Feeds
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-[10px] text-muted-foreground">
+              Add ICS calendar feed URLs to import events from Apple Calendar, Google Calendar, Outlook, or any calendar app.
+              Events will appear on your schedule and block those time slots during generation.
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              <strong>Apple Calendar:</strong> Open Calendar.app &rarr; right-click a calendar &rarr; &ldquo;Share Calendar&rdquo; &rarr; copy the webcal:// URL.
+            </p>
+          </div>
+
+          {calendarFeeds.length > 0 && (
+            <div className="space-y-2">
+              {calendarFeeds.map((feed) => (
+                <div key={feed.id} className="flex items-center gap-2 flex-wrap text-sm">
+                  <input
+                    type="color"
+                    value={feed.color}
+                    onChange={async (e) => {
+                      const color = e.target.value;
+                      await fetch(`/api/calendar-feeds/${feed.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ color }),
+                      });
+                      setCalendarFeeds((prev) => prev.map((f) => f.id === feed.id ? { ...f, color } : f));
+                    }}
+                    className="w-6 h-6 rounded border-0 cursor-pointer"
+                  />
+                  <Switch
+                    checked={feed.enabled}
+                    onCheckedChange={async (v) => {
+                      await fetch(`/api/calendar-feeds/${feed.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ enabled: v }),
+                      });
+                      setCalendarFeeds((prev) => prev.map((f) => f.id === feed.id ? { ...f, enabled: v } : f));
+                    }}
+                  />
+                  <span className="font-medium truncate max-w-40">{feed.name}</span>
+                  <span className="text-[10px] text-muted-foreground truncate max-w-48 font-mono">{feed.url}</span>
+                  {feed.lastSync && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Synced {new Date(feed.lastSync).toLocaleDateString()}
+                    </span>
+                  )}
+                  {feed.lastSyncError && (
+                    <span className="text-[10px] text-red-500 truncate max-w-32">{feed.lastSyncError}</span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive ml-auto"
+                    onClick={async () => {
+                      await fetch(`/api/calendar-feeds/${feed.id}`, { method: "DELETE" });
+                      setCalendarFeeds((prev) => prev.filter((f) => f.id !== feed.id));
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="space-y-1">
+              <Label className="text-xs">Name</Label>
+              <Input
+                value={newFeed.name}
+                onChange={(e) => setNewFeed({ ...newFeed, name: e.target.value })}
+                placeholder="e.g. Work Calendar"
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">ICS Feed URL</Label>
+              <Input
+                value={newFeed.url}
+                onChange={(e) => setNewFeed({ ...newFeed, url: e.target.value })}
+                placeholder="webcal://... or https://..."
+                className="w-64 font-mono text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Color</Label>
+              <input
+                type="color"
+                value={newFeed.color}
+                onChange={(e) => setNewFeed({ ...newFeed, color: e.target.value })}
+                className="w-10 h-9 rounded border cursor-pointer"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!newFeed.name || !newFeed.url}
+              onClick={async () => {
+                // Normalize webcal:// to https://
+                const url = newFeed.url.replace(/^webcal:\/\//, "https://");
+                const res = await fetch("/api/calendar-feeds", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ...newFeed, url }),
+                });
+                const created = await res.json();
+                if (created.id) {
+                  setCalendarFeeds((prev) => [...prev, created]);
+                  setNewFeed({ name: "", url: "", color: "#8b5cf6" });
+                }
+              }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Feed
             </Button>
           </div>
         </CardContent>

@@ -4,6 +4,8 @@ import type {
   GeneratedBlock,
   ClientConfig,
   BreakConfig,
+  FloatingTaskConfig,
+  ExternalEvent,
 } from "./types";
 
 interface TimeSlot {
@@ -30,6 +32,8 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
     today,
     uc30WeeklyHours,
     monthlyHoursUsed,
+    floatingTasks,
+    externalEvents,
   } = input;
 
   const allBlocks: GeneratedBlock[] = [];
@@ -72,15 +76,53 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
 
     if (!avail || !avail.enabled) continue;
 
-    // Compute available slots for this day
+    // Gather external calendar events for this day as extra breaks
+    const dayExternalEvents = (externalEvents || []).filter((e) => e.date === dateStr);
+    const allBreaks = [
+      ...fixedBreaks,
+      ...dayExternalEvents.map((e) => ({
+        start: e.startTime,
+        end: e.endTime,
+        title: e.title,
+        locked: false,
+      })),
+    ];
+
+    // Compute available slots for this day (external events carved out like breaks)
     const daySlots = computeAvailableSlots(
       avail.start,
       avail.end,
-      fixedBreaks,
+      allBreaks,
       lunchReserve,
       nightWork[dayKey],
       generateFromNow && dateStr === today ? currentTime : undefined
     );
+
+    // Add external calendar event blocks (for display)
+    for (const ext of dayExternalEvents) {
+      const extStart = timeToMinutes(ext.startTime);
+      const extEnd = timeToMinutes(ext.endTime);
+
+      if (generateFromNow && dateStr === today && currentTime) {
+        const nowMins = timeToMinutes(currentTime);
+        if (extEnd <= nowMins) continue;
+      }
+
+      if (extStart >= timeToMinutes(avail.start) && extEnd <= timeToMinutes(avail.end)) {
+        allBlocks.push({
+          date: dateStr,
+          startTime: ext.startTime,
+          endTime: ext.endTime,
+          clientId: null,
+          projectId: null,
+          title: ext.title,
+          type: "External",
+          locked: false,
+          generated: true,
+          notes: "Calendar event",
+        });
+      }
+    }
 
     // Add fixed break blocks
     for (const brk of fixedBreaks) {
@@ -193,6 +235,73 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
           remainingSlots[0] = { start: firstSlot.start + sweepDuration, end: firstSlot.end };
         }
       }
+    }
+
+    // Place floating tasks (P1 first, then by due date urgency)
+    if (floatingTasks && floatingTasks.length > 0) {
+      // Sort: P1 before P2 before P3, then by due date (earlier = more urgent), then mustSchedule first
+      const pendingTasks = [...floatingTasks].filter((t) => {
+        // Only place tasks not yet placed in earlier days
+        return !allBlocks.some((b) => b.floatingTaskId === t.id);
+      });
+
+      // Prefer placing tasks on/before their due date
+      const tasksForToday = pendingTasks.filter((t) => {
+        if (!t.dueDate) return true; // no due date = any day is fine
+        if (t.dueDate === dateStr) return true; // due today
+        if (t.dueDate < dateStr) return true; // overdue
+        // Not due yet — only place if we're running out of days
+        const daysUntilDue = weekDates.indexOf(t.dueDate) - dayIdx;
+        return daysUntilDue <= 1; // place if due tomorrow or sooner
+      });
+
+      tasksForToday.sort((a, b) => {
+        // Priority first (P1 < P2 < P3)
+        if (a.priority !== b.priority) return a.priority.localeCompare(b.priority);
+        // Must-schedule before optional
+        if (a.mustSchedule !== b.mustSchedule) return a.mustSchedule ? -1 : 1;
+        // Earlier due date first
+        if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+        if (a.dueDate) return -1;
+        if (b.dueDate) return 1;
+        return 0;
+      });
+
+      for (const task of tasksForToday) {
+        let minutesLeft = task.estimateMinutes;
+
+        for (let si = 0; si < remainingSlots.length && minutesLeft > 0; si++) {
+          const slot = remainingSlots[si];
+          const available = slot.end - slot.start;
+          if (available < 15) continue;
+
+          const blockDuration = Math.min(minutesLeft, available);
+          allBlocks.push({
+            date: dateStr,
+            startTime: minutesToTime(slot.start),
+            endTime: minutesToTime(slot.start + blockDuration),
+            clientId: task.clientId,
+            projectId: task.projectId,
+            title: task.title,
+            type: "Task",
+            locked: false,
+            generated: true,
+            notes: "",
+            floatingTaskId: task.id,
+          });
+
+          // Count toward client allocation if applicable
+          if (task.clientId && clientAllocated[task.clientId] !== undefined) {
+            clientAllocated[task.clientId] += blockDuration / 60;
+          }
+
+          minutesLeft -= blockDuration;
+          slot.start += blockDuration;
+        }
+      }
+
+      // Clean up empty slots after task placement
+      remainingSlots = remainingSlots.filter((s) => s.end - s.start >= 15);
     }
 
     // Reserve end-of-day support sweep and admin time

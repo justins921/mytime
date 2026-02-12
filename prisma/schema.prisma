@@ -76,6 +76,7 @@ model Client {
   timeEntries           TimeEntry[]
   slackWorkspaces       SlackWorkspace[]
   gmailAccounts         GmailAccount[]
+  floatingTasks         FloatingTask[]
 }
 
 model Project {
@@ -91,6 +92,7 @@ model Project {
   tasks          Task[]
   scheduleBlocks ScheduleBlock[]
   timeEntries    TimeEntry[]
+  floatingTasks  FloatingTask[]
 }
 
 model Task {
@@ -211,6 +213,36 @@ model TimeOff {
   notes     String   @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model FloatingTask {
+  id              String    @id @default(cuid())
+  title           String
+  estimateMinutes Int       @default(60)
+  clientId        String?
+  projectId       String?
+  dueDate         String?   // YYYY-MM-DD — schedule by this date
+  priority        String    @default("P2") // P1 | P2 | P3
+  mustSchedule    Boolean   @default(true)  // locked in — must be done this week
+  status          String    @default("pending") // pending | scheduled | completed
+  scheduleBlockId String?   // link to generated block when scheduled
+  notes           String    @default("")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  client          Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project         Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+model CalendarFeed {
+  id            String    @id @default(cuid())
+  name          String    // "Work Calendar", "Personal", etc.
+  url           String    // ICS/CalDAV feed URL
+  color         String    @default("#8b5cf6")
+  enabled       Boolean   @default(true)
+  lastSync      DateTime?
+  lastSyncError String    @default("")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Settings {

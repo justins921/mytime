@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateSchedule, generateWarnings } from "@/lib/scheduler";
-import type { SchedulerInput, ClientConfig } from "@/lib/scheduler/types";
+import type { SchedulerInput, ClientConfig, FloatingTaskConfig, ExternalEvent } from "@/lib/scheduler/types";
+import { fetchAndParseICS } from "@/lib/ics";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -117,6 +118,58 @@ export async function POST(req: NextRequest) {
     monthlyHoursUsed[entry.clientId] = (monthlyHoursUsed[entry.clientId] || 0) + entry.durationMinutes / 60;
   }
 
+  // Load floating tasks (pending only)
+  const floatingTaskRows = await prisma.floatingTask.findMany({
+    where: { status: "pending" },
+  });
+  const floatingTaskConfigs: FloatingTaskConfig[] = floatingTaskRows.map((t) => ({
+    id: t.id,
+    title: t.title,
+    estimateMinutes: t.estimateMinutes,
+    clientId: t.clientId,
+    projectId: t.projectId,
+    dueDate: t.dueDate,
+    priority: t.priority,
+    mustSchedule: t.mustSchedule,
+  }));
+
+  // Load external calendar events from ICS feeds
+  const calendarFeeds = await prisma.calendarFeed.findMany({ where: { enabled: true } });
+  const externalEvents: ExternalEvent[] = [];
+
+  const rangeStart = new Date(firstWeekDate + "T00:00:00");
+  const rangeEnd = new Date(lastWeekDate + "T23:59:59");
+
+  for (const feed of calendarFeeds) {
+    try {
+      const icsEvents = await fetchAndParseICS(feed.url);
+
+      for (const event of icsEvents) {
+        if (event.end < rangeStart || event.start > rangeEnd) continue;
+        if (event.allDay) continue; // All-day events don't block time slots
+
+        const dateStr = event.start.toLocaleDateString("en-CA", { timeZone: tz });
+        if (!weekDates.includes(dateStr)) continue;
+
+        const startTime = event.start.toLocaleTimeString("en-US", {
+          timeZone: tz, hour12: false, hour: "2-digit", minute: "2-digit",
+        });
+        const endTime = event.end.toLocaleTimeString("en-US", {
+          timeZone: tz, hour12: false, hour: "2-digit", minute: "2-digit",
+        });
+
+        externalEvents.push({ date: dateStr, startTime, endTime, title: event.summary });
+      }
+
+      await prisma.calendarFeed.update({
+        where: { id: feed.id },
+        data: { lastSync: new Date(), lastSyncError: "" },
+      });
+    } catch {
+      // Silently skip failed feeds during generation
+    }
+  }
+
   // Build scheduler input
   const clientConfigs: ClientConfig[] = clients.map((c) => ({
     id: c.id,
@@ -155,13 +208,15 @@ export async function POST(req: NextRequest) {
       clientId: b.clientId,
       projectId: b.projectId,
       title: b.title,
-      type: b.type as "Support" | "DeepWork" | "Break" | "Admin" | "Lunch",
+      type: b.type as "Support" | "DeepWork" | "Break" | "Admin" | "Lunch" | "Task" | "External",
       locked: b.locked,
       generated: b.generated,
       notes: b.notes,
     })),
     uc30WeeklyHours: settings.uc30WeeklyHours,
     monthlyHoursUsed,
+    floatingTasks: floatingTaskConfigs,
+    externalEvents,
   };
 
   // Generate schedule
@@ -178,10 +233,11 @@ export async function POST(req: NextRequest) {
     );
   });
 
-  // Save new blocks to DB
-  if (newBlocks.length > 0) {
+  // Save new blocks to DB (skip External type — those are just for display)
+  const blocksToSave = newBlocks.filter((b) => b.type !== "External");
+  if (blocksToSave.length > 0) {
     await prisma.$transaction(
-      newBlocks.map((b) =>
+      blocksToSave.map((b) =>
         prisma.scheduleBlock.create({
           data: {
             date: b.date,
@@ -200,6 +256,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Mark floating tasks as scheduled if they got placed
+  const scheduledTaskIds = new Set(
+    generatedBlocks.filter((b) => b.floatingTaskId).map((b) => b.floatingTaskId!)
+  );
+  if (scheduledTaskIds.size > 0) {
+    await prisma.floatingTask.updateMany({
+      where: { id: { in: Array.from(scheduledTaskIds) } },
+      data: { status: "scheduled" },
+    });
+  }
+
   // Fetch all blocks for the week to return
   const allBlocks = await prisma.scheduleBlock.findMany({
     where: { date: { in: weekDates } },
@@ -216,7 +283,7 @@ export async function POST(req: NextRequest) {
       clientId: b.clientId,
       projectId: b.projectId,
       title: b.title,
-      type: b.type as "Support" | "DeepWork" | "Break" | "Admin" | "Lunch",
+      type: b.type as "Support" | "DeepWork" | "Break" | "Admin" | "Lunch" | "Task" | "External",
       locked: b.locked,
       generated: b.generated,
       notes: b.notes,
