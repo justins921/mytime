@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Inbox, RefreshCw, Plus, ExternalLink, AlertTriangle } from "lucide-react";
+import { Inbox, RefreshCw, Plus, ExternalLink, AlertTriangle, Calendar } from "lucide-react";
 
 interface ClickUpTask {
   id: string;
@@ -27,6 +27,7 @@ interface ClickUpTask {
   status: { status: string; color: string };
   priority: { id: number; priority: string; color: string } | null;
   url: string;
+  due_date: string | null;
   date_updated: string;
   date_created: string;
   assignees: { id: number; username: string; profilePicture: string }[];
@@ -68,8 +69,9 @@ export default function TriagePage() {
   const [addingInProgress, setAddingInProgress] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
-  // Filter
+  // Filters
   const [filterTeam, setFilterTeam] = useState("all");
+  const [filterDue, setFilterDue] = useState("all");
 
   const loadClients = useCallback(async () => {
     const data = await fetch("/api/clients").then((r) => r.json());
@@ -153,19 +155,35 @@ export default function TriagePage() {
   const selectedClient = clients.find((c) => c.id === addClientId);
   const clientProjects = selectedClient?.projects || [];
 
-  // Flatten and sort all tasks
+  // Flatten, filter, and sort all tasks
+  const now = new Date();
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const weekEnd = new Date(todayEnd);
+  weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay())); // end of Sunday
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
   const allFilteredTasks: { task: ClickUpTask; teamId: string; teamName: string }[] = [];
   for (const team of teams) {
     if (filterTeam !== "all" && filterTeam !== team.id) continue;
     const tasks = tasksByTeam[team.id] || [];
     for (const task of tasks) {
+      if (filterDue !== "all") {
+        if (!task.due_date) continue;
+        const due = new Date(parseInt(task.due_date));
+        if (filterDue === "today" && due > todayEnd) continue;
+        if (filterDue === "week" && due > weekEnd) continue;
+        if (filterDue === "month" && due > monthEnd) continue;
+      }
       allFilteredTasks.push({ task, teamId: team.id, teamName: team.name });
     }
   }
-  // Sort by date_updated descending
-  allFilteredTasks.sort(
-    (a, b) => parseInt(b.task.date_updated) - parseInt(a.task.date_updated)
-  );
+  // Sort by due date first (overdue/soonest first), then by date_updated
+  allFilteredTasks.sort((a, b) => {
+    const aDue = a.task.due_date ? parseInt(a.task.due_date) : Infinity;
+    const bDue = b.task.due_date ? parseInt(b.task.due_date) : Infinity;
+    if (aDue !== bDue) return aDue - bDue;
+    return parseInt(b.task.date_updated) - parseInt(a.task.date_updated);
+  });
 
   function priorityBadge(priority: ClickUpTask["priority"]) {
     if (!priority) return null;
@@ -178,6 +196,46 @@ export default function TriagePage() {
     return (
       <Badge className={`text-[10px] ${colors[priority.id] || ""}`}>
         {priority.priority}
+      </Badge>
+    );
+  }
+
+  function dueDateBadge(due_date: string | null) {
+    if (!due_date) return null;
+    const due = new Date(parseInt(due_date));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dueDay = new Date(due);
+    dueDay.setHours(0, 0, 0, 0);
+
+    const isOverdue = dueDay < today;
+    const isToday = dueDay.getTime() === today.getTime();
+    const isTomorrow = dueDay.getTime() === tomorrow.getTime();
+
+    let label: string;
+    if (isToday) label = "Due today";
+    else if (isTomorrow) label = "Due tomorrow";
+    else if (isOverdue) {
+      const daysAgo = Math.floor((today.getTime() - dueDay.getTime()) / 86400000);
+      label = `Overdue ${daysAgo}d`;
+    } else {
+      label = `Due ${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    }
+
+    const colorClass = isOverdue
+      ? "bg-red-100 text-red-800 border-red-300"
+      : isToday
+        ? "bg-orange-100 text-orange-800 border-orange-300"
+        : isTomorrow
+          ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+          : "bg-gray-100 text-gray-700 border-gray-300";
+
+    return (
+      <Badge variant="outline" className={`text-[10px] ${colorClass}`}>
+        <Calendar className="h-2.5 w-2.5 mr-0.5" />
+        {label}
       </Badge>
     );
   }
@@ -231,6 +289,17 @@ export default function TriagePage() {
           </Badge>
         </div>
         <div className="flex items-center gap-2">
+          <Select value={filterDue} onValueChange={setFilterDue}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All tasks" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All tasks</SelectItem>
+              <SelectItem value="today">Due today / Overdue</SelectItem>
+              <SelectItem value="week">Due this week</SelectItem>
+              <SelectItem value="month">Due this month</SelectItem>
+            </SelectContent>
+          </Select>
           {teams.length > 1 && (
             <Select value={filterTeam} onValueChange={setFilterTeam}>
               <SelectTrigger className="w-40">
@@ -285,6 +354,7 @@ export default function TriagePage() {
                         <Badge variant="outline" className="text-[10px]">
                           {task.status.status}
                         </Badge>
+                        {dueDateBadge(task.due_date)}
                       </div>
                       {task.description && (
                         <p className="text-xs text-muted-foreground line-clamp-2">
