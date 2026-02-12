@@ -20,7 +20,25 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Timer, Play, Square, AlertTriangle } from "lucide-react";
+import { Timer, Play, Square, AlertTriangle, Copy, Check } from "lucide-react";
+import { formatTime } from "@/lib/utils";
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="p-1 hover:bg-muted rounded"
+      title="Copy time range"
+    >
+      {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+    </button>
+  );
+}
 
 interface Client {
   id: string;
@@ -350,21 +368,71 @@ export default function TimerPage() {
           {todayEntries.length === 0 ? (
             <p className="text-sm text-muted-foreground">No entries today</p>
           ) : (
-            <div className="space-y-1">
-              {todayEntries.filter((e) => e.durationMinutes).map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.client.color }} />
-                    <span>{entry.client.name}</span>
-                    {entry.project && <span className="text-muted-foreground text-xs">/ {entry.project.name}</span>}
+            <div className="space-y-2">
+              {todayEntries.filter((e) => e.durationMinutes).map((entry) => {
+                const startDate = new Date(entry.startAt);
+                const endDate = entry.endAt ? new Date(entry.endAt) : null;
+                const startStr = startDate.toLocaleTimeString("en-US", {
+                  timeZone: "America/Chicago",
+                  hour12: false,
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                const endStr = endDate
+                  ? endDate.toLocaleTimeString("en-US", {
+                      timeZone: "America/Chicago",
+                      hour12: false,
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "—";
+                const hrs = Math.floor((entry.durationMinutes || 0) / 60);
+                const mins = Math.round((entry.durationMinutes || 0) % 60);
+                const durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+                const clipboardText = `${formatTime(startStr)} – ${formatTime(endStr)} (${durationStr})`;
+
+                return (
+                  <div key={entry.id} className="p-2 border rounded space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.client.color }} />
+                        <span className="text-sm font-medium">{entry.client.name}</span>
+                        {entry.project && <span className="text-muted-foreground text-xs">/ {entry.project.name}</span>}
+                        {entry.task && <span className="text-muted-foreground text-xs">/ {entry.task.title}</span>}
+                      </div>
+                      <Badge variant="secondary" className="font-mono text-xs">{durationStr}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="font-mono">
+                        {formatTime(startStr)} – {formatTime(endStr)}
+                      </span>
+                      <CopyButton text={clipboardText} />
+                    </div>
+                    {entry.notes && (
+                      <p className="text-xs text-muted-foreground truncate">{entry.notes}</p>
+                    )}
                   </div>
-                  <span className="font-mono text-xs">{entry.durationMinutes?.toFixed(0)}min</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Total today */}
+      {todayEntries.filter((e) => e.durationMinutes).length > 0 && (
+        <div className="text-right text-sm text-muted-foreground">
+          Total today:{" "}
+          <span className="font-mono font-medium text-foreground">
+            {(() => {
+              const totalMins = todayEntries.reduce((sum, e) => sum + (e.durationMinutes || 0), 0);
+              const h = Math.floor(totalMins / 60);
+              const m = Math.round(totalMins % 60);
+              return h > 0 ? `${h}h ${m}m` : `${m}m`;
+            })()}
+          </span>
+        </div>
+      )}
 
       {/* Context switch warning dialog */}
       <Dialog open={showSwitchWarning} onOpenChange={setShowSwitchWarning}>

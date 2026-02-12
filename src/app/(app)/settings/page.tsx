@@ -6,7 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, Save } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Settings as SettingsIcon, Save, RefreshCw } from "lucide-react";
 
 interface AvailabilityWindow {
   start: string;
@@ -45,6 +52,11 @@ export default function SettingsPage() {
   const [supportSweepMinutes, setSupportSweepMinutes] = useState(30);
   const [generateFromNow, setGenerateFromNow] = useState(false);
   const [uc30WeeklyHours, setUc30WeeklyHours] = useState(0);
+  const [clickupApiToken, setClickupApiToken] = useState("");
+  const [clickupWorkspaceMap, setClickupWorkspaceMap] = useState<Record<string, string>>({});
+  const [clickupWorkspaces, setClickupWorkspaces] = useState<{ id: string; name: string }[]>([]);
+  const [clickupLoading, setClickupLoading] = useState(false);
+  const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -61,7 +73,12 @@ export default function SettingsPage() {
         setSupportSweepMinutes(data.supportSweepMinutes);
         setGenerateFromNow(data.generateFromNow);
         setUc30WeeklyHours(data.uc30WeeklyHours);
+        setClickupApiToken(data.clickupApiToken || "");
+        setClickupWorkspaceMap(JSON.parse(data.clickupWorkspaceMapJson || "{}"));
       });
+    fetch("/api/clients")
+      .then((r) => r.json())
+      .then((data) => setAllClients(Array.isArray(data) ? data : []));
   }, []);
 
   async function saveSettings() {
@@ -78,6 +95,8 @@ export default function SettingsPage() {
         supportSweepMinutes,
         generateFromNow,
         uc30WeeklyHours,
+        clickupApiToken,
+        clickupWorkspaceMapJson: JSON.stringify(clickupWorkspaceMap),
       }),
     });
     setSaving(false);
@@ -323,6 +342,80 @@ export default function SettingsPage() {
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ClickUp integration */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">ClickUp Integration</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
+            <Label className="text-xs">Personal API Token</Label>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={clickupApiToken}
+                onChange={(e) => setClickupApiToken(e.target.value)}
+                placeholder="pk_..."
+                className="font-mono"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!clickupApiToken || clickupLoading}
+                onClick={async () => {
+                  setClickupLoading(true);
+                  try {
+                    const res = await fetch("/api/clickup?action=workspaces");
+                    const data = await res.json();
+                    if (Array.isArray(data)) {
+                      setClickupWorkspaces(data.map((t: { id: string | number; name: string }) => ({ id: String(t.id), name: t.name })));
+                    }
+                  } catch { /* ignore */ }
+                  setClickupLoading(false);
+                }}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${clickupLoading ? "animate-spin" : ""}`} />
+                Test
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Find this in ClickUp &rarr; Settings &rarr; Apps. Save settings before testing.
+            </p>
+          </div>
+
+          {clickupWorkspaces.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs">Workspace → Client Mapping</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Map each ClickUp workspace to a MyTime client so triage tasks auto-select the right client.
+              </p>
+              {clickupWorkspaces.map((ws) => (
+                <div key={ws.id} className="flex items-center gap-2">
+                  <span className="text-sm w-36 truncate">{ws.name}</span>
+                  <span className="text-xs text-muted-foreground">→</span>
+                  <Select
+                    value={clickupWorkspaceMap[ws.id] || ""}
+                    onValueChange={(v) =>
+                      setClickupWorkspaceMap({ ...clickupWorkspaceMap, [ws.id]: v })
+                    }
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Select client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {allClients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

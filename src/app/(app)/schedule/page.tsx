@@ -125,11 +125,22 @@ export default function SchedulePage() {
   async function handleGenerate() {
     setGenerating(true);
     try {
+      // Only generate for today and future days (skip past days)
+      const datesToGenerate = weekDates
+        .map(formatDate)
+        .filter((d) => d >= today);
+
+      if (datesToGenerate.length === 0) {
+        setWarnings(["No future days to generate in this week."]);
+        setGenerating(false);
+        return;
+      }
+
       const res = await fetch("/api/schedule/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          weekDates: weekDates.map(formatDate),
+          weekDates: datesToGenerate,
           keepLocked,
           keepManual,
           generateFromNow,
@@ -139,7 +150,12 @@ export default function SchedulePage() {
       if (!res.ok) {
         setWarnings([data.error || "Failed to generate schedule"]);
       } else {
-        setBlocks(Array.isArray(data.blocks) ? data.blocks : []);
+        const newBlocks: ScheduleBlock[] = Array.isArray(data.blocks) ? data.blocks : [];
+        // Merge: keep past-day blocks that weren't regenerated, add new ones
+        setBlocks((prev) => [
+          ...prev.filter((b) => !datesToGenerate.includes(b.date)),
+          ...newBlocks,
+        ]);
         setWarnings(data.warnings || []);
         if (data.monthlyHoursUsed) setMonthlyHours(data.monthlyHoursUsed);
       }
@@ -333,9 +349,10 @@ export default function SchedulePage() {
             const dateStr = formatDate(date);
             const dayBlocks = blocksByDate(dateStr);
             const isToday = dateStr === today;
+            const isPastDay = dateStr < today;
 
             return (
-              <Card key={dateStr} className={isToday ? "ring-2 ring-primary" : ""}>
+              <Card key={dateStr} className={`${isToday ? "ring-2 ring-primary" : ""} ${isPastDay ? "opacity-60" : ""}`}>
                 <CardHeader className="py-3 px-4">
                   <CardTitle className="text-sm flex items-center justify-between">
                     <div>
@@ -345,14 +362,18 @@ export default function SchedulePage() {
                         {new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </span>
                     </div>
-                    <button
-                      onClick={() => handleGenerateDay(dateStr)}
-                      disabled={generatingDay === dateStr}
-                      className="opacity-50 hover:opacity-100 disabled:opacity-30"
-                      title={`Generate ${DAY_NAMES[i]}`}
-                    >
-                      <RefreshCw className={`h-3.5 w-3.5 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
-                    </button>
+                    {!isPastDay && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => handleGenerateDay(dateStr)}
+                        disabled={generatingDay === dateStr}
+                        title={`Generate ${DAY_NAMES[i]}`}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
+                      </Button>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-3 space-y-1.5 relative">

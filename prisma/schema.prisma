@@ -163,6 +163,10 @@ model Settings {
   supportSweepMinutes   Int      @default(30)
   generateFromNow       Boolean  @default(false)
   uc30WeeklyHours       Float    @default(0)
+  // ClickUp integration
+  clickupApiToken       String   @default("")
+  // Maps ClickUp workspace (team) IDs to MyTime client IDs: {"teamId":"clientId",...}
+  clickupWorkspaceMapJson String  @default("{}")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }

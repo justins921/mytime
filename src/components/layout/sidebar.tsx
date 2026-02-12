@@ -12,6 +12,7 @@ import {
   Settings,
   Menu,
   X,
+  Inbox,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/timer", label: "Timer", icon: Timer },
+  { href: "/triage", label: "Triage", icon: Inbox },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
