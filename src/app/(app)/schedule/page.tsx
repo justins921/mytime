@@ -17,6 +17,13 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
+interface ClientInfo {
+  id: string;
+  name: string;
+  color: string;
+  monthlyCapHours: number;
+}
+
 interface ScheduleBlock {
   id: string;
   date: string;
@@ -48,12 +55,33 @@ export default function SchedulePage() {
   const [generateFromNow, setGenerateFromNow] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
   const [today, setToday] = useState("");
+  const [clients, setClients] = useState<ClientInfo[]>([]);
+  const [monthlyHours, setMonthlyHours] = useState<Record<string, number>>({});
 
   const weekDates = getWeekDates(
     new Date(Date.now() + weekOffset * 7 * 24 * 60 * 60 * 1000)
   );
   const weekStart = formatDate(weekDates[0]);
   const weekEnd = formatDate(weekDates[4]);
+
+  const currentMonth = weekStart.slice(0, 7); // YYYY-MM
+
+  const fetchMonthlyHours = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/timer/monthly?month=${currentMonth}`);
+      const data = await res.json();
+      if (!res.ok) return;
+      setMonthlyHours(data);
+    } catch { /* ignore */ }
+  }, [currentMonth]);
+
+  const fetchClients = useCallback(async () => {
+    try {
+      const res = await fetch("/api/clients");
+      const data = await res.json();
+      setClients(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ }
+  }, []);
 
   const fetchBlocks = useCallback(async () => {
     setLoading(true);
@@ -69,7 +97,12 @@ export default function SchedulePage() {
 
   useEffect(() => {
     fetchBlocks();
-  }, [fetchBlocks]);
+    fetchMonthlyHours();
+  }, [fetchBlocks, fetchMonthlyHours]);
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
 
   useEffect(() => {
     function tick() {
@@ -108,6 +141,7 @@ export default function SchedulePage() {
       } else {
         setBlocks(Array.isArray(data.blocks) ? data.blocks : []);
         setWarnings(data.warnings || []);
+        if (data.monthlyHoursUsed) setMonthlyHours(data.monthlyHoursUsed);
       }
     } catch {
       setWarnings(["Failed to generate schedule"]);
@@ -138,6 +172,7 @@ export default function SchedulePage() {
           ...newDayBlocks,
         ]);
         setWarnings(data.warnings || []);
+        if (data.monthlyHoursUsed) setMonthlyHours(data.monthlyHoursUsed);
       }
     } catch {
       setWarnings(["Failed to generate schedule"]);
@@ -235,6 +270,43 @@ export default function SchedulePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Monthly hours summary */}
+      {clients.length > 0 && (
+        <Card>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm">
+              Monthly Hours Tracked &mdash; {new Date(weekStart + "T12:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            <div className="grid gap-2 sm:grid-cols-3">
+              {clients.map((client) => {
+                const used = monthlyHours[client.id] || 0;
+                const cap = client.monthlyCapHours;
+                const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
+                return (
+                  <div key={client.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: client.color }} />
+                        <span>{client.name}</span>
+                      </div>
+                      <span className="font-mono">{used.toFixed(1)}h / {cap}h</span>
+                    </div>
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${pct > 90 ? "bg-red-500" : pct > 70 ? "bg-yellow-500" : "bg-green-500"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Warnings */}
       {warnings.length > 0 && (
