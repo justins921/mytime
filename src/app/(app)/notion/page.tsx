@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -209,11 +211,15 @@ export default function NotionPage() {
         </div>
         <Card>
           <CardContent className="pt-6">
-            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-              {viewingPage.content || (
-                <p className="text-muted-foreground italic">This page has no content blocks.</p>
-              )}
-            </div>
+            {viewingPage.content ? (
+              <div className="notion-content text-sm leading-relaxed max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {viewingPage.content}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <p className="text-muted-foreground italic">This page has no content blocks.</p>
+            )}
           </CardContent>
         </Card>
       </div>
