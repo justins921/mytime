@@ -6,7 +6,7 @@ import {
   getMessageMetadata,
   getMessage,
   getHeader,
-  getPlainBody,
+  getBody,
 } from "@/lib/gmail";
 
 export async function GET(req: NextRequest) {
@@ -19,22 +19,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "accountId required" }, { status: 400 });
   }
 
-  const account = await prisma.gmailAccount.findUnique({ where: { id: accountId } });
-  if (!account) {
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
-  }
-
-  let token: string;
-  try {
-    token = await getValidToken(accountId);
-  } catch {
-    return NextResponse.json({ error: "Failed to authenticate with Gmail. Try reconnecting." }, { status: 401 });
-  }
-
   // Single message detail
   if (messageId) {
+    const account = await prisma.gmailAccount.findUnique({ where: { id: accountId } });
+    if (!account) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+
+    let token: string;
+    try {
+      token = await getValidToken(accountId);
+    } catch {
+      return NextResponse.json({ error: "Failed to authenticate with Gmail. Try reconnecting." }, { status: 401 });
+    }
+
     try {
       const msg = await getMessage(token, messageId);
+      const { content, isHtml } = getBody(msg);
       return NextResponse.json({
         id: msg.id,
         threadId: msg.threadId,
@@ -44,42 +45,81 @@ export async function GET(req: NextRequest) {
         subject: getHeader(msg, "Subject"),
         date: getHeader(msg, "Date"),
         snippet: msg.snippet,
-        body: getPlainBody(msg),
+        body: content,
+        isHtml,
         internalDate: msg.internalDate,
+        accountEmail: account.email,
+        accountId: account.id,
       });
     } catch {
       return NextResponse.json({ error: "Failed to fetch message" }, { status: 500 });
     }
   }
 
-  // List messages
+  // Support fetching from multiple accounts (comma-separated IDs)
+  const accountIds = accountId.split(",").map((id) => id.trim()).filter(Boolean);
+
   try {
-    const list = await listMessages(token, query, 30, pageToken);
+    const allEmails: {
+      id: string;
+      threadId: string;
+      labelIds: string[];
+      from: string;
+      subject: string;
+      date: string;
+      snippet: string;
+      internalDate: string;
+      accountEmail: string;
+      accountId: string;
+    }[] = [];
 
-    if (!list.messages || list.messages.length === 0) {
-      return NextResponse.json({ emails: [], nextPageToken: null });
-    }
+    await Promise.all(
+      accountIds.map(async (acctId) => {
+        const account = await prisma.gmailAccount.findUnique({ where: { id: acctId } });
+        if (!account) return;
 
-    // Fetch metadata for each message
-    const emails = await Promise.all(
-      list.messages.map(async (m) => {
-        const msg = await getMessageMetadata(token, m.id);
-        return {
-          id: msg.id,
-          threadId: msg.threadId,
-          labelIds: msg.labelIds || [],
-          from: getHeader(msg, "From"),
-          subject: getHeader(msg, "Subject"),
-          date: getHeader(msg, "Date"),
-          snippet: msg.snippet,
-          internalDate: msg.internalDate,
-        };
+        let token: string;
+        try {
+          token = await getValidToken(acctId);
+        } catch {
+          return; // Skip accounts that fail auth
+        }
+
+        const list = await listMessages(token, query, 30, pageToken);
+        if (!list.messages || list.messages.length === 0) return;
+
+        const emails = await Promise.all(
+          list.messages.map(async (m) => {
+            const msg = await getMessageMetadata(token, m.id);
+            return {
+              id: msg.id,
+              threadId: msg.threadId,
+              labelIds: msg.labelIds || [],
+              from: getHeader(msg, "From"),
+              subject: getHeader(msg, "Subject"),
+              date: getHeader(msg, "Date"),
+              snippet: msg.snippet,
+              internalDate: msg.internalDate,
+              accountEmail: account.email,
+              accountId: account.id,
+            };
+          })
+        );
+
+        allEmails.push(...emails);
       })
     );
 
+    // Sort by internalDate descending (newest first)
+    allEmails.sort((a, b) => {
+      const dateA = parseInt(a.internalDate) || 0;
+      const dateB = parseInt(b.internalDate) || 0;
+      return dateB - dateA;
+    });
+
     return NextResponse.json({
-      emails,
-      nextPageToken: list.nextPageToken || null,
+      emails: allEmails,
+      nextPageToken: null, // Pagination is per-account; omit for multi-account
     });
   } catch {
     return NextResponse.json({ error: "Failed to fetch emails" }, { status: 500 });

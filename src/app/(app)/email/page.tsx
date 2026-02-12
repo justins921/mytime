@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Mail,
   Send,
@@ -39,11 +46,14 @@ interface Email {
   date: string;
   snippet: string;
   internalDate: string;
+  accountEmail: string;
+  accountId: string;
 }
 
 interface EmailDetail extends Email {
   to: string;
   body: string;
+  isHtml: boolean;
 }
 
 interface EmailCard {
@@ -76,11 +86,13 @@ const KANBAN_COLUMNS = [
   { key: "Done", label: "Done", color: "border-green-400" },
 ];
 
+const ALL_ACCOUNTS = "__all__";
+
 // ─── Component ────────────────────────────────────────────
 
 export default function EmailPage() {
   const [accounts, setAccounts] = useState<GmailAccount[]>([]);
-  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+  const [activeAccountId, setActiveAccountId] = useState<string>(ALL_ACCOUNTS);
   const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<EmailDetail | null>(null);
   const [cards, setCards] = useState<EmailCard[]>([]);
@@ -95,6 +107,9 @@ export default function EmailPage() {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyBody, setReplyBody] = useState("");
   const [sending, setSending] = useState(false);
+
+  // Iframe ref for auto-resizing
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Fetch accounts + context on mount
   useEffect(() => {
@@ -119,19 +134,32 @@ export default function EmailPage() {
         return;
       }
     }
-    if (!activeAccountId) {
+    // Default to unified inbox when not in focus mode
+    if (!focusMode) {
+      setActiveAccountId(ALL_ACCOUNTS);
+    } else if (activeAccountId === ALL_ACCOUNTS) {
       setActiveAccountId(accounts[0].id);
     }
   }, [accounts, focusMode, context, activeAccountId]);
 
+  // Get the account IDs to fetch based on selection
+  const getAccountIdsToFetch = useCallback((): string => {
+    if (activeAccountId === ALL_ACCOUNTS) {
+      return accounts.map((a) => a.id).join(",");
+    }
+    return activeAccountId;
+  }, [activeAccountId, accounts]);
+
   // Fetch emails when account changes
-  const fetchEmails = useCallback(async (acctId: string) => {
+  const fetchEmails = useCallback(async () => {
+    const acctIds = getAccountIdsToFetch();
+    if (!acctIds) return;
     setLoadingEmails(true);
     setError("");
     setEmails([]);
     setSelectedEmail(null);
     try {
-      const res = await fetch(`/api/gmail/emails?accountId=${acctId}`);
+      const res = await fetch(`/api/gmail/emails?accountId=${encodeURIComponent(acctIds)}`);
       const data = await res.json();
       if (data.error) {
         setError(data.error);
@@ -142,13 +170,13 @@ export default function EmailPage() {
       setError("Failed to load emails");
     }
     setLoadingEmails(false);
-  }, []);
+  }, [getAccountIdsToFetch]);
 
   useEffect(() => {
-    if (activeAccountId) {
-      fetchEmails(activeAccountId);
+    if (accounts.length > 0) {
+      fetchEmails();
     }
-  }, [activeAccountId, fetchEmails]);
+  }, [activeAccountId, fetchEmails, accounts.length]);
 
   // Fetch kanban cards
   const fetchCards = useCallback(async () => {
@@ -171,12 +199,13 @@ export default function EmailPage() {
 
   // Fetch email detail
   async function openEmail(email: Email) {
-    if (!activeAccountId) return;
+    const acctId = email.accountId;
+    if (!acctId) return;
     setLoadingDetail(true);
     setReplyTo(null);
     try {
       const res = await fetch(
-        `/api/gmail/emails?accountId=${activeAccountId}&messageId=${email.id}`
+        `/api/gmail/emails?accountId=${acctId}&messageId=${email.id}`
       );
       const data = await res.json();
       if (data.error) {
@@ -192,14 +221,16 @@ export default function EmailPage() {
 
   // Send reply
   async function sendReply() {
-    if (!selectedEmail || !activeAccountId || !replyBody.trim() || sending) return;
+    if (!selectedEmail || !replyBody.trim() || sending) return;
+    const acctId = selectedEmail.accountId;
+    if (!acctId) return;
     setSending(true);
     try {
       const res = await fetch("/api/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          accountId: activeAccountId,
+          accountId: acctId,
           to: selectedEmail.from,
           subject: selectedEmail.subject.startsWith("Re:") ? selectedEmail.subject : `Re: ${selectedEmail.subject}`,
           body: replyBody.trim(),
@@ -221,14 +252,15 @@ export default function EmailPage() {
 
   // Add email to kanban board
   async function addToKanban(email: Email, status = "Todo") {
-    if (!activeAccountId) return;
+    const acctId = email.accountId;
+    if (!acctId) return;
     try {
       const res = await fetch("/api/gmail/cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           gmailMessageId: email.id,
-          accountId: activeAccountId,
+          accountId: acctId,
           subject: email.subject,
           fromAddress: email.from,
           snippet: email.snippet,
@@ -239,7 +271,7 @@ export default function EmailPage() {
       const card = await res.json();
       if (card.id) {
         setCards((prev) => {
-          const existing = prev.findIndex((c) => c.gmailMessageId === email.id && c.accountId === activeAccountId);
+          const existing = prev.findIndex((c) => c.gmailMessageId === email.id && c.accountId === acctId);
           if (existing >= 0) {
             const updated = [...prev];
             updated[existing] = card;
@@ -304,17 +336,28 @@ export default function EmailPage() {
     return match ? match[1].trim() : from.split("@")[0];
   }
 
+  // Shorten email for display (e.g. "justin@semflow.com" → "justin@semflow")
+  function shortenEmail(email: string) {
+    return email.split("@")[0] + "@" + (email.split("@")[1]?.split(".")[0] || "");
+  }
+
   // Determine visible accounts
   const visibleAccounts =
     focusMode && context.clientId
       ? accounts.filter((a) => a.clientId === context.clientId)
       : accounts;
 
-  const activeAccount = accounts.find((a) => a.id === activeAccountId);
-
   // Check if email is on kanban board
-  function getCardForEmail(emailId: string): EmailCard | undefined {
-    return cards.find((c) => c.gmailMessageId === emailId && c.accountId === activeAccountId);
+  function getCardForEmail(emailId: string, acctId?: string): EmailCard | undefined {
+    return cards.find((c) => c.gmailMessageId === emailId && (acctId ? c.accountId === acctId : true));
+  }
+
+  // Handle iframe load for auto-sizing
+  function handleIframeLoad() {
+    if (iframeRef.current?.contentDocument?.body) {
+      const body = iframeRef.current.contentDocument.body;
+      iframeRef.current.style.height = body.scrollHeight + 32 + "px";
+    }
   }
 
   // ─── Empty state ─────────────────────────────────────────
@@ -418,43 +461,39 @@ export default function EmailPage() {
 
       {error && <p className="text-xs text-red-600">{error}</p>}
 
-      {/* Account tabs */}
-      {view === "inbox" && visibleAccounts.length > 1 && (
-        <div className="flex gap-1">
-          {visibleAccounts.map((acct) => (
-            <Button
-              key={acct.id}
-              variant={acct.id === activeAccountId ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveAccountId(acct.id)}
-              className="text-xs"
-            >
-              {acct.email}
-              {acct.client && (
-                <span
-                  className="ml-1.5 inline-block w-2 h-2 rounded-full"
-                  style={{ backgroundColor: acct.client.color }}
-                />
-              )}
-            </Button>
-          ))}
-        </div>
-      )}
-
       {/* ─── Inbox View ─── */}
       {view === "inbox" && (
         <div className="flex gap-3 h-[calc(100vh-220px)] min-h-[400px]">
           {/* Email list sidebar */}
           <Card className="w-96 shrink-0 flex flex-col">
-            <div className="p-2 border-b flex items-center justify-between">
-              <span className="text-xs font-medium truncate">
-                {activeAccount?.email || "Select account"}
-              </span>
+            <div className="p-2 border-b flex items-center gap-2">
+              {/* Account dropdown */}
+              <Select
+                value={activeAccountId}
+                onValueChange={setActiveAccountId}
+              >
+                <SelectTrigger className="h-7 text-xs flex-1 min-w-0">
+                  <SelectValue placeholder="Select account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {visibleAccounts.length > 1 && (
+                    <SelectItem value={ALL_ACCOUNTS} className="text-xs">
+                      All Inboxes ({visibleAccounts.length})
+                    </SelectItem>
+                  )}
+                  {visibleAccounts.map((acct) => (
+                    <SelectItem key={acct.id} value={acct.id} className="text-xs">
+                      {acct.email}
+                      {acct.client ? ` (${acct.client.name})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => activeAccountId && fetchEmails(activeAccountId)}
+                className="h-6 w-6 p-0 shrink-0"
+                onClick={fetchEmails}
               >
                 <RefreshCw className={`h-3 w-3 ${loadingEmails ? "animate-spin" : ""}`} />
               </Button>
@@ -469,11 +508,12 @@ export default function EmailPage() {
               )}
 
               {emails.map((email) => {
-                const card = getCardForEmail(email.id);
+                const card = getCardForEmail(email.id, email.accountId);
                 const isUnread = email.labelIds?.includes("UNREAD");
+                const showAccountBadge = activeAccountId === ALL_ACCOUNTS;
                 return (
                   <button
-                    key={email.id}
+                    key={`${email.accountId}-${email.id}`}
                     onClick={() => openEmail(email)}
                     className={`w-full text-left px-3 py-2.5 border-b transition-colors ${
                       selectedEmail?.id === email.id
@@ -499,9 +539,21 @@ export default function EmailPage() {
                     <p className={`text-xs truncate mt-0.5 ${isUnread ? "font-medium" : "text-muted-foreground"}`}>
                       {email.subject || "(no subject)"}
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                      {email.snippet}
-                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {showAccountBadge && email.accountEmail && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0 font-normal">
+                          to: {shortenEmail(email.accountEmail)}
+                        </Badge>
+                      )}
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {email.snippet}
+                      </p>
+                    </div>
+                    {!showAccountBadge && (
+                      <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                        {email.snippet}
+                      </p>
+                    )}
                   </button>
                 );
               })}
@@ -518,7 +570,7 @@ export default function EmailPage() {
                       {selectedEmail.subject || "(no subject)"}
                     </h3>
                     <div className="flex items-center gap-1 shrink-0">
-                      {!getCardForEmail(selectedEmail.id) ? (
+                      {!getCardForEmail(selectedEmail.id, selectedEmail.accountId) ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -530,7 +582,7 @@ export default function EmailPage() {
                         </Button>
                       ) : (
                         <Badge variant="secondary" className="text-xs">
-                          {getCardForEmail(selectedEmail.id)?.status}
+                          {getCardForEmail(selectedEmail.id, selectedEmail.accountId)?.status}
                         </Badge>
                       )}
                     </div>
@@ -540,14 +592,30 @@ export default function EmailPage() {
                     <span>&rarr;</span>
                     <span className="truncate">{selectedEmail.to}</span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    {selectedEmail.date}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] text-muted-foreground">
+                      {selectedEmail.date}
+                    </p>
+                    {selectedEmail.accountEmail && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                        {selectedEmail.accountEmail}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4">
                   {loadingDetail ? (
                     <p className="text-xs text-muted-foreground text-center py-8">Loading...</p>
+                  ) : selectedEmail.isHtml ? (
+                    <iframe
+                      ref={iframeRef}
+                      srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5;color:#1a1a1a;margin:0;padding:8px;word-break:break-word;}img{max-width:100%;height:auto;}a{color:#2563eb;}pre{white-space:pre-wrap;word-break:break-word;}</style></head><body>${selectedEmail.body}</body></html>`}
+                      className="w-full border-0 min-h-[200px]"
+                      sandbox="allow-same-origin"
+                      onLoad={handleIframeLoad}
+                      title="Email content"
+                    />
                   ) : (
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {selectedEmail.body}

@@ -71,10 +71,16 @@ export async function getValidToken(accountId: string): Promise<string> {
 // ─── Gmail API helpers ─────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function gmailGet(path: string, token: string, params?: Record<string, string>): Promise<any> {
+async function gmailGet(path: string, token: string, params?: Record<string, string | string[]>): Promise<any> {
   const url = new URL(`${GOOGLE_API}/gmail/v1/users/me/${path}`);
   if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    Object.entries(params).forEach(([k, v]) => {
+      if (Array.isArray(v)) {
+        v.forEach((val) => url.searchParams.append(k, val));
+      } else {
+        url.searchParams.set(k, v);
+      }
+    });
   }
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
@@ -146,7 +152,10 @@ export async function getMessage(token: string, messageId: string): Promise<Gmai
 }
 
 export async function getMessageMetadata(token: string, messageId: string): Promise<GmailMessage> {
-  return gmailGet(`messages/${messageId}`, token, { format: "metadata", metadataHeaders: "From,To,Subject,Date" });
+  return gmailGet(`messages/${messageId}`, token, {
+    format: "metadata",
+    metadataHeaders: ["From", "To", "Subject", "Date"],
+  });
 }
 
 export async function modifyLabels(
@@ -213,6 +222,30 @@ export function getPlainBody(msg: GmailMessage): string {
     if (html) return html;
   }
   return msg.snippet || "";
+}
+
+/** Get the email body, preferring HTML for rich rendering */
+export function getBody(msg: GmailMessage): { content: string; isHtml: boolean } {
+  // Check if direct body is HTML
+  if (msg.payload?.mimeType === "text/html" && msg.payload?.body?.data) {
+    return { content: decodeBase64Url(msg.payload.body.data), isHtml: true };
+  }
+  // Direct body (text/plain or single-part)
+  if (msg.payload?.body?.data && msg.payload?.mimeType === "text/plain") {
+    return { content: decodeBase64Url(msg.payload.body.data), isHtml: false };
+  }
+  // Multipart: prefer HTML, fall back to plain
+  if (msg.payload?.parts) {
+    const html = findPart(msg.payload.parts, "text/html");
+    if (html) return { content: html, isHtml: true };
+    const text = findPart(msg.payload.parts, "text/plain");
+    if (text) return { content: text, isHtml: false };
+  }
+  // Fallback: direct body data (unknown mime)
+  if (msg.payload?.body?.data) {
+    return { content: decodeBase64Url(msg.payload.body.data), isHtml: false };
+  }
+  return { content: msg.snippet || "", isHtml: false };
 }
 
 function findPart(parts: GmailPart[], mimeType: string): string | null {
