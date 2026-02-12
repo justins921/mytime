@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Timer,
   Calendar,
+  ArrowLeft,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────
@@ -46,6 +47,8 @@ interface Conversation {
   user: string | null;
   workspaceId: string;
   workspaceName: string;
+  has_unreads: boolean;
+  unread_count: number;
 }
 
 interface SlackMessage {
@@ -234,10 +237,12 @@ export default function MessagesPage() {
     return userMap[userId] || userId;
   }
 
-  // Group conversations
-  const channels = conversations.filter((c) => c.is_channel);
-  const dms = conversations.filter((c) => c.is_im);
-  const groupDms = conversations.filter((c) => c.is_mpim);
+  // Group conversations (unreads sorted to top)
+  const sortByUnread = (a: Conversation, b: Conversation) =>
+    (b.has_unreads ? 1 : 0) - (a.has_unreads ? 1 : 0);
+  const channels = conversations.filter((c) => c.is_channel).sort(sortByUnread);
+  const dms = conversations.filter((c) => c.is_im).sort(sortByUnread);
+  const groupDms = conversations.filter((c) => c.is_mpim).sort(sortByUnread);
 
   const showWorkspaceBadge = activeWorkspaceId === ALL_WORKSPACES && visibleWorkspaces.length > 1;
 
@@ -262,24 +267,33 @@ export default function MessagesPage() {
 
   // ─── Conversation list item renderer ────────────────────
   function renderConversation(conv: Conversation) {
+    const isActive = activeConversation?.id === conv.id && activeConversation?.workspaceId === conv.workspaceId;
+    const hasUnread = conv.has_unreads && !isActive;
     return (
       <button
         key={`${conv.workspaceId}-${conv.id}`}
         onClick={() => fetchMessages(conv)}
         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors text-left ${
-          activeConversation?.id === conv.id && activeConversation?.workspaceId === conv.workspaceId
+          isActive
             ? "bg-primary text-primary-foreground"
+            : hasUnread
+            ? "text-foreground hover:bg-accent hover:text-accent-foreground"
             : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         }`}
       >
         {conv.is_channel ? (
-          <Hash className="h-3.5 w-3.5 shrink-0" />
+          <Hash className={`h-3.5 w-3.5 shrink-0 ${hasUnread ? "text-foreground" : ""}`} />
         ) : conv.is_mpim ? (
-          <Users className="h-3.5 w-3.5 shrink-0" />
+          <Users className={`h-3.5 w-3.5 shrink-0 ${hasUnread ? "text-foreground" : ""}`} />
         ) : (
-          <User className="h-3.5 w-3.5 shrink-0" />
+          <User className={`h-3.5 w-3.5 shrink-0 ${hasUnread ? "text-foreground" : ""}`} />
         )}
-        <span className="truncate flex-1">{conv.name}</span>
+        <span className={`truncate flex-1 ${hasUnread ? "font-bold" : ""}`}>{conv.name}</span>
+        {hasUnread && conv.unread_count > 0 && (
+          <Badge variant="default" className="text-[10px] px-1.5 py-0 min-w-[1.25rem] text-center shrink-0">
+            {conv.unread_count}
+          </Badge>
+        )}
         {showWorkspaceBadge && (
           <span className="text-[9px] opacity-60 shrink-0">{conv.workspaceName}</span>
         )}
@@ -297,10 +311,10 @@ export default function MessagesPage() {
           <MessageSquare className="h-5 w-5" />
           <h2 className="text-xl font-semibold">Messages</h2>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4 flex-wrap">
           {/* Context indicator */}
           {context.client && (
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs">
               {context.source === "timer" ? (
                 <Timer className="h-3.5 w-3.5" />
               ) : (
@@ -353,7 +367,7 @@ export default function MessagesPage() {
       {/* Main content: sidebar + messages */}
       <div className="flex gap-3 h-[calc(100vh-220px)] min-h-[400px]">
         {/* Conversation sidebar */}
-        <Card className="w-64 shrink-0 flex flex-col">
+        <Card className={`w-full md:w-64 shrink-0 flex-col ${activeConversation ? "hidden md:flex" : "flex"}`}>
           <div className="p-2 border-b flex items-center gap-2">
             {/* Workspace dropdown */}
             <Select
@@ -432,10 +446,18 @@ export default function MessagesPage() {
         </Card>
 
         {/* Message pane */}
-        <Card className="flex-1 flex flex-col min-w-0">
+        <Card className={`flex-1 flex-col min-w-0 ${activeConversation ? "flex" : "hidden md:flex"}`}>
           {/* Conversation header */}
           {activeConversation ? (
             <div className="p-3 border-b flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="md:hidden h-7 w-7 p-0 shrink-0"
+                onClick={() => { setActiveConversation(null); setMessages([]); }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
               {activeConversation.is_channel ? (
                 <Hash className="h-4 w-4 text-muted-foreground" />
               ) : activeConversation.is_mpim ? (

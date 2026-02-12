@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
     user: string | null;
     workspaceId: string;
     workspaceName: string;
+    has_unreads: boolean;
+    unread_count: number;
   }[] = [];
   const mergedUserMap: Record<string, string> = {};
 
@@ -57,6 +59,8 @@ export async function GET(req: NextRequest) {
         user: ch.user || null,
         workspaceId: workspace.id,
         workspaceName: workspace.teamName,
+        has_unreads: !!ch.has_unreads || (ch.unread_count_display ?? 0) > 0,
+        unread_count: ch.unread_count_display ?? 0,
       }));
 
       allConversations.push(...conversations);

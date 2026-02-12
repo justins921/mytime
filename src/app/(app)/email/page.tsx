@@ -27,6 +27,7 @@ import {
   Plus,
   X,
   Archive,
+  ArrowLeft,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────
@@ -416,7 +417,7 @@ export default function EmailPage() {
           <Mail className="h-5 w-5" />
           <h2 className="text-xl font-semibold">Email</h2>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4 flex-wrap">
           {/* View toggle */}
           <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
             <Button
@@ -440,7 +441,7 @@ export default function EmailPage() {
           </div>
           {/* Context indicator */}
           {context.client && (
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs">
               {context.source === "timer" ? (
                 <Timer className="h-3.5 w-3.5" />
               ) : (
@@ -492,7 +493,7 @@ export default function EmailPage() {
       {view === "inbox" && (
         <div className="flex gap-3 h-[calc(100vh-220px)] min-h-[400px]">
           {/* Email list sidebar */}
-          <Card className="w-96 shrink-0 flex flex-col">
+          <Card className={`w-full md:w-96 shrink-0 flex-col ${selectedEmail ? "hidden md:flex" : "flex"}`}>
             <div className="p-2 border-b flex items-center gap-2">
               {/* Account dropdown */}
               <Select
@@ -588,11 +589,19 @@ export default function EmailPage() {
           </Card>
 
           {/* Email detail pane */}
-          <Card className="flex-1 flex flex-col min-w-0">
+          <Card className={`flex-1 flex-col min-w-0 ${selectedEmail ? "flex" : "hidden md:flex"}`}>
             {selectedEmail ? (
               <>
                 <div className="p-4 border-b space-y-1">
                   <div className="flex items-center justify-between gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="md:hidden h-7 w-7 p-0 shrink-0"
+                      onClick={() => setSelectedEmail(null)}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
                     <h3 className="font-semibold text-sm truncate flex-1">
                       {selectedEmail.subject || "(no subject)"}
                     </h3>
