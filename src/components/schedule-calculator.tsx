@@ -97,9 +97,9 @@ export function ScheduleCalculator() {
               {clients.map((client) => (
                 <div
                   key={client.id}
-                  className="p-3 rounded-lg border bg-gray-50/50"
+                  className="p-3 rounded-lg border bg-gray-50/50 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
                 >
-                  <div className="flex items-center gap-2 mb-2 sm:mb-0">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
                     <input
                       type="text"
                       value={client.name}

@@ -264,7 +264,7 @@ export default function SettingsPage() {
                     setBillingLoading(false);
                   }}
                 >
-                  Upgrade to Pro — {billingCycle === "annual" ? "$190/yr" : "$19/mo"}
+                  Upgrade to Pro — {billingCycle === "annual" ? "$180/yr" : "$19/mo"}
                 </Button>
                 <Button
                   size="sm"
@@ -282,7 +282,7 @@ export default function SettingsPage() {
                     setBillingLoading(false);
                   }}
                 >
-                  Business — {billingCycle === "annual" ? "$390/yr" : "$39/mo"}
+                  Business — {billingCycle === "annual" ? "$348/yr" : "$39/mo"}
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground">All plans include a 14-day free trial. Cancel anytime.</p>
