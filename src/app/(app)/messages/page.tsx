@@ -166,6 +166,26 @@ export default function MessagesPage() {
     }
   }, [activeWorkspaceId, fetchConversations, workspaces.length]);
 
+  // Poll for unread updates every 30 seconds
+  useEffect(() => {
+    if (workspaces.length === 0) return;
+    const interval = setInterval(async () => {
+      const wsIds = getWorkspaceIdsToFetch();
+      if (!wsIds) return;
+      try {
+        const res = await fetch(`/api/slack/conversations?workspaceId=${encodeURIComponent(wsIds)}`);
+        const data = await res.json();
+        if (data.conversations) {
+          setConversations(data.conversations);
+          if (data.userMap) setUserMap(data.userMap);
+        }
+      } catch {
+        // Silent fail on poll
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [workspaces.length, getWorkspaceIdsToFetch]);
+
   // Fetch messages when conversation changes
   async function fetchMessages(conv: Conversation) {
     setActiveConversation(conv);

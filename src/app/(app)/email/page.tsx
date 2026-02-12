@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -139,10 +139,11 @@ export default function EmailPage() {
     // Default to unified inbox when not in focus mode
     if (!focusMode) {
       setActiveAccountId(ALL_ACCOUNTS);
-    } else if (activeAccountId === ALL_ACCOUNTS) {
-      setActiveAccountId(accounts[0].id);
+    } else {
+      setActiveAccountId((prev) => prev === ALL_ACCOUNTS ? accounts[0].id : prev);
     }
-  }, [accounts, focusMode, context, activeAccountId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts, focusMode, context.clientId]);
 
   // Get the account IDs to fetch based on selection
   const getAccountIdsToFetch = useCallback((): string => {
@@ -193,7 +194,7 @@ export default function EmailPage() {
     } catch {
       // ignore
     }
-  }, [focusMode, context]);
+  }, [focusMode, context.clientId]);
 
   useEffect(() => {
     fetchCards();
@@ -318,7 +319,7 @@ export default function EmailPage() {
     }
   }
 
-  // Archive email (remove from inbox)
+  // Archive email (remove from inbox) and auto-advance to next
   async function archiveEmail(email: Email) {
     const acctId = email.accountId;
     if (!acctId) return;
@@ -330,12 +331,19 @@ export default function EmailPage() {
       });
       const data = await res.json();
       if (data.ok) {
+        // Find next email to select before removing from list
+        if (selectedEmail?.id === email.id) {
+          const currentIndex = emails.findIndex((e) => e.id === email.id && e.accountId === acctId);
+          const remaining = emails.filter((e) => !(e.id === email.id && e.accountId === acctId));
+          const nextEmail = remaining[Math.min(currentIndex, remaining.length - 1)];
+          if (nextEmail) {
+            openEmail(nextEmail);
+          } else {
+            setSelectedEmail(null);
+          }
+        }
         // Remove from list
         setEmails((prev) => prev.filter((e) => !(e.id === email.id && e.accountId === acctId)));
-        // Clear detail if it was the selected email
-        if (selectedEmail?.id === email.id) {
-          setSelectedEmail(null);
-        }
       } else {
         setError(data.error || "Failed to archive");
       }
@@ -369,16 +377,32 @@ export default function EmailPage() {
     return email.split("@")[0] + "@" + (email.split("@")[1]?.split(".")[0] || "");
   }
 
-  // Determine visible accounts
-  const visibleAccounts =
-    focusMode && context.clientId
-      ? accounts.filter((a) => a.clientId === context.clientId)
-      : accounts;
+  // Determine visible accounts (memoized to prevent infinite re-renders)
+  const visibleAccounts = useMemo(
+    () =>
+      focusMode && context.clientId
+        ? accounts.filter((a) => a.clientId === context.clientId)
+        : accounts,
+    [focusMode, context.clientId, accounts]
+  );
 
   // Check if email is on kanban board
   function getCardForEmail(emailId: string, acctId?: string): EmailCard | undefined {
     return cards.find((c) => c.gmailMessageId === emailId && (acctId ? c.accountId === acctId : true));
   }
+
+  // Keyboard shortcut: Cmd+A / Ctrl+A to archive selected email
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "a" && selectedEmail && view === "inbox") {
+        e.preventDefault();
+        archiveEmail(selectedEmail as unknown as Email);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEmail, emails, view]);
 
   // Handle iframe load for auto-sizing
   function handleIframeLoad() {

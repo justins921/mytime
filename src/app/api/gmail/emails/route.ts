@@ -85,7 +85,8 @@ export async function GET(req: NextRequest) {
           return; // Skip accounts that fail auth
         }
 
-        const list = await listMessages(token, query, 30, pageToken);
+        const inboxQuery = query ? `in:inbox ${query}` : "in:inbox";
+        const list = await listMessages(token, inboxQuery, 30, pageToken);
         if (!list.messages || list.messages.length === 0) return;
 
         const emails = await Promise.all(
