@@ -78,6 +78,7 @@ model Client {
   slackWorkspaces       SlackWorkspace[]
   gmailAccounts         GmailAccount[]
   floatingTasks         FloatingTask[]
+  notes                 Note[]
 }
 
 model Project {
@@ -244,6 +245,44 @@ model CalendarFeed {
   lastSyncError String    @default("")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String   @default("Untitled")
+  content   String   @default("") // rich text / markdown
+  clientId  String?
+  pinned    Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+}
+
+model NotionWorkspace {
+  id            String              @id @default(cuid())
+  workspaceId   String              @unique // Notion workspace ID
+  workspaceName String
+  accessToken   String
+  botId         String              @default("")
+  icon          String              @default("")
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  favoritePages NotionFavoritePage[]
+}
+
+model NotionFavoritePage {
+  id          String           @id @default(cuid())
+  pageId      String           // Notion page ID
+  title       String
+  icon        String           @default("")
+  workspaceId String
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  workspace   NotionWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, workspaceId])
 }
 
 model Settings {
