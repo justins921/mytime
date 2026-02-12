@@ -146,7 +146,7 @@ export function Sidebar() {
           {allItems.map((item) => {
             const Icon = item.icon;
             const active = pathname.startsWith(item.href);
-            const locked = !hasAccess(plan, item.requiredPlan);
+            const locked = !isAdmin && !hasAccess(plan, item.requiredPlan);
 
             if (locked) {
               return (

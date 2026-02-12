@@ -83,8 +83,9 @@ export default function SettingsPage() {
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
   const [billingLoading, setBillingLoading] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
 
-  const canUseIntegrations = plan === "pro" || plan === "business";
+  const canUseIntegrations = plan === "pro" || plan === "business" || role === "admin";
   const isAdmin = role === "admin";
 
   useEffect(() => {
@@ -234,6 +235,19 @@ export default function SettingsPage() {
           {plan === "free" && (
             <div className="p-4 rounded-lg border bg-blue-50/50 space-y-3">
               <p className="text-sm font-medium">Upgrade to unlock integrations, unlimited clients, and more</p>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-medium ${billingCycle === "monthly" ? "text-foreground" : "text-muted-foreground"}`}>Monthly</span>
+                <Switch
+                  checked={billingCycle === "annual"}
+                  onCheckedChange={(v) => setBillingCycle(v ? "annual" : "monthly")}
+                />
+                <span className={`text-xs font-medium ${billingCycle === "annual" ? "text-foreground" : "text-muted-foreground"}`}>
+                  Annual
+                </span>
+                {billingCycle === "annual" && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">Save ~17%</span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
@@ -243,14 +257,14 @@ export default function SettingsPage() {
                     const res = await fetch("/api/stripe/checkout", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ plan: "pro", billing: "monthly" }),
+                      body: JSON.stringify({ plan: "pro", billing: billingCycle }),
                     });
                     const data = await res.json();
                     if (data.url) window.location.href = data.url;
                     setBillingLoading(false);
                   }}
                 >
-                  Upgrade to Pro — $19/mo
+                  Upgrade to Pro — {billingCycle === "annual" ? "$190/yr" : "$19/mo"}
                 </Button>
                 <Button
                   size="sm"
@@ -261,14 +275,14 @@ export default function SettingsPage() {
                     const res = await fetch("/api/stripe/checkout", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ plan: "business", billing: "monthly" }),
+                      body: JSON.stringify({ plan: "business", billing: billingCycle }),
                     });
                     const data = await res.json();
                     if (data.url) window.location.href = data.url;
                     setBillingLoading(false);
                   }}
                 >
-                  Business — $39/mo
+                  Business — {billingCycle === "annual" ? "$390/yr" : "$39/mo"}
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground">All plans include a 14-day free trial. Cancel anytime.</p>
