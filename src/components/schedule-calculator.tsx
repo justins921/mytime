@@ -97,49 +97,61 @@ export function ScheduleCalculator() {
               {clients.map((client) => (
                 <div
                   key={client.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50/50"
+                  className="p-3 rounded-lg border bg-gray-50/50"
                 >
-                  <input
-                    type="text"
-                    value={client.name}
-                    onChange={(e) => updateClient(client.id, "name", e.target.value)}
-                    placeholder="Client name"
-                    className="h-9 flex-1 min-w-0 px-3 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
-                  />
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2 mb-2 sm:mb-0">
                     <input
-                      type="number"
-                      value={client.hoursPerWeek}
-                      onChange={(e) =>
-                        updateClient(client.id, "hoursPerWeek", Number(e.target.value))
-                      }
-                      className="h-9 w-16 px-2 rounded-md border text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
-                      min={0}
-                      max={80}
+                      type="text"
+                      value={client.name}
+                      onChange={(e) => updateClient(client.id, "name", e.target.value)}
+                      placeholder="Client name"
+                      className="h-9 flex-1 min-w-0 px-3 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
-                    <span className="text-xs text-gray-400 shrink-0">hrs/wk</span>
+                    {clients.length > 1 && (
+                      <button
+                        onClick={() => removeClient(client.id)}
+                        className="sm:hidden text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-400">$</span>
-                    <input
-                      type="number"
-                      value={client.rate}
-                      onChange={(e) =>
-                        updateClient(client.id, "rate", Number(e.target.value))
-                      }
-                      className="h-9 w-20 px-2 rounded-md border text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
-                      min={0}
-                    />
-                    <span className="text-xs text-gray-400 shrink-0">/hr</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={client.hoursPerWeek}
+                        onChange={(e) =>
+                          updateClient(client.id, "hoursPerWeek", Number(e.target.value))
+                        }
+                        className="h-9 w-16 px-2 rounded-md border text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        min={0}
+                        max={80}
+                      />
+                      <span className="text-xs text-gray-400 shrink-0">hrs/wk</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400">$</span>
+                      <input
+                        type="number"
+                        value={client.rate}
+                        onChange={(e) =>
+                          updateClient(client.id, "rate", Number(e.target.value))
+                        }
+                        className="h-9 w-20 px-2 rounded-md border text-sm text-center bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        min={0}
+                      />
+                      <span className="text-xs text-gray-400 shrink-0">/hr</span>
+                    </div>
+                    {clients.length > 1 && (
+                      <button
+                        onClick={() => removeClient(client.id)}
+                        className="hidden sm:block text-gray-300 hover:text-red-500 transition-colors shrink-0 ml-auto"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                  {clients.length > 1 && (
-                    <button
-                      onClick={() => removeClient(client.id)}
-                      className="text-gray-300 hover:text-red-500 transition-colors shrink-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
                 </div>
               ))}
             </div>
@@ -210,20 +222,19 @@ export function ScheduleCalculator() {
                 <p className="text-sm font-medium text-gray-700 mb-2">Client breakdown</p>
                 <div className="space-y-2">
                   {breakdown.map((c) => (
-                    <div key={c.id} className="flex items-center gap-3 text-xs">
-                      <span className="w-28 truncate font-medium">{c.name || "Unnamed"}</span>
-                      <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                    <div key={c.id} className="text-xs">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium truncate">{c.name || "Unnamed"}</span>
+                        <span className="text-gray-500 shrink-0 ml-2">
+                          {c.hoursPerWeek}h ({Math.round(c.pctOfTime)}%) &middot; ${Math.round(c.monthlyRevenue).toLocaleString()}/mo
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
                         <div
                           className="h-full rounded-full bg-blue-500 transition-all"
                           style={{ width: `${Math.min(c.pctOfTime, 100)}%` }}
                         />
                       </div>
-                      <span className="text-gray-500 w-14 text-right">
-                        {c.hoursPerWeek}h ({Math.round(c.pctOfTime)}%)
-                      </span>
-                      <span className="text-gray-400 w-20 text-right">
-                        ${Math.round(c.monthlyRevenue).toLocaleString()}/mo
-                      </span>
                     </div>
                   ))}
                 </div>

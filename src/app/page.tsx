@@ -4,6 +4,7 @@ import { ProductDemo } from "@/components/product-demo";
 import { WaitlistForm } from "@/components/waitlist-form";
 import { StickyCTA } from "@/components/sticky-cta";
 import { ScheduleCalculator } from "@/components/schedule-calculator";
+import { MobileNav } from "@/components/mobile-nav";
 import {
   Calendar,
   Clock,
@@ -163,7 +164,7 @@ export default async function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
-      <nav className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <nav className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50 relative">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
@@ -187,7 +188,7 @@ export default async function LandingPage() {
               </Link>
             ) : (
               <>
-                <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                <Link href="/login" className="hidden sm:inline text-sm text-gray-600 hover:text-gray-900 transition-colors">
                   Sign in
                 </Link>
                 <a
@@ -198,6 +199,7 @@ export default async function LandingPage() {
                 </a>
               </>
             )}
+            <MobileNav />
           </div>
         </div>
       </nav>
