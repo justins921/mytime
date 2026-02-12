@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -113,16 +113,20 @@ export default function MessagesPage() {
     // Default to unified view when not in focus mode
     if (!focusMode) {
       setActiveWorkspaceId(ALL_WORKSPACES);
-    } else if (activeWorkspaceId === ALL_WORKSPACES) {
-      setActiveWorkspaceId(workspaces[0].id);
+    } else {
+      setActiveWorkspaceId((prev) => prev === ALL_WORKSPACES ? workspaces[0].id : prev);
     }
-  }, [workspaces, focusMode, context, activeWorkspaceId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaces, focusMode, context.clientId]);
 
-  // Determine visible workspaces
-  const visibleWorkspaces =
-    focusMode && context.clientId
-      ? workspaces.filter((w) => w.clientId === context.clientId)
-      : workspaces;
+  // Determine visible workspaces (memoized to prevent infinite re-renders)
+  const visibleWorkspaces = useMemo(
+    () =>
+      focusMode && context.clientId
+        ? workspaces.filter((w) => w.clientId === context.clientId)
+        : workspaces,
+    [focusMode, context.clientId, workspaces]
+  );
 
   // Get workspace IDs to fetch
   const getWorkspaceIdsToFetch = useCallback((): string => {
