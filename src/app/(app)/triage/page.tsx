@@ -286,12 +286,23 @@ export default function TriagePage() {
                           {task.status.status}
                         </Badge>
                       </div>
+                      {task.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {task.description}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                         <span className="font-medium">{teamName}</span>
                         <span>&middot;</span>
                         <span>{task.folder?.name}</span>
                         <span>/</span>
                         <span>{task.list?.name}</span>
+                        {task.assignees.length > 0 && (
+                          <>
+                            <span>&middot;</span>
+                            <span>{task.assignees.map((a) => a.username).join(", ")}</span>
+                          </>
+                        )}
                         <span>&middot;</span>
                         <span>Updated {formatUpdated(task.date_updated)}</span>
                       </div>
