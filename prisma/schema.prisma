@@ -74,6 +74,7 @@ model Client {
   projects              Project[]
   scheduleBlocks        ScheduleBlock[]
   timeEntries           TimeEntry[]
+  slackWorkspaces       SlackWorkspace[]
 }
 
 model Project {
@@ -153,6 +154,18 @@ model TriageDismissal {
   notes         String   @default("")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model SlackWorkspace {
+  id          String   @id @default(cuid())
+  teamId      String   @unique
+  teamName    String
+  accessToken String
+  scope       String   @default("")
+  clientId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 }
 
 model Settings {

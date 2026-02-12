@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings as SettingsIcon, Save, RefreshCw } from "lucide-react";
+import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Trash2, ExternalLink } from "lucide-react";
 
 interface AvailabilityWindow {
   start: string;
@@ -58,6 +58,10 @@ export default function SettingsPage() {
   const [clickupLoading, setClickupLoading] = useState(false);
   const [clickupTestError, setClickupTestError] = useState("");
   const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
+  const [slackWorkspaces, setSlackWorkspaces] = useState<
+    { id: string; teamId: string; teamName: string; clientId: string | null; client: { id: string; name: string; color: string } | null }[]
+  >([]);
+  const [slackMessage, setSlackMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -80,6 +84,20 @@ export default function SettingsPage() {
     fetch("/api/clients")
       .then((r) => r.json())
       .then((data) => setAllClients(Array.isArray(data) ? data : []));
+    fetch("/api/slack/workspaces")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setSlackWorkspaces(data); });
+    // Handle OAuth redirect params
+    const params = new URLSearchParams(window.location.search);
+    const slackConnected = params.get("slack_connected");
+    const slackError = params.get("slack_error");
+    if (slackConnected) {
+      setSlackMessage(`Connected to ${slackConnected}!`);
+      window.history.replaceState({}, "", "/settings");
+    } else if (slackError) {
+      setSlackMessage(`Slack error: ${slackError}`);
+      window.history.replaceState({}, "", "/settings");
+    }
   }, []);
 
   async function saveSettings() {
@@ -428,6 +446,92 @@ export default function SettingsPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      {/* Slack integration */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Slack Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {slackMessage && (
+            <p className={`text-xs ${slackMessage.includes("error") ? "text-red-600" : "text-green-600"}`}>
+              {slackMessage}
+            </p>
+          )}
+
+          <div className="space-y-1">
+            <p className="text-[10px] text-muted-foreground">
+              Connect your Slack workspaces and map them to clients. Messages will be filtered based on your current schedule.
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              Requires <code className="bg-muted px-1 rounded">SLACK_CLIENT_ID</code> and <code className="bg-muted px-1 rounded">SLACK_CLIENT_SECRET</code> env vars from your Slack App.
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { window.location.href = "/api/slack/oauth"; }}
+          >
+            <ExternalLink className="h-3.5 w-3.5 mr-1" />
+            Connect Slack Workspace
+          </Button>
+
+          {slackWorkspaces.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-xs">Connected Workspaces</Label>
+              {slackWorkspaces.map((ws) => (
+                <div key={ws.id} className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium w-36 truncate">{ws.teamName}</span>
+                  <span className="text-xs text-muted-foreground">&rarr;</span>
+                  <Select
+                    value={ws.clientId || "none"}
+                    onValueChange={async (v) => {
+                      const clientId = v === "none" ? null : v;
+                      const res = await fetch("/api/slack/workspaces", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: ws.id, clientId }),
+                      });
+                      const updated = await res.json();
+                      setSlackWorkspaces((prev) =>
+                        prev.map((w) => (w.id === ws.id ? { ...w, clientId: updated.clientId, client: updated.client } : w))
+                      );
+                    }}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Select client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No client</SelectItem>
+                      {allClients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={async () => {
+                      await fetch("/api/slack/workspaces", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: ws.id }),
+                      });
+                      setSlackWorkspaces((prev) => prev.filter((w) => w.id !== ws.id));
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               ))}
             </div>

@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Inbox,
+  MessageSquare,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -21,6 +22,7 @@ const navItems = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/timer", label: "Timer", icon: Timer },
+  { href: "/messages", label: "Messages", icon: MessageSquare },
   { href: "/triage", label: "Triage", icon: Inbox },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
