@@ -45,6 +45,43 @@ export async function getUsersList(token: string) {
   return slackGet("users.list", token, { limit: "200" });
 }
 
+export async function getUserInfo(token: string, userId: string) {
+  return slackGet("users.info", token, { user: userId });
+}
+
+export function userDisplayName(user: {
+  profile?: { display_name?: string };
+  real_name?: string;
+  name?: string;
+  id: string;
+}): string {
+  return user.profile?.display_name || user.real_name || user.name || user.id;
+}
+
+export async function resolveUserIds(
+  token: string,
+  userIds: string[],
+  existingMap: Record<string, string> = {}
+): Promise<Record<string, string>> {
+  const map = { ...existingMap };
+  const missing = userIds.filter((id) => id && !map[id]);
+  const unique = [...new Set(missing)];
+
+  await Promise.all(
+    unique.map(async (uid) => {
+      try {
+        const result = await getUserInfo(token, uid);
+        if (result.ok && result.user) {
+          map[uid] = userDisplayName(result.user);
+        }
+      } catch {
+        // leave unresolved
+      }
+    })
+  );
+  return map;
+}
+
 export async function exchangeOAuthCode(code: string, redirectUri: string) {
   const res = await fetch("https://slack.com/api/oauth.v2.access", {
     method: "POST",

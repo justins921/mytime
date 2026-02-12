@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getConversationHistory, postMessage } from "@/lib/slack";
+import {
+  getConversationHistory,
+  postMessage,
+  getUsersList,
+  resolveUserIds,
+  userDisplayName,
+} from "@/lib/slack";
 
 export async function GET(req: NextRequest) {
   const workspaceId = req.nextUrl.searchParams.get("workspaceId");
@@ -20,13 +26,40 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
-  const result = await getConversationHistory(workspace.accessToken, channel);
+  const [result, usersResult] = await Promise.all([
+    getConversationHistory(workspace.accessToken, channel),
+    getUsersList(workspace.accessToken),
+  ]);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ messages: result.messages || [] });
+  // Build user map from users.list
+  const userMap: Record<string, string> = {};
+  if (usersResult.ok && Array.isArray(usersResult.members)) {
+    for (const u of usersResult.members) {
+      userMap[u.id] = userDisplayName(u);
+    }
+  }
+
+  // Resolve any message authors not in users.list
+  const messages = result.messages || [];
+  const messageUserIds = messages
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((m: any) => m.user as string | undefined)
+    .filter((id: string | undefined): id is string => !!id && !userMap[id]);
+
+  if (messageUserIds.length > 0) {
+    const resolved = await resolveUserIds(
+      workspace.accessToken,
+      messageUserIds,
+      userMap
+    );
+    Object.assign(userMap, resolved);
+  }
+
+  return NextResponse.json({ messages, userMap });
 }
 
 export async function POST(req: NextRequest) {

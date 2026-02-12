@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { listConversations, getUsersList } from "@/lib/slack";
+import { listConversations, getUsersList, resolveUserIds } from "@/lib/slack";
 
 export async function GET(req: NextRequest) {
   const workspaceId = req.nextUrl.searchParams.get("workspaceId");
@@ -47,6 +47,20 @@ export async function GET(req: NextRequest) {
           userMap[u.id] = name;
           mergedUserMap[u.id] = name;
         }
+      }
+
+      // Resolve any DM users not found in the initial users.list
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const unresolvedDmUserIds = (convResult.channels || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((ch: any) => ch.is_im && ch.user && !userMap[ch.user])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((ch: any) => ch.user as string);
+
+      if (unresolvedDmUserIds.length > 0) {
+        const resolved = await resolveUserIds(workspace.accessToken, unresolvedDmUserIds, userMap);
+        Object.assign(userMap, resolved);
+        Object.assign(mergedUserMap, resolved);
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

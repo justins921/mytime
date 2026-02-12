@@ -201,6 +201,10 @@ export default function MessagesPage() {
       } else {
         // Slack returns newest first, reverse for chronological display
         setMessages((data.messages || []).reverse());
+        // Merge user map from messages endpoint for sender name resolution
+        if (data.userMap) {
+          setUserMap((prev) => ({ ...prev, ...data.userMap }));
+        }
       }
     } catch {
       setError("Failed to load messages");
