@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Clock } from "@/components/layout/clock";
+import { HeaderTimer } from "@/components/layout/header-timer";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -8,7 +9,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="md:ml-56">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-background/95 backdrop-blur px-4 py-3 md:px-6">
           <div className="ml-10 md:ml-0" />
-          <Clock />
+          <div className="flex items-center gap-4">
+            <HeaderTimer />
+            <Clock />
+          </div>
         </header>
         <main className="p-4 md:p-6 max-w-7xl">{children}</main>
       </div>
