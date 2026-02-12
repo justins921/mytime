@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Timer, Play, Square, AlertTriangle, Copy, Check } from "lucide-react";
+import { Timer, Play, Square, AlertTriangle, Copy, Check, ClockArrowUp } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 
 function CopyButton({ text }: { text: string }) {
@@ -96,6 +96,24 @@ export default function TimerPage() {
   const [notes, setNotes] = useState("");
   const [showSwitchWarning, setShowSwitchWarning] = useState(false);
   const [pendingStart, setPendingStart] = useState<(() => void) | null>(null);
+
+  // Inline create
+  const [showCreateClient, setShowCreateClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [createClientFor, setCreateClientFor] = useState<"timer" | "manual">("timer");
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [createProjectFor, setCreateProjectFor] = useState<"timer" | "manual">("timer");
+
+  // Manual entry
+  const [showManual, setShowManual] = useState(false);
+  const [manualClientId, setManualClientId] = useState("");
+  const [manualProjectId, setManualProjectId] = useState("");
+  const [manualTaskId, setManualTaskId] = useState("");
+  const [manualDate, setManualDate] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" }));
+  const [manualStart, setManualStart] = useState("09:00");
+  const [manualEnd, setManualEnd] = useState("10:00");
+  const [manualNotes, setManualNotes] = useState("");
 
   const loadData = useCallback(async () => {
     const [clientsData, projectsData, tasksData, activeData] = await Promise.all([
@@ -230,6 +248,92 @@ export default function TimerPage() {
     }
   }
 
+  const manualClientProjects = projects.filter((p) => p.clientId === manualClientId);
+  const manualProjectTasks = tasks.filter(
+    (t) => t.projectId === manualProjectId || t.project.clientId === manualClientId
+  );
+
+  async function submitManualEntry() {
+    if (!manualClientId || !manualDate || !manualStart || !manualEnd) return;
+    const startAt = new Date(`${manualDate}T${manualStart}:00`);
+    const endAt = new Date(`${manualDate}T${manualEnd}:00`);
+    if (endAt <= startAt) return;
+
+    const res = await fetch("/api/timer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        manual: true,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        clientId: manualClientId,
+        projectId: manualProjectId || null,
+        taskId: manualTaskId || null,
+        notes: manualNotes,
+      }),
+    });
+    if (res.ok) {
+      setShowManual(false);
+      setManualNotes("");
+      loadData();
+    }
+  }
+
+  function handleClientChange(value: string, target: "timer" | "manual") {
+    if (value === "__create__") {
+      setCreateClientFor(target);
+      setNewClientName("");
+      setShowCreateClient(true);
+      return;
+    }
+    if (target === "timer") setSelectedClientId(value);
+    else { setManualClientId(value); setManualProjectId(""); setManualTaskId(""); }
+  }
+
+  function handleProjectChange(value: string, target: "timer" | "manual") {
+    if (value === "__create__") {
+      setCreateProjectFor(target);
+      setNewProjectName("");
+      setShowCreateProject(true);
+      return;
+    }
+    if (target === "timer") setSelectedProjectId(value);
+    else { setManualProjectId(value); setManualTaskId(""); }
+  }
+
+  async function createClient() {
+    if (!newClientName.trim()) return;
+    const res = await fetch("/api/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newClientName.trim() }),
+    });
+    if (res.ok) {
+      const client = await res.json();
+      setClients((prev) => [...prev, client]);
+      if (createClientFor === "timer") setSelectedClientId(client.id);
+      else { setManualClientId(client.id); setManualProjectId(""); }
+      setShowCreateClient(false);
+    }
+  }
+
+  async function createProject() {
+    const parentClientId = createProjectFor === "timer" ? selectedClientId : manualClientId;
+    if (!newProjectName.trim() || !parentClientId) return;
+    const res = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: parentClientId, name: newProjectName.trim() }),
+    });
+    if (res.ok) {
+      const project = await res.json();
+      setProjects((prev) => [...prev, project]);
+      if (createProjectFor === "timer") setSelectedProjectId(project.id);
+      else setManualProjectId(project.id);
+      setShowCreateProject(false);
+    }
+  }
+
   // Today's totals by client
   const clientTotals: Record<string, number> = {};
   for (const entry of todayEntries) {
@@ -240,9 +344,21 @@ export default function TimerPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Timer className="h-5 w-5" />
-        <h2 className="text-xl font-semibold">Time Tracker</h2>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Timer className="h-5 w-5" />
+          <h2 className="text-xl font-semibold">Time Tracker</h2>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (!manualClientId && clients.length > 0) setManualClientId(clients[0].id);
+            setShowManual(true);
+          }}
+        >
+          <ClockArrowUp className="h-4 w-4 mr-1" /> Log Hours
+        </Button>
       </div>
 
       {/* Active timer */}
@@ -286,24 +402,26 @@ export default function TimerPage() {
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Client</Label>
-                  <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                  <Select value={selectedClientId} onValueChange={(v) => handleClientChange(v, "timer")}>
                     <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                     <SelectContent>
                       {clients.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
+                      <SelectItem value="__create__" className="text-primary font-medium">+ New Client</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Project</Label>
-                  <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                  <Select value={selectedProjectId} onValueChange={(v) => handleProjectChange(v, "timer")}>
                     <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
                       {clientProjects.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
+                      {selectedClientId && <SelectItem value="__create__" className="text-primary font-medium">+ New Project</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -452,6 +570,145 @@ export default function TimerPage() {
             <Button onClick={() => { setShowSwitchWarning(false); pendingStart?.(); }}>
               Continue
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create client dialog */}
+      <Dialog open={showCreateClient} onOpenChange={setShowCreateClient}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Client</DialogTitle>
+            <DialogDescription>Create a new client to track time against.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Client Name</Label>
+              <Input
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                placeholder="e.g. Acme Corp"
+                onKeyDown={(e) => e.key === "Enter" && createClient()}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowCreateClient(false)}>Cancel</Button>
+              <Button onClick={createClient} disabled={!newClientName.trim()}>Create</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create project dialog */}
+      <Dialog open={showCreateProject} onOpenChange={setShowCreateProject}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Project</DialogTitle>
+            <DialogDescription>Create a new project under the selected client.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Project Name</Label>
+              <Input
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                placeholder="e.g. Website Redesign"
+                onKeyDown={(e) => e.key === "Enter" && createProject()}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowCreateProject(false)}>Cancel</Button>
+              <Button onClick={createProject} disabled={!newProjectName.trim()}>Create</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual entry dialog */}
+      <Dialog open={showManual} onOpenChange={setShowManual}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log Hours Manually</DialogTitle>
+            <DialogDescription>
+              Add a completed time entry with specific start and end times.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Date</Label>
+              <Input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Start Time</Label>
+                <Input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">End Time</Label>
+                <Input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} />
+              </div>
+            </div>
+            {manualStart && manualEnd && manualEnd > manualStart && (
+              <div className="text-xs text-muted-foreground">
+                Duration: {(() => {
+                  const [sh, sm] = manualStart.split(":").map(Number);
+                  const [eh, em] = manualEnd.split(":").map(Number);
+                  const mins = (eh * 60 + em) - (sh * 60 + sm);
+                  const h = Math.floor(mins / 60);
+                  const m = mins % 60;
+                  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+                })()}
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label className="text-xs">Client</Label>
+              <Select value={manualClientId} onValueChange={(v) => handleClientChange(v, "manual")}>
+                <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                <SelectContent>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                  <SelectItem value="__create__" className="text-primary font-medium">+ New Client</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Project</Label>
+              <Select value={manualProjectId} onValueChange={(v) => handleProjectChange(v, "manual")}>
+                <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {manualClientProjects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                  {manualClientId && <SelectItem value="__create__" className="text-primary font-medium">+ New Project</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Task</Label>
+              <Select value={manualTaskId} onValueChange={setManualTaskId}>
+                <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {manualProjectTasks.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Notes</Label>
+              <Input placeholder="Notes..." value={manualNotes} onChange={(e) => setManualNotes(e.target.value)} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowManual(false)}>Cancel</Button>
+              <Button onClick={submitManualEntry} disabled={!manualClientId || !manualDate || !manualStart || !manualEnd || manualEnd <= manualStart}>
+                Log Entry
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

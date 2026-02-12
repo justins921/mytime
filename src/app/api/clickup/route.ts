@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
       priority: mapClickUpPriority(clickupTask.priority?.id),
       status: "Backlog",
       url: clickupTask.url || "",
+      clickupTaskId: clickupTask.id || null,
       tags: [
         "clickup",
         ...(clickupTask.tags?.map((t) => t.name) || []),
@@ -170,6 +171,15 @@ export async function POST(req: NextRequest) {
     },
     include: { project: { include: { client: true } } },
   });
+
+  // Auto-dismiss the task from triage after adding to MyTime
+  if (clickupTask.id) {
+    await prisma.triageDismissal.upsert({
+      where: { clickupTaskId: clickupTask.id },
+      create: { clickupTaskId: clickupTask.id, action: "added" },
+      update: { action: "added" },
+    });
+  }
 
   return NextResponse.json(task);
 }

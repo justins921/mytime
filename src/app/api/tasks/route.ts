@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
+  // Return just the set of imported ClickUp task IDs
+  const clickupIds = req.nextUrl.searchParams.get("clickupIds");
+  if (clickupIds === "true") {
+    const tasks = await prisma.task.findMany({
+      where: { clickupTaskId: { not: null } },
+      select: { clickupTaskId: true },
+    });
+    return NextResponse.json(tasks.map((t) => t.clickupTaskId));
+  }
+
   const projectId = req.nextUrl.searchParams.get("projectId");
   const clientId = req.nextUrl.searchParams.get("clientId");
   const status = req.nextUrl.searchParams.get("status");

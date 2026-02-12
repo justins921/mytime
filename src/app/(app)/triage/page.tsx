@@ -18,6 +18,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Inbox,
   RefreshCw,
@@ -113,6 +115,12 @@ export default function TriagePage() {
   const [detailNotes, setDetailNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
 
+  // Inline create
+  const [showCreateClient, setShowCreateClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+
   // Filters
   const [filterTeam, setFilterTeam] = useState("all");
   const [filterDue, setFilterDue] = useState("all");
@@ -121,6 +129,18 @@ export default function TriagePage() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [nextRefresh, setNextRefresh] = useState<Date | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Imported ClickUp task IDs (already in MyTime)
+  const [importedIds, setImportedIds] = useState<Set<string>>(new Set());
+
+  const loadImportedIds = useCallback(async () => {
+    try {
+      const ids: string[] = await fetch("/api/tasks?clickupIds=true").then((r) => r.json());
+      setImportedIds(new Set(ids));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const loadClients = useCallback(async () => {
     const data = await fetch("/api/clients").then((r) => r.json());
@@ -178,7 +198,8 @@ export default function TriagePage() {
     loadClients();
     loadSettings();
     loadDismissals();
-  }, [loadClients, loadSettings, loadDismissals]);
+    loadImportedIds();
+  }, [loadClients, loadSettings, loadDismissals, loadImportedIds]);
 
   useEffect(() => {
     if (!noToken) {
@@ -250,6 +271,12 @@ export default function TriagePage() {
       });
       if (res.ok) {
         setAddedIds((prev) => new Set(prev).add(addingTask.id));
+        setImportedIds((prev) => new Set(prev).add(addingTask.id));
+        // The API auto-creates a dismissal with action="added", update local state
+        setDismissals((prev) => ({
+          ...prev,
+          [addingTask.id]: { id: "", clickupTaskId: addingTask.id, action: "added", notes: prev[addingTask.id]?.notes || "" },
+        }));
         setAddingTask(null);
       }
     } catch {
@@ -295,6 +322,60 @@ export default function TriagePage() {
     setSavingNotes(false);
   }
 
+  function handleAddClientChange(value: string) {
+    if (value === "__create__") {
+      setNewClientName("");
+      setShowCreateClient(true);
+      return;
+    }
+    setAddClientId(value);
+    setAddProjectId("");
+  }
+
+  function handleAddProjectChange(value: string) {
+    if (value === "__create__") {
+      setNewProjectName("");
+      setShowCreateProject(true);
+      return;
+    }
+    setAddProjectId(value);
+  }
+
+  async function createClient() {
+    if (!newClientName.trim()) return;
+    const res = await fetch("/api/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newClientName.trim() }),
+    });
+    if (res.ok) {
+      const client = await res.json();
+      setClients((prev) => [...prev, { ...client, projects: [] }]);
+      setAddClientId(client.id);
+      setAddProjectId("");
+      setShowCreateClient(false);
+    }
+  }
+
+  async function createProject() {
+    if (!newProjectName.trim() || !addClientId) return;
+    const res = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: addClientId, name: newProjectName.trim() }),
+    });
+    if (res.ok) {
+      const project = await res.json();
+      setClients((prev) =>
+        prev.map((c) =>
+          c.id === addClientId ? { ...c, projects: [...c.projects, { id: project.id, name: project.name }] } : c
+        )
+      );
+      setAddProjectId(project.id);
+      setShowCreateProject(false);
+    }
+  }
+
   const selectedClient = clients.find((c) => c.id === addClientId);
   const clientProjects = selectedClient?.projects || [];
 
@@ -310,9 +391,11 @@ export default function TriagePage() {
     if (filterTeam !== "all" && filterTeam !== team.id) continue;
     const tasks = tasksByTeam[team.id] || [];
     for (const task of tasks) {
-      // Skip dismissed/ignored/deleted tasks
+      // Skip dismissed/ignored/deleted/added tasks
       const d = dismissals[task.id];
       if (d && d.action !== "noted") continue;
+      // Also skip tasks already imported to MyTime (even without a dismissal record)
+      if (importedIds.has(task.id)) continue;
 
       if (filterDue !== "all") {
         if (!task.due_date) continue;
@@ -332,10 +415,10 @@ export default function TriagePage() {
     return parseInt(b.task.date_updated) - parseInt(a.task.date_updated);
   });
 
-  // Count dismissed
+  // Count hidden (dismissed + imported)
   const dismissedCount = Object.values(dismissals).filter(
     (d) => d.action !== "noted"
-  ).length;
+  ).length + [...importedIds].filter((id) => !dismissals[id]).length;
 
   function priorityBadge(priority: ClickUpTask["priority"]) {
     if (!priority) return null;
@@ -798,23 +881,25 @@ export default function TriagePage() {
           <div className="space-y-3">
             <div className="space-y-1">
               <label className="text-xs font-medium">Client</label>
-              <Select value={addClientId} onValueChange={(v) => { setAddClientId(v); setAddProjectId(""); }}>
+              <Select value={addClientId} onValueChange={handleAddClientChange}>
                 <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                 <SelectContent>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
+                  <SelectItem value="__create__" className="text-primary font-medium">+ New Client</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Project</label>
-              <Select value={addProjectId} onValueChange={setAddProjectId}>
+              <Select value={addProjectId} onValueChange={handleAddProjectChange}>
                 <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
                 <SelectContent>
                   {clientProjects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
+                  {addClientId && <SelectItem value="__create__" className="text-primary font-medium">+ New Project</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -833,6 +918,58 @@ export default function TriagePage() {
                 <Plus className="h-4 w-4 mr-1" />
                 {addingInProgress ? "Adding..." : "Create Task"}
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create client dialog */}
+      <Dialog open={showCreateClient} onOpenChange={setShowCreateClient}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Client</DialogTitle>
+            <DialogDescription>Create a new client.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Client Name</Label>
+              <Input
+                value={newClientName}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewClientName(e.target.value)}
+                placeholder="e.g. Acme Corp"
+                onKeyDown={(e: React.KeyboardEvent) => e.key === "Enter" && createClient()}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowCreateClient(false)}>Cancel</Button>
+              <Button onClick={createClient} disabled={!newClientName.trim()}>Create</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create project dialog */}
+      <Dialog open={showCreateProject} onOpenChange={setShowCreateProject}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Project</DialogTitle>
+            <DialogDescription>Create a new project under the selected client.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Project Name</Label>
+              <Input
+                value={newProjectName}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewProjectName(e.target.value)}
+                placeholder="e.g. Website Redesign"
+                onKeyDown={(e: React.KeyboardEvent) => e.key === "Enter" && createProject()}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowCreateProject(false)}>Cancel</Button>
+              <Button onClick={createProject} disabled={!newProjectName.trim()}>Create</Button>
             </div>
           </div>
         </DialogContent>

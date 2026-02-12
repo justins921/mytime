@@ -38,6 +38,27 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
+  // Manual entry: explicit startAt + endAt
+  if (body.manual && body.startAt && body.endAt) {
+    const start = new Date(body.startAt);
+    const end = new Date(body.endAt);
+    const duration = (end.getTime() - start.getTime()) / 60000;
+    const entry = await prisma.timeEntry.create({
+      data: {
+        startAt: start,
+        endAt: end,
+        durationMinutes: Math.round(duration * 10) / 10,
+        clientId: body.clientId,
+        projectId: body.projectId || null,
+        taskId: body.taskId || null,
+        scheduleBlockId: body.scheduleBlockId || null,
+        notes: body.notes ?? "",
+      },
+      include: { client: true, project: true, task: true },
+    });
+    return NextResponse.json(entry, { status: 201 });
+  }
+
   // Check for existing active timer
   const active = await prisma.timeEntry.findFirst({
     where: { endAt: null },
