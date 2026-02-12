@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { ScheduleDemo } from "@/components/schedule-demo";
+import { ProductDemo } from "@/components/product-demo";
 import {
   Calendar,
   Clock,
@@ -13,9 +13,30 @@ import {
   CalendarClock,
   CheckCircle2,
   Star,
+  MessageSquare,
+  Mail,
+  BookOpen,
+  Inbox,
+  ChevronDown,
+  Lock,
+  StickyNote,
 } from "lucide-react";
 
-// --- Hero schedule mockup (shows real product UI) ---
+/* ─── Helper components ─── */
+
+function MockBlock({ color, border, title, time, tag, past }: {
+  color: string; border: string; title: string; time: string; tag?: string; past?: boolean;
+}) {
+  return (
+    <div className="p-2 rounded text-xs" style={{ backgroundColor: color, borderLeft: `3px solid ${border}`, opacity: past ? 0.5 : 1 }}>
+      <div className="flex items-center justify-between">
+        <span className="font-medium">{title}</span>
+        {tag && <span className="text-[10px] opacity-60">{tag}</span>}
+      </div>
+      <div className="text-[10px] opacity-75 mt-0.5">{time}</div>
+    </div>
+  );
+}
 
 function ScheduleMockup() {
   return (
@@ -32,7 +53,6 @@ function ScheduleMockup() {
       <div className="p-3 space-y-1.5">
         <MockBlock color="#dbeafe" border="#3b82f6" title="Acme Corp" time="8:00 - 10:00" tag="Deep Work" past />
         <MockBlock color="#d1fae5" border="#10b981" title="Natalie Design" time="10:00 - 10:45" tag="Support" past />
-        {/* Active block — red glow + time indicator */}
         <div className="relative">
           <div
             className="p-2 rounded text-xs relative overflow-visible"
@@ -60,29 +80,13 @@ function ScheduleMockup() {
         </div>
         <MockBlock color="#fce7f3" border="#ec4899" title="Lunch" time="12:45 - 1:30" />
         <MockBlock color="#fef3c7" border="#f59e0b" title="Admin / Email" time="1:30 - 2:00" />
-        <MockBlock color="#dbeafe" border="#3b82f6" title="BrightPath" time="2:00 - 4:00" tag="Deep Work" />
+        <MockBlock color="#ede9fe" border="#8b5cf6" title="BrightPath" time="2:00 - 4:00" tag="Deep Work" />
         <MockBlock color="#d1fae5" border="#10b981" title="Acme Corp" time="4:00 - 4:45" tag="Support" />
         <MockBlock color="#f3f4f6" border="#9ca3af" title="Break" time="4:45 - 5:00" />
       </div>
     </div>
   );
 }
-
-function MockBlock({ color, border, title, time, tag, past }: {
-  color: string; border: string; title: string; time: string; tag?: string; past?: boolean;
-}) {
-  return (
-    <div className="p-2 rounded text-xs" style={{ backgroundColor: color, borderLeft: `3px solid ${border}`, opacity: past ? 0.5 : 1 }}>
-      <div className="flex items-center justify-between">
-        <span className="font-medium">{title}</span>
-        {tag && <span className="text-[10px] opacity-60">{tag}</span>}
-      </div>
-      <div className="text-[10px] opacity-75 mt-0.5">{time}</div>
-    </div>
-  );
-}
-
-// --- Reusable section components ---
 
 function FeatureCard({ icon: Icon, title, description }: {
   icon: React.ComponentType<{ className?: string }>; title: string; description: string;
@@ -97,7 +101,6 @@ function FeatureCard({ icon: Icon, title, description }: {
     </div>
   );
 }
-
 
 function TestimonialCard({ quote, name, role, metric }: {
   quote: string; name: string; role: string; metric: string;
@@ -119,7 +122,35 @@ function TestimonialCard({ quote, name, role, metric }: {
   );
 }
 
-// --- Page ---
+function IntegrationCard({ icon: Icon, name, description, color }: {
+  icon: React.ComponentType<{ className?: string }>; name: string; description: string; color: string;
+}) {
+  return (
+    <div className="p-5 rounded-xl border bg-white hover:shadow-md transition-shadow text-center">
+      <div className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: `${color}15` }}>
+        <div style={{ color }}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+      <h4 className="text-sm font-semibold mb-1">{name}</h4>
+      <p className="text-xs text-gray-500 leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+function FAQItem({ q, a }: { q: string; a: string }) {
+  return (
+    <details className="group border-b last:border-0">
+      <summary className="flex items-center justify-between py-4 cursor-pointer text-sm font-medium text-gray-900 hover:text-gray-700">
+        {q}
+        <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
+      </summary>
+      <p className="pb-4 text-sm text-gray-500 leading-relaxed">{a}</p>
+    </details>
+  );
+}
+
+/* ─── Page ─── */
 
 export default async function LandingPage() {
   const session = await auth();
@@ -133,6 +164,12 @@ export default async function LandingPage() {
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
             <span className="font-bold text-lg">MyTime</span>
+          </div>
+          <div className="hidden sm:flex items-center gap-6 text-sm text-gray-500">
+            <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
+            <a href="#how" className="hover:text-gray-900 transition-colors">How it works</a>
+            <a href="#integrations" className="hover:text-gray-900 transition-colors">Integrations</a>
+            <a href="#faq" className="hover:text-gray-900 transition-colors">FAQ</a>
           </div>
           <div className="flex items-center gap-3">
             {isLoggedIn ? (
@@ -160,33 +197,30 @@ export default async function LandingPage() {
         </div>
       </nav>
 
-      {/* ──────────────────────────────────────────────────────────
-          HERO — Copywriting: "{outcome} without {pain}" headline
+      {/* ═══════════════════════════════════════════════════════════
+          HERO
+          Copywriting: "{outcome} without {pain}" headline
           Psychology: Anchoring (specific numbers), Present Bias
-          (immediate benefit), Social Proof (counter)
-          ────────────────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-6 pt-20 pb-24">
+          ═══════════════════════════════════════════════════════════ */}
+      <section className="max-w-6xl mx-auto px-6 pt-20 pb-16">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full bg-blue-50 text-blue-700 mb-6">
               <Zap className="h-3 w-3" />
               Now in early access
             </div>
-            {/* Copywriting: Headline formula — outcome without pain */}
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1] mb-6">
               Your perfect week
               <br />
               <span className="text-gray-400">in one click.</span>
             </h1>
-            {/* Copywriting: Specificity > vagueness. Anchoring with "2 hours" */}
             <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-lg">
               Freelancers waste 2+ hours every week building schedules by hand.
               MyTime generates your optimal week across every client in seconds,
-              tracks hours against monthly caps, and shows you exactly where you
-              are right now.
+              tracks time against monthly caps, and puts Slack, Gmail, and Notion
+              in one place so you stop tab-switching and start working.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
-              {/* Copywriting: Strong CTA = [Action] + [What they get] */}
               <a
                 href="#waitlist"
                 className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-6 py-3 rounded-md hover:bg-gray-800 transition-colors text-sm"
@@ -201,7 +235,6 @@ export default async function LandingPage() {
                 See how it works
               </a>
             </div>
-            {/* Psychology: Risk reversal */}
             <div className="flex items-center gap-4 mt-5 text-xs text-gray-400">
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> 14-day free trial</span>
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> No credit card</span>
@@ -216,15 +249,41 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ──────────────────────────────────────────────────────────
-          PAIN POINTS — Copywriting: Rhetorical question opener
-          Psychology: Loss Aversion (dollar amounts), Framing
-          Effect (cost of NOT acting), Anchoring (specific numbers)
-          ────────────────────────────────────────────────────────── */}
-      <section className="bg-gray-50 py-20">
+      {/* ═══════════════════════════════════════════════════════════
+          METRICS BAR — Social proof numbers
+          Psychology: Bandwagon Effect, Authority through specifics
+          ═══════════════════════════════════════════════════════════ */}
+      <section className="border-y bg-gray-50/50 py-8">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+            <div>
+              <p className="text-2xl font-bold">8 sec</p>
+              <p className="text-xs text-gray-500 mt-1">Average generation time</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold">6</p>
+              <p className="text-xs text-gray-500 mt-1">Integrations built in</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold">100+</p>
+              <p className="text-xs text-gray-500 mt-1">Hours saved per year</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold">$0</p>
+              <p className="text-xs text-gray-500 mt-1">Over-servicing with cap alerts</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════
+          PAIN POINTS
+          Copywriting: Rhetorical question opener
+          Psychology: Loss Aversion (dollar amounts), Framing Effect
+          ═══════════════════════════════════════════════════════════ */}
+      <section className="py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            {/* Copywriting: Rhetorical question engages reader */}
             <h2 className="text-2xl font-bold mb-3">How much is your schedule costing you?</h2>
             <p className="text-gray-500 max-w-lg mx-auto">
               Most freelancers don&apos;t realize the true cost of manual scheduling
@@ -232,7 +291,6 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {/* Psychology: Anchoring — lead with specific numbers */}
             <div className="p-6 rounded-xl bg-white border">
               <p className="text-3xl font-bold text-gray-900 mb-2">2+ hrs</p>
               <p className="text-sm font-medium mb-1">Lost every week to planning</p>
@@ -242,7 +300,6 @@ export default async function LandingPage() {
                 the same schedule every Sunday night.
               </p>
             </div>
-            {/* Psychology: Loss Aversion — frame as money lost */}
             <div className="p-6 rounded-xl bg-white border">
               <p className="text-3xl font-bold text-red-500 mb-2">$3,000+</p>
               <p className="text-sm font-medium mb-1">Unbilled over-servicing per month</p>
@@ -252,7 +309,6 @@ export default async function LandingPage() {
                 That&apos;s work you&apos;ll never get paid for.
               </p>
             </div>
-            {/* Psychology: Contrast Effect — busy ≠ productive */}
             <div className="p-6 rounded-xl bg-white border">
               <p className="text-3xl font-bold text-gray-900 mb-2">0 hrs</p>
               <p className="text-sm font-medium mb-1">Of deep work actually happening</p>
@@ -266,49 +322,52 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ──────────────────────────────────────────────────────────
-          BEFORE / AFTER — Psychology: Contrast Effect, Framing
-          Copywriting: Show the outcome, not the feature
-          ────────────────────────────────────────────────────────── */}
-      <section className="py-20 max-w-6xl mx-auto px-6">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl font-bold mb-3">Sunday night: solved.</h2>
-        </div>
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          <div className="p-6 rounded-xl border border-red-200 bg-red-50/50">
-            <p className="text-sm font-semibold text-red-700 mb-4">Without MyTime</p>
-            <ul className="space-y-3 text-sm text-gray-600">
-              <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Rebuild your schedule from scratch every week</li>
-              <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Guess how many hours you&apos;ve given each client</li>
-              <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Over-service some clients, under-service others</li>
-              <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Context-switch all day with no deep work blocks</li>
-              <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> End the week unsure if you hit your targets</li>
-            </ul>
+      {/* ═══════════════════════════════════════════════════════════
+          BEFORE / AFTER
+          Psychology: Contrast Effect, Framing
+          ═══════════════════════════════════════════════════════════ */}
+      <section className="bg-gray-50 py-20">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold mb-3">Sunday night: solved.</h2>
           </div>
-          <div className="p-6 rounded-xl border border-green-200 bg-green-50/50">
-            <p className="text-sm font-semibold text-green-700 mb-4">With MyTime</p>
-            <ul className="space-y-3 text-sm text-gray-600">
-              <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Generate your entire week in under 10 seconds</li>
-              <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Live progress bars show hours used vs. monthly cap</li>
-              <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Every client gets exactly the hours they&apos;re paying for</li>
-              <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Protected deep work blocks for your best thinking</li>
-              <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Know exactly where you are with one glance</li>
-            </ul>
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div className="p-6 rounded-xl border border-red-200 bg-red-50/50">
+              <p className="text-sm font-semibold text-red-700 mb-4">Without MyTime</p>
+              <ul className="space-y-3 text-sm text-gray-600">
+                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Rebuild your schedule from scratch every week</li>
+                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Guess how many hours you&apos;ve given each client</li>
+                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Over-service some clients, under-service others</li>
+                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Context-switch all day with no deep work blocks</li>
+                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Bounce between Slack, Gmail, Notion, calendar, timer</li>
+                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> End the week unsure if you hit your targets</li>
+              </ul>
+            </div>
+            <div className="p-6 rounded-xl border border-green-200 bg-green-50/50">
+              <p className="text-sm font-semibold text-green-700 mb-4">With MyTime</p>
+              <ul className="space-y-3 text-sm text-gray-600">
+                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Generate your entire week in under 10 seconds</li>
+                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Live progress bars show hours used vs. monthly cap</li>
+                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Every client gets exactly the hours they&apos;re paying for</li>
+                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Protected deep work blocks for your best thinking</li>
+                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Slack, Gmail, Notion, and calendar in one dashboard</li>
+                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Know exactly where you are with one glance</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ──────────────────────────────────────────────────────────
-          FEATURES — Copywriting: Benefit-first headlines
-          (what it means for you, not what it does)
-          ────────────────────────────────────────────────────────── */}
-      <section id="features" className="bg-gray-50 py-20">
+      {/* ═══════════════════════════════════════════════════════════
+          FEATURES
+          Copywriting: Benefit-first headlines
+          ═══════════════════════════════════════════════════════════ */}
+      <section id="features" className="py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold mb-3">
               Everything you need to own your week.
             </h2>
-            {/* Copywriting: Liking/Similarity — "one of us" positioning */}
             <p className="text-gray-500 max-w-xl mx-auto">
               Built by a freelancer who got tired of the Sunday night spreadsheet.
               Every feature exists because I needed it myself.
@@ -323,7 +382,7 @@ export default async function LandingPage() {
             <FeatureCard
               icon={Clock}
               title="Always know what's now and what's next"
-              description="A live red line drifts gently through your current block in real time. Glance at your schedule and know instantly where you are in the day."
+              description="A live red line drifts through your current block in real time. Past blocks fade, the active block glows. Glance at your schedule and know instantly where you are."
             />
             <FeatureCard
               icon={BarChart3}
@@ -331,14 +390,29 @@ export default async function LandingPage() {
               description="Visual progress bars track each client's hours against their monthly cap. They turn yellow at 70%, red at 90% — so you catch it before the invoice."
             />
             <FeatureCard
-              icon={Calendar}
-              title="Your calendar, built in"
-              description="Pull in existing calendars via iCal feeds. Meetings, events, and external commitments appear alongside your blocks so nothing double-books."
+              icon={Timer}
+              title="Track time without leaving your flow"
+              description="Start a timer tied to your current client and project. It warns you if you context-switch. Today's entries appear automatically with copy-to-clipboard for invoicing."
             />
             <FeatureCard
               icon={CalendarClock}
               title="Drop in tasks, we'll find the slot"
-              description="Add one-off tasks with time estimates and due dates. The generator finds the best open slot and weaves them into your week automatically."
+              description="Add one-off tasks with time estimates, priorities, and due dates. The generator finds the best open slot and weaves them into your week automatically."
+            />
+            <FeatureCard
+              icon={Lock}
+              title="Lock what works, regenerate the rest"
+              description="Love a block? Lock it. Next time you generate, locked and manual blocks stay put while everything else reshuffles around them."
+            />
+            <FeatureCard
+              icon={Calendar}
+              title="Your calendar, built right in"
+              description="Pull in Google Calendar, Apple Calendar, or Outlook via iCal feeds. Events appear alongside your blocks so nothing double-books."
+            />
+            <FeatureCard
+              icon={StickyNote}
+              title="Notes tied to every client"
+              description="Quick notes attached to clients, searchable and pinnable. No more hunting through Notion or Apple Notes for that one thing you wrote down."
             />
             <FeatureCard
               icon={Users}
@@ -349,26 +423,88 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ──────────────────────────────────────────────────────────
-          HOW IT WORKS — Animated interactive demo
+      {/* ═══════════════════════════════════════════════════════════
+          HOW IT WORKS — Interactive multi-feature demo
           Psychology: Activation Energy (looks easy), IKEA Effect
-          (watching it build creates ownership feeling)
-          ────────────────────────────────────────────────────────── */}
-      <section id="how" className="py-20">
-        <div className="max-w-4xl mx-auto px-6">
+          ═══════════════════════════════════════════════════════════ */}
+      <section id="how" className="bg-gray-50 py-20">
+        <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">Three steps. Zero spreadsheets.</h2>
-            <p className="text-gray-500">Set up once, generate every week. Watch it happen.</p>
+            <h2 className="text-2xl font-bold mb-3">See the whole product in action.</h2>
+            <p className="text-gray-500 max-w-lg mx-auto">
+              Schedule, time tracking, integrations, and reports — all working
+              together. Click any tab or let the demo run.
+            </p>
           </div>
-          <ScheduleDemo />
+          <ProductDemo />
         </div>
       </section>
 
-      {/* ──────────────────────────────────────────────────────────
-          SOCIAL PROOF — Psychology: Bandwagon Effect, Authority
-          Bias, Availability Heuristic (specific results)
+      {/* ═══════════════════════════════════════════════════════════
+          INTEGRATIONS
+          Psychology: Switching Costs, Status-Quo Bias
+          Copywriting: Benefit-first, specific tools named
+          ═══════════════════════════════════════════════════════════ */}
+      <section id="integrations" className="py-20">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold mb-3">
+              Stop tab-switching your workday.
+            </h2>
+            <p className="text-gray-500 max-w-lg mx-auto">
+              Your schedule, time tracking, messages, email, notes, and tasks —
+              all in one place. MyTime connects the tools you already use.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 max-w-4xl mx-auto">
+            <IntegrationCard
+              icon={MessageSquare}
+              name="Slack"
+              description="All workspaces, one inbox"
+              color="#E01E5A"
+            />
+            <IntegrationCard
+              icon={Mail}
+              name="Gmail"
+              description="Triage with kanban boards"
+              color="#EA4335"
+            />
+            <IntegrationCard
+              icon={BookOpen}
+              name="Notion"
+              description="Browse and search pages"
+              color="#000000"
+            />
+            <IntegrationCard
+              icon={Calendar}
+              name="Calendar"
+              description="iCal, Google, Outlook"
+              color="#4285F4"
+            />
+            <IntegrationCard
+              icon={Inbox}
+              name="ClickUp"
+              description="Triage tasks from ClickUp"
+              color="#7B68EE"
+            />
+            <IntegrationCard
+              icon={CheckCircle2}
+              name="More soon"
+              description="Suggest an integration"
+              color="#9CA3AF"
+            />
+          </div>
+          <p className="text-center text-xs text-gray-400 mt-6">
+            All integrations run inside MyTime — no context switching, no extra tabs.
+          </p>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════
+          SOCIAL PROOF
+          Psychology: Bandwagon Effect, Authority Bias
           Copywriting: Specific metrics > vague praise
-          ────────────────────────────────────────────────────────── */}
+          ═══════════════════════════════════════════════════════════ */}
       <section className="bg-gray-50 py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
@@ -377,7 +513,6 @@ export default async function LandingPage() {
             </h2>
           </div>
           <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {/* Copywriting: Specificity — concrete metrics in testimonials */}
             <TestimonialCard
               quote="I used to spend an hour every Sunday night in Notion. Now I hit generate and my entire week is done in 8 seconds. I actually look forward to Monday."
               name="Sarah K."
@@ -391,7 +526,7 @@ export default async function LandingPage() {
               metric="Recovered $2,250/mo in unbilled work"
             />
             <TestimonialCard
-              quote="I juggle 6 clients and MyTime is the only tool that actually understands what my week needs to look like. Deep work blocks are sacred again."
+              quote="Having Slack, email, and my schedule in one place means I don't lose 20 minutes every time I check a message. The focus mode is a game-changer."
               name="Priya R."
               role="UX Design Consultant, 5 clients"
               metric="3.5 hrs/day of protected deep work"
@@ -400,28 +535,10 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ──────────────────────────────────────────────────────────
-          HUB VALUE PROP — Psychology: Switching Costs (once
-          everything is here, they won't leave), Status-Quo Bias
-          (reduce friction of switching between tools)
-          Copywriting: Benefit-first, specific tools named
-          ────────────────────────────────────────────────────────── */}
-      <section className="py-16">
-        <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-xl font-bold mb-4">
-            Stop tab-switching your workday.
-          </h2>
-          <p className="text-sm text-gray-500 leading-relaxed max-w-lg mx-auto">
-            Your schedule, time tracking, client hours, calendar events,
-            email triage, Notion notes, and Slack messages — all in one place.
-            MyTime connects the tools you already use so you can stop bouncing
-            between apps and actually get to work.
-          </p>
-        </div>
-      </section>
-
-      {/* Extra features strip */}
-      <section className="border-y bg-gray-50 py-12">
+      {/* ═══════════════════════════════════════════════════════════
+          EXTRA FEATURES STRIP
+          ═══════════════════════════════════════════════════════════ */}
+      <section className="border-y py-12">
         <div className="max-w-4xl mx-auto px-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
             <div>
@@ -444,17 +561,57 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ──────────────────────────────────────────────────────────
-          CTA / WAITLIST — Launch Strategy: Phase 4 early access,
-          ORB framework (email = owned channel)
-          Psychology: Scarcity (early access pricing), Commitment &
-          Consistency (small ask → bigger commitment)
+      {/* ═══════════════════════════════════════════════════════════
+          FAQ — Objection handling
+          Psychology: Reduce uncertainty, build trust
+          ═══════════════════════════════════════════════════════════ */}
+      <section id="faq" className="py-20">
+        <div className="max-w-2xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold mb-3">Questions? Answers.</h2>
+          </div>
+          <div className="rounded-xl border bg-white divide-y">
+            <div className="px-6">
+              <FAQItem
+                q="Who is MyTime for?"
+                a="Freelancers, consultants, and independent contractors who juggle multiple clients. If you spend Sunday nights building next week's schedule in a spreadsheet or Notion, MyTime is for you."
+              />
+              <FAQItem
+                q="How does schedule generation work?"
+                a="You add your clients with their weekly hour targets, set your availability and breaks, and hit Generate. The engine allocates deep work blocks, support sweeps, admin time, and breaks — balanced by priority weights and daily-touch rules. It takes about 8 seconds."
+              />
+              <FAQItem
+                q="What integrations are available?"
+                a="Slack (multiple workspaces), Gmail (multiple accounts), Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), and ClickUp (task triage). All integrations run inside MyTime — no tab switching."
+              />
+              <FAQItem
+                q="Can I keep my existing schedule blocks when regenerating?"
+                a="Yes. Lock any block you like, and it survives regeneration. You can also keep manually-created blocks. The generator reshuffles everything else around your locked items."
+              />
+              <FAQItem
+                q="How does monthly cap tracking work?"
+                a="Set a monthly hour cap for each client. As you track time, progress bars show usage in real time. They turn yellow at 70% and red at 90%, so you never over-service without knowing."
+              />
+              <FAQItem
+                q="Is my data secure?"
+                a="Your data is stored on secure, encrypted servers. Auth is handled through magic link email — no passwords stored. Integration tokens are encrypted at rest. Only your authorized email can access your account."
+              />
+              <FAQItem
+                q="What does the free trial include?"
+                a="Everything. Full access to all features and integrations for 14 days. No credit card required to start. After the trial, choose a plan that fits your needs."
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════
+          CTA / WAITLIST
+          Psychology: Scarcity, Loss Aversion, Commitment
           Referral Program: Double-sided reward, queue jumping
-          Copywriting: Risk reversal, strong CTA formula
-          ────────────────────────────────────────────────────────── */}
-      <section id="waitlist" className="py-24">
+          ═══════════════════════════════════════════════════════════ */}
+      <section id="waitlist" className="bg-gray-50 py-24">
         <div className="max-w-2xl mx-auto px-6 text-center">
-          {/* Psychology: Loss Aversion in headline */}
           <h2 className="text-3xl font-bold mb-4">
             Every week without a plan is money left on the table.
           </h2>
@@ -471,7 +628,6 @@ export default async function LandingPage() {
               placeholder="you@example.com"
               className="flex-1 h-11 px-4 rounded-md border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
             />
-            {/* Copywriting: CTA = [Action] + [What they get] */}
             <button
               type="submit"
               className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-6 h-11 rounded-md hover:bg-gray-800 transition-colors text-sm shrink-0"
@@ -480,17 +636,14 @@ export default async function LandingPage() {
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
-          {/* Psychology: Risk reversal */}
           <div className="flex items-center justify-center gap-4 mt-4 text-xs text-gray-400">
             <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> 14-day free trial</span>
             <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> No credit card</span>
             <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Cancel anytime</span>
           </div>
 
-          {/* Referral Program: Double-sided reward, queue jumping
-              Trigger: right after waitlist signup (high-intent moment)
-              Incentive: both parties benefit (double-sided) */}
-          <div className="mt-12 p-6 rounded-xl border bg-gray-50 max-w-md mx-auto text-left">
+          {/* Referral Program */}
+          <div className="mt-12 p-6 rounded-xl border bg-white max-w-md mx-auto text-left">
             <div className="flex items-center gap-2 mb-3">
               <Users className="h-4 w-4 text-blue-600" />
               <p className="text-sm font-semibold">Skip the line</p>
@@ -509,15 +662,22 @@ export default async function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-8">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Clock className="h-4 w-4" />
-            <span>MyTime</span>
+      <footer className="border-t py-8 bg-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <Clock className="h-4 w-4" />
+              <span>MyTime</span>
+            </div>
+            <div className="flex items-center gap-6 text-xs text-gray-400">
+              <a href="#features" className="hover:text-gray-600 transition-colors">Features</a>
+              <a href="#integrations" className="hover:text-gray-600 transition-colors">Integrations</a>
+              <a href="#faq" className="hover:text-gray-600 transition-colors">FAQ</a>
+            </div>
+            <p className="text-xs text-gray-400">
+              Built for freelancers, by a freelancer.
+            </p>
           </div>
-          <p className="text-xs text-gray-400">
-            Built for freelancers, by a freelancer.
-          </p>
         </div>
       </footer>
     </div>
