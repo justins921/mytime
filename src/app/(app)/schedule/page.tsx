@@ -783,68 +783,99 @@ export default function SchedulePage() {
                         <span className="text-[10px] opacity-60 ml-1">All day</span>
                       </div>
                     ))}
-                  {isToday && currentTime && !isTimeOff && (
-                    <div className="text-xs text-red-500 font-mono mb-2 text-center">
-                      Now: {formatTime(currentTime)}
-                    </div>
-                  )}
                   {dayBlocks.length === 0 && !isTimeOff && (
-                    <p className="text-xs text-muted-foreground text-center py-4">No blocks</p>
-                  )}
-                  {dayBlocks.map((block) => (
-                    <div
-                      key={block.id}
-                      className={`p-2 rounded text-xs ${getBlockClass(block.type)} ${
-                        isPast(block) ? "block-past" : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-medium truncate">{block.title}</span>
-                        <button
-                          onClick={() => toggleLock(block)}
-                          className="shrink-0 opacity-60 hover:opacity-100"
-                          title={block.locked ? "Unlock" : "Lock"}
-                        >
-                          {block.locked ? (
-                            <Lock className="h-3 w-3" />
-                          ) : (
-                            <Unlock className="h-3 w-3" />
-                          )}
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[10px] opacity-75">
-                          {formatTime(block.startTime)} - {formatTime(block.endTime)}
-                        </span>
-                        {block.client && (
-                          <span
-                            className="inline-block w-2 h-2 rounded-full"
-                            style={{ backgroundColor: block.client.color }}
-                          />
-                        )}
-                      </div>
-                      {block.client && (
-                        <div className="mt-1">
-                          <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                            {block.client.name}
-                          </Badge>
-                          {block.project && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
-                              {block.project.name}
-                            </Badge>
-                          )}
+                    <>
+                      {isToday && currentTime && (
+                        <div className="current-time-line relative my-2">
+                          <span className="absolute -top-2.5 right-0 text-[10px] font-mono text-red-500 leading-none">
+                            {formatTime(currentTime)}
+                          </span>
                         </div>
                       )}
-                      {!block.locked && block.generated && (
-                        <button
-                          onClick={() => deleteBlock(block.id)}
-                          className="text-[10px] text-red-400 hover:text-red-600 mt-1"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                      <p className="text-xs text-muted-foreground text-center py-4">No blocks</p>
+                    </>
+                  )}
+                  {(() => {
+                    const nowMin = isToday && currentTime ? timeToMinutes(currentTime) : -1;
+                    const showLine = isToday && !!currentTime && !isTimeOff;
+                    // Insert the line before the first block that hasn't started yet
+                    const lineBeforeIdx = showLine
+                      ? dayBlocks.findIndex((b) => timeToMinutes(b.startTime) > nowMin)
+                      : -1;
+                    // If all blocks have started already, show line after all blocks
+                    const lineAfterAll = showLine && lineBeforeIdx === -1;
+
+                    const timeIndicator = (
+                      <div key="now-line" className="current-time-line relative my-1">
+                        <span className="absolute -top-2.5 right-0 text-[10px] font-mono text-red-500 leading-none">
+                          {formatTime(currentTime)}
+                        </span>
+                      </div>
+                    );
+
+                    return (
+                      <>
+                        {lineBeforeIdx === 0 && timeIndicator}
+                        {dayBlocks.map((block, idx) => (
+                          <div key={block.id}>
+                            <div
+                              className={`p-2 rounded text-xs ${getBlockClass(block.type)} ${
+                                isPast(block) ? "block-past" : ""
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-medium truncate">{block.title}</span>
+                                <button
+                                  onClick={() => toggleLock(block)}
+                                  className="shrink-0 opacity-60 hover:opacity-100"
+                                  title={block.locked ? "Unlock" : "Lock"}
+                                >
+                                  {block.locked ? (
+                                    <Lock className="h-3 w-3" />
+                                  ) : (
+                                    <Unlock className="h-3 w-3" />
+                                  )}
+                                </button>
+                              </div>
+                              <div className="flex items-center justify-between mt-1">
+                                <span className="text-[10px] opacity-75">
+                                  {formatTime(block.startTime)} - {formatTime(block.endTime)}
+                                </span>
+                                {block.client && (
+                                  <span
+                                    className="inline-block w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: block.client.color }}
+                                  />
+                                )}
+                              </div>
+                              {block.client && (
+                                <div className="mt-1">
+                                  <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                                    {block.client.name}
+                                  </Badge>
+                                  {block.project && (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
+                                      {block.project.name}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                              {!block.locked && block.generated && (
+                                <button
+                                  onClick={() => deleteBlock(block.id)}
+                                  className="text-[10px] text-red-400 hover:text-red-600 mt-1"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            {lineBeforeIdx === idx + 1 && timeIndicator}
+                          </div>
+                        ))}
+                        {lineAfterAll && timeIndicator}
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
