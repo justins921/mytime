@@ -159,6 +159,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Verify the project belongs to the user through client
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, client: { id: clientId, userId: user.id } },
+  });
+  if (!project) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
   // Create a MyTime task from the ClickUp task
   const task = await prisma.task.create({
     data: {
