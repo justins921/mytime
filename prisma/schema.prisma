@@ -75,6 +75,7 @@ model Client {
   scheduleBlocks        ScheduleBlock[]
   timeEntries           TimeEntry[]
   slackWorkspaces       SlackWorkspace[]
+  gmailAccounts         GmailAccount[]
 }
 
 model Project {
@@ -166,6 +167,37 @@ model SlackWorkspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+}
+
+model GmailAccount {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  accessToken  String
+  refreshToken String
+  expiresAt    Int?        // Unix timestamp (seconds)
+  scope        String      @default("")
+  clientId     String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  client       Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  emailCards   EmailCard[]
+}
+
+model EmailCard {
+  id             String       @id @default(cuid())
+  gmailMessageId String
+  accountId      String
+  subject        String       @default("")
+  fromAddress    String       @default("")
+  snippet        String       @default("")
+  receivedAt     DateTime?
+  status         String       @default("Todo") // Todo | InProgress | Done
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  account        GmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([gmailMessageId, accountId])
 }
 
 model Settings {

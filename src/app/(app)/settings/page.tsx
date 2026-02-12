@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Trash2, ExternalLink } from "lucide-react";
+import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink } from "lucide-react";
 
 interface AvailabilityWindow {
   start: string;
@@ -62,6 +62,10 @@ export default function SettingsPage() {
     { id: string; teamId: string; teamName: string; clientId: string | null; client: { id: string; name: string; color: string } | null }[]
   >([]);
   const [slackMessage, setSlackMessage] = useState("");
+  const [gmailAccounts, setGmailAccounts] = useState<
+    { id: string; email: string; clientId: string | null; client: { id: string; name: string; color: string } | null }[]
+  >([]);
+  const [gmailMessage, setGmailMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -87,15 +91,27 @@ export default function SettingsPage() {
     fetch("/api/slack/workspaces")
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setSlackWorkspaces(data); });
+    fetch("/api/gmail/accounts")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setGmailAccounts(data); });
     // Handle OAuth redirect params
     const params = new URLSearchParams(window.location.search);
     const slackConnected = params.get("slack_connected");
     const slackError = params.get("slack_error");
+    const gmailConnected = params.get("gmail_connected");
+    const gmailError = params.get("gmail_error");
     if (slackConnected) {
       setSlackMessage(`Connected to ${slackConnected}!`);
       window.history.replaceState({}, "", "/settings");
     } else if (slackError) {
       setSlackMessage(`Slack error: ${slackError}`);
+      window.history.replaceState({}, "", "/settings");
+    }
+    if (gmailConnected) {
+      setGmailMessage(`Connected ${gmailConnected}!`);
+      window.history.replaceState({}, "", "/settings");
+    } else if (gmailError) {
+      setGmailMessage(`Gmail error: ${gmailError}`);
       window.history.replaceState({}, "", "/settings");
     }
   }, []);
@@ -528,6 +544,93 @@ export default function SettingsPage() {
                         body: JSON.stringify({ id: ws.id }),
                       });
                       setSlackWorkspaces((prev) => prev.filter((w) => w.id !== ws.id));
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Gmail integration */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Gmail Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {gmailMessage && (
+            <p className={`text-xs ${gmailMessage.includes("error") ? "text-red-600" : "text-green-600"}`}>
+              {gmailMessage}
+            </p>
+          )}
+
+          <div className="space-y-1">
+            <p className="text-[10px] text-muted-foreground">
+              Connect your Gmail accounts and map them to clients. Emails will be available in your unified inbox and kanban board.
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              Requires <code className="bg-muted px-1 rounded">GOOGLE_CLIENT_ID</code> and <code className="bg-muted px-1 rounded">GOOGLE_CLIENT_SECRET</code> env vars from Google Cloud Console.
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { window.location.href = "/api/gmail/oauth"; }}
+          >
+            <ExternalLink className="h-3.5 w-3.5 mr-1" />
+            Connect Gmail Account
+          </Button>
+
+          {gmailAccounts.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-xs">Connected Accounts</Label>
+              {gmailAccounts.map((acct) => (
+                <div key={acct.id} className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium w-48 truncate">{acct.email}</span>
+                  <span className="text-xs text-muted-foreground">&rarr;</span>
+                  <Select
+                    value={acct.clientId || "none"}
+                    onValueChange={async (v) => {
+                      const clientId = v === "none" ? null : v;
+                      const res = await fetch("/api/gmail/accounts", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: acct.id, clientId }),
+                      });
+                      const updated = await res.json();
+                      setGmailAccounts((prev) =>
+                        prev.map((a) => (a.id === acct.id ? { ...a, clientId: updated.clientId, client: updated.client } : a))
+                      );
+                    }}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Select client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No client</SelectItem>
+                      {allClients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={async () => {
+                      await fetch("/api/gmail/accounts", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: acct.id }),
+                      });
+                      setGmailAccounts((prev) => prev.filter((a) => a.id !== acct.id));
                     }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
