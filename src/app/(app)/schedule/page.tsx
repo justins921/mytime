@@ -805,13 +805,13 @@ export default function SchedulePage() {
                     // If all blocks have started already, show line after all blocks
                     const lineAfterAll = showLine && lineBeforeIdx === -1;
 
-                    const timeIndicator = (
+                    const timeIndicator = showLine ? (
                       <div key="now-line" className="current-time-line relative my-1">
                         <span className="absolute -top-2.5 right-0 text-[10px] font-mono text-red-500 leading-none">
                           {formatTime(currentTime)}
                         </span>
                       </div>
-                    );
+                    ) : null;
 
                     return (
                       <>
