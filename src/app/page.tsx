@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { ProductDemo } from "@/components/product-demo";
+import { WaitlistForm } from "@/components/waitlist-form";
+import { StickyCTA } from "@/components/sticky-cta";
+import { ScheduleCalculator } from "@/components/schedule-calculator";
 import {
   Calendar,
   Clock,
@@ -12,6 +15,7 @@ import {
   Timer,
   CalendarClock,
   CheckCircle2,
+  Check,
   Star,
   MessageSquare,
   Mail,
@@ -168,6 +172,7 @@ export default async function LandingPage() {
           <div className="hidden sm:flex items-center gap-6 text-sm text-gray-500">
             <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
             <a href="#how" className="hover:text-gray-900 transition-colors">How it works</a>
+            <a href="#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
             <a href="#integrations" className="hover:text-gray-900 transition-colors">Integrations</a>
             <a href="#faq" className="hover:text-gray-900 transition-colors">FAQ</a>
           </div>
@@ -536,36 +541,128 @@ export default async function LandingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
-          EXTRA FEATURES STRIP
+          PRICING — pricing-strategy skill
+          Good-Better-Best tiers, anchoring, decoy effect
+          Psychology: Anchoring (show Pro first), charm pricing
           ═══════════════════════════════════════════════════════════ */}
-      <section className="border-y py-12">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-            <div>
-              <Shield className="h-5 w-5 mx-auto mb-2 text-gray-500" />
-              <p className="text-xs font-medium">Lock blocks you love</p>
+      <section id="pricing" className="border-y py-20">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold mb-3">
+              Simple pricing. No surprises.
+            </h2>
+            <p className="text-gray-500 max-w-md mx-auto">
+              Start free. Upgrade when it pays for itself — and it will.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {/* Starter */}
+            <div className="p-6 rounded-xl border bg-white">
+              <h3 className="font-semibold mb-1">Starter</h3>
+              <p className="text-xs text-gray-500 mb-4">For getting started</p>
+              <div className="mb-4">
+                <span className="text-3xl font-bold">$0</span>
+                <span className="text-sm text-gray-400">/mo</span>
+              </div>
+              <ul className="space-y-2 mb-6 text-sm text-gray-600">
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Up to 2 clients</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Schedule generation</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Time tracking</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Basic reports</li>
+              </ul>
+              <a
+                href="#waitlist"
+                className="block text-center px-4 py-2.5 rounded-md border font-medium text-sm hover:bg-gray-50 transition-colors"
+              >
+                Start Free
+              </a>
             </div>
-            <div>
-              <Timer className="h-5 w-5 mx-auto mb-2 text-gray-500" />
-              <p className="text-xs font-medium">Built-in time tracking</p>
+            {/* Pro — recommended, anchoring via visual prominence */}
+            <div className="p-6 rounded-xl border-2 border-gray-900 bg-white relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gray-900 text-white text-[10px] font-semibold rounded-full">
+                Most Popular
+              </div>
+              <h3 className="font-semibold mb-1">Pro</h3>
+              <p className="text-xs text-gray-500 mb-4">For active freelancers</p>
+              <div className="mb-1">
+                <span className="text-3xl font-bold">$19</span>
+                <span className="text-sm text-gray-400">/mo</span>
+              </div>
+              <p className="text-[10px] text-gray-400 mb-4">
+                or $15/mo billed annually (save 20%)
+              </p>
+              <ul className="space-y-2 mb-6 text-sm text-gray-600">
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Unlimited clients</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> All integrations (Slack, Gmail, Notion, Calendar, ClickUp)</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Monthly cap tracking</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Task management + kanban</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Client notes</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> CSV export</li>
+              </ul>
+              <a
+                href="#waitlist"
+                className="block text-center px-4 py-2.5 rounded-md bg-gray-900 text-white font-medium text-sm hover:bg-gray-800 transition-colors"
+              >
+                Get Early Access
+              </a>
             </div>
-            <div>
-              <Calendar className="h-5 w-5 mx-auto mb-2 text-gray-500" />
-              <p className="text-xs font-medium">Time-off management</p>
-            </div>
-            <div>
-              <Users className="h-5 w-5 mx-auto mb-2 text-gray-500" />
-              <p className="text-xs font-medium">Work / Personal modes</p>
+            {/* Business */}
+            <div className="p-6 rounded-xl border bg-white">
+              <h3 className="font-semibold mb-1">Business</h3>
+              <p className="text-xs text-gray-500 mb-4">For agencies &amp; power users</p>
+              <div className="mb-1">
+                <span className="text-3xl font-bold">$39</span>
+                <span className="text-sm text-gray-400">/mo</span>
+              </div>
+              <p className="text-[10px] text-gray-400 mb-4">
+                or $29/mo billed annually (save 25%)
+              </p>
+              <ul className="space-y-2 mb-6 text-sm text-gray-600">
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Everything in Pro</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Priority support</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Advanced reports &amp; analytics</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> API access</li>
+                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Custom integrations</li>
+              </ul>
+              <a
+                href="#waitlist"
+                className="block text-center px-4 py-2.5 rounded-md border font-medium text-sm hover:bg-gray-50 transition-colors"
+              >
+                Get Early Access
+              </a>
             </div>
           </div>
+          <p className="text-center text-xs text-gray-400 mt-6">
+            All plans include a 14-day free trial. No credit card required.
+          </p>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════
+          FREE TOOL — free-tool-strategy skill
+          Adjacent to core product, ungated, drives signups
+          ═══════════════════════════════════════════════════════════ */}
+      <section id="calculator" className="py-20">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold mb-3">
+              How does your week actually stack up?
+            </h2>
+            <p className="text-gray-500 max-w-lg mx-auto">
+              Plug in your clients and see your utilization, revenue, and time
+              breakdown — free, no signup required.
+            </p>
+          </div>
+          <ScheduleCalculator />
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
           FAQ — Objection handling
           Psychology: Reduce uncertainty, build trust
+          page-cro: Address price/value, implementation, trust
           ═══════════════════════════════════════════════════════════ */}
-      <section id="faq" className="py-20">
+      <section id="faq" className="bg-gray-50 py-20">
         <div className="max-w-2xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold mb-3">Questions? Answers.</h2>
@@ -593,12 +690,20 @@ export default async function LandingPage() {
                 a="Set a monthly hour cap for each client. As you track time, progress bars show usage in real time. They turn yellow at 70% and red at 90%, so you never over-service without knowing."
               />
               <FAQItem
+                q="Is there a free plan?"
+                a="Yes. The Starter plan is free forever with up to 2 clients, schedule generation, time tracking, and basic reports. No credit card needed. Upgrade to Pro when you need unlimited clients and integrations."
+              />
+              <FAQItem
                 q="Is my data secure?"
                 a="Your data is stored on secure, encrypted servers. Auth is handled through magic link email — no passwords stored. Integration tokens are encrypted at rest. Only your authorized email can access your account."
               />
               <FAQItem
                 q="What does the free trial include?"
-                a="Everything. Full access to all features and integrations for 14 days. No credit card required to start. After the trial, choose a plan that fits your needs."
+                a="Full access to all Pro features and integrations for 14 days. No credit card required. If you don't upgrade, you keep your data and drop down to the free Starter plan."
+              />
+              <FAQItem
+                q="Can I cancel anytime?"
+                a="Yes, no contracts or commitments. Cancel from your settings in two clicks. Your data stays accessible on the Starter plan after cancellation."
               />
             </div>
           </div>
@@ -606,44 +711,25 @@ export default async function LandingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
-          CTA / WAITLIST
-          Psychology: Scarcity, Loss Aversion, Commitment
-          Referral Program: Double-sided reward, queue jumping
+          CTA / WAITLIST — Upgraded form with CRO best practices
+          form-cro: email only, inline validation, typo detection,
+          success state, trust signals near submit
+          signup-flow-cro: progressive commitment, value before ask
+          referral-program: double-sided reward, queue jumping
           ═══════════════════════════════════════════════════════════ */}
-      <section id="waitlist" className="bg-gray-50 py-24">
+      <section id="waitlist" className="py-24">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-bold mb-4">
             Every week without a plan is money left on the table.
           </h2>
-          <p className="text-gray-500 mb-2 max-w-md mx-auto">
+          <p className="text-gray-500 mb-8 max-w-md mx-auto">
             Join the waitlist for early access. Early members lock in
             launch pricing and get first access as we roll out invites.
           </p>
-          <form
-            className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto mt-8"
-            action="#waitlist"
-          >
-            <input
-              type="email"
-              placeholder="you@example.com"
-              className="flex-1 h-11 px-4 rounded-md border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-            />
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-6 h-11 rounded-md hover:bg-gray-800 transition-colors text-sm shrink-0"
-            >
-              Join the Waitlist
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </form>
-          <div className="flex items-center justify-center gap-4 mt-4 text-xs text-gray-400">
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> 14-day free trial</span>
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> No credit card</span>
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Cancel anytime</span>
-          </div>
+          <WaitlistForm />
 
           {/* Referral Program */}
-          <div className="mt-12 p-6 rounded-xl border bg-white max-w-md mx-auto text-left">
+          <div className="mt-12 p-6 rounded-xl border bg-gray-50 max-w-md mx-auto text-left">
             <div className="flex items-center gap-2 mb-3">
               <Users className="h-4 w-4 text-blue-600" />
               <p className="text-sm font-semibold">Skip the line</p>
@@ -671,7 +757,9 @@ export default async function LandingPage() {
             </div>
             <div className="flex items-center gap-6 text-xs text-gray-400">
               <a href="#features" className="hover:text-gray-600 transition-colors">Features</a>
+              <a href="#pricing" className="hover:text-gray-600 transition-colors">Pricing</a>
               <a href="#integrations" className="hover:text-gray-600 transition-colors">Integrations</a>
+              <a href="#calculator" className="hover:text-gray-600 transition-colors">Calculator</a>
               <a href="#faq" className="hover:text-gray-600 transition-colors">FAQ</a>
             </div>
             <p className="text-xs text-gray-400">
@@ -680,6 +768,9 @@ export default async function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Sticky mobile CTA — page-cro: always-visible conversion path */}
+      <StickyCTA />
     </div>
   );
 }
