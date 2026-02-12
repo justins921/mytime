@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Calendar, Zap } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Calendar, Zap, Play, RotateCcw } from "lucide-react";
 
-// Demo phases: configure → generate → track
-type Phase = "idle" | "configure" | "generate" | "track";
+type Phase = "waiting" | "configure" | "generate" | "track";
 
 const CLIENTS = [
   { name: "Acme Corp", color: "#3b82f6", hours: "20 hrs/wk" },
@@ -24,77 +23,80 @@ const BLOCKS = [
 ];
 
 export function ScheduleDemo() {
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<Phase>("waiting");
   const [visibleClients, setVisibleClients] = useState(0);
   const [visibleBlocks, setVisibleBlocks] = useState(0);
   const [showIndicator, setShowIndicator] = useState(false);
   const [indicatorProgress, setIndicatorProgress] = useState(0);
-  const [isVisible, setIsVisible] = useState(false);
-  const [hasPlayed, setHasPlayed] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const timersRef = useRef<NodeJS.Timeout[]>([]);
 
-  // Intersection observer to trigger on scroll
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasPlayed) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.4 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasPlayed]);
+  const clearTimers = () => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  };
 
-  // Run the animation sequence when visible
-  useEffect(() => {
-    if (!isVisible || hasPlayed) return;
-    setHasPlayed(true);
+  const startDemo = useCallback(() => {
+    if (playing) return;
+    clearTimers();
+    setPlaying(true);
 
-    // Phase 1: Configure — clients slide in one by one
-    const t1 = setTimeout(() => setPhase("configure"), 400);
-    const t2 = setTimeout(() => setVisibleClients(1), 800);
-    const t3 = setTimeout(() => setVisibleClients(2), 1200);
-    const t4 = setTimeout(() => setVisibleClients(3), 1600);
-
-    // Phase 2: Generate — blocks cascade in
-    const t5 = setTimeout(() => setPhase("generate"), 2600);
-    const blockTimers: NodeJS.Timeout[] = [];
-    for (let i = 0; i < BLOCKS.length; i++) {
-      blockTimers.push(setTimeout(() => setVisibleBlocks(i + 1), 3000 + i * 180));
-    }
-
-    // Phase 3: Track — time indicator appears and moves
-    const t6 = setTimeout(() => {
-      setPhase("track");
-      setShowIndicator(true);
-      setIndicatorProgress(15);
-    }, 4800);
-    const t7 = setTimeout(() => setIndicatorProgress(45), 5400);
-    const t8 = setTimeout(() => setIndicatorProgress(70), 6200);
-
-    return () => {
-      [t1, t2, t3, t4, t5, t6, t7, t8, ...blockTimers].forEach(clearTimeout);
-    };
-  }, [isVisible, hasPlayed]);
-
-  // Replay
-  const replay = () => {
-    setPhase("idle");
+    // Reset everything
+    setPhase("waiting");
     setVisibleClients(0);
     setVisibleBlocks(0);
     setShowIndicator(false);
     setIndicatorProgress(0);
-    setHasPlayed(false);
-    setIsVisible(false);
-    // Re-trigger after reset
-    setTimeout(() => {
-      setIsVisible(true);
-    }, 100);
-  };
+
+    const t = (fn: () => void, ms: number) => {
+      const id = setTimeout(fn, ms);
+      timersRef.current.push(id);
+    };
+
+    // Phase 1: Configure — clients slide in
+    t(() => setPhase("configure"), 300);
+    t(() => setVisibleClients(1), 700);
+    t(() => setVisibleClients(2), 1100);
+    t(() => setVisibleClients(3), 1500);
+
+    // Phase 2: Generate — blocks cascade in
+    t(() => setPhase("generate"), 2500);
+    for (let i = 0; i < BLOCKS.length; i++) {
+      t(() => setVisibleBlocks(i + 1), 2900 + i * 180);
+    }
+
+    // Phase 3: Track — indicator appears and moves
+    t(() => {
+      setPhase("track");
+      setShowIndicator(true);
+      setIndicatorProgress(15);
+    }, 4700);
+    t(() => setIndicatorProgress(45), 5300);
+    t(() => setIndicatorProgress(70), 6100);
+    t(() => setPlaying(false), 7000);
+  }, [playing]);
+
+  // Auto-play when scrolled into view (low threshold for reliability)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let fired = false;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !fired) {
+          fired = true;
+          observer.disconnect();
+          startDemo();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => () => clearTimers(), []);
 
   const activeStep =
     phase === "configure" ? 1 : phase === "generate" ? 2 : phase === "track" ? 3 : 0;
@@ -189,7 +191,7 @@ export function ScheduleDemo() {
           </div>
 
           {/* Right panel — schedule */}
-          <div className="flex-1 p-3">
+          <div className="flex-1 p-3 relative">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Calendar className="h-3.5 w-3.5 text-gray-400" />
@@ -203,22 +205,30 @@ export function ScheduleDemo() {
             </div>
 
             {visibleBlocks === 0 && (
-              <div className="flex items-center justify-center h-64 text-xs text-gray-300">
-                {visibleClients === 3 ? "Ready to generate..." : "Add clients to get started"}
+              <div className="flex flex-col items-center justify-center h-64 gap-3">
+                {phase === "waiting" ? (
+                  <button
+                    onClick={startDemo}
+                    className="flex items-center gap-2 px-4 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-600 transition-colors"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    Watch the demo
+                  </button>
+                ) : (
+                  <span className="text-xs text-gray-300">
+                    {visibleClients === 3 ? "Ready to generate..." : "Add clients to get started"}
+                  </span>
+                )}
               </div>
             )}
 
             <div className="space-y-1">
               {BLOCKS.slice(0, visibleBlocks).map((block, idx) => {
-                const isActiveBlock = phase === "track" && idx === 2; // "Natalie Design Deep Work"
+                const isActiveBlock = phase === "track" && idx === 2;
                 return (
                   <div
                     key={idx}
-                    className="transition-all duration-300 relative"
-                    style={{
-                      opacity: 1,
-                      animation: `slideIn 0.3s ease-out`,
-                    }}
+                    style={{ animation: "slideIn 0.3s ease-out" }}
                   >
                     <div
                       className="p-2 rounded text-xs relative overflow-visible"
@@ -240,7 +250,6 @@ export function ScheduleDemo() {
                       </div>
                       <div className="text-[10px] opacity-75 mt-0.5">{block.time}</div>
 
-                      {/* Time indicator inside active block */}
                       {isActiveBlock && showIndicator && (
                         <div
                           className="absolute left-0 right-0 h-[2px] bg-red-500 z-10"
@@ -265,16 +274,17 @@ export function ScheduleDemo() {
       </div>
 
       {/* Replay */}
-      {phase === "track" && (
-        <div className="text-center mt-4">
+      <div className="text-center mt-4 h-6">
+        {phase === "track" && !playing && (
           <button
-            onClick={replay}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={startDemo}
+            className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
           >
+            <RotateCcw className="h-3 w-3" />
             Replay demo
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
