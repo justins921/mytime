@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +117,8 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("work");
   const [availabilityWindows, setAvailabilityWindows] = useState<Record<string, AvailabilityWindow>>({});
   const [autoDetect, setAutoDetect] = useState(true);
+  const activeBlockRef = useRef<HTMLDivElement>(null);
+  const hasScrolled = useRef(false);
 
   const weekDates = getWeekDates(
     new Date(Date.now() + weekOffset * 7 * 24 * 60 * 60 * 1000)
@@ -230,9 +232,19 @@ export default function SchedulePage() {
       setToday(now.toLocaleDateString("en-CA", { timeZone: "America/Chicago" }));
     }
     tick();
-    const interval = setInterval(tick, 30000);
+    const interval = setInterval(tick, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-scroll to active block on initial load
+  useEffect(() => {
+    if (!hasScrolled.current && activeBlockRef.current && currentTime) {
+      hasScrolled.current = true;
+      setTimeout(() => {
+        activeBlockRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  }, [currentTime, blocks]);
 
   // Auto-detect work vs personal view based on current time and availability
   useEffect(() => {
@@ -798,15 +810,27 @@ export default function SchedulePage() {
                   {(() => {
                     const nowMin = isToday && currentTime ? timeToMinutes(currentTime) : -1;
                     const showLine = isToday && !!currentTime && !isTimeOff;
-                    // Insert the line before the first block that hasn't started yet
-                    const lineBeforeIdx = showLine
+
+                    // Find block that contains current time
+                    const activeIdx = showLine
+                      ? dayBlocks.findIndex((b) =>
+                          timeToMinutes(b.startTime) <= nowMin && nowMin < timeToMinutes(b.endTime))
+                      : -1;
+
+                    // If not inside any block, find the gap position
+                    const gapIdx = showLine && activeIdx === -1
                       ? dayBlocks.findIndex((b) => timeToMinutes(b.startTime) > nowMin)
                       : -1;
-                    // If all blocks have started already, show line after all blocks
-                    const lineAfterAll = showLine && lineBeforeIdx === -1;
+                    const gapAfterAll = showLine && activeIdx === -1 && gapIdx === -1;
 
-                    const timeIndicator = showLine ? (
-                      <div key="now-line" className="current-time-line relative my-1">
+                    // Progress through active block (0 to 1)
+                    const progress = activeIdx !== -1
+                      ? (nowMin - timeToMinutes(dayBlocks[activeIdx].startTime)) /
+                        (timeToMinutes(dayBlocks[activeIdx].endTime) - timeToMinutes(dayBlocks[activeIdx].startTime))
+                      : 0;
+
+                    const gapLine = showLine ? (
+                      <div key="now-gap" className="current-time-line relative my-1">
                         <span className="absolute -top-2.5 right-0 text-[10px] font-mono text-red-500 leading-none">
                           {formatTime(currentTime)}
                         </span>
@@ -815,64 +839,78 @@ export default function SchedulePage() {
 
                     return (
                       <>
-                        {lineBeforeIdx === 0 && timeIndicator}
-                        {dayBlocks.map((block, idx) => (
-                          <div key={block.id}>
-                            <div
-                              className={`p-2 rounded text-xs ${getBlockClass(block.type)} ${
-                                isPast(block) ? "block-past" : ""
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1">
-                                <span className="font-medium truncate">{block.title}</span>
-                                <button
-                                  onClick={() => toggleLock(block)}
-                                  className="shrink-0 opacity-60 hover:opacity-100"
-                                  title={block.locked ? "Unlock" : "Lock"}
-                                >
-                                  {block.locked ? (
-                                    <Lock className="h-3 w-3" />
-                                  ) : (
-                                    <Unlock className="h-3 w-3" />
-                                  )}
-                                </button>
-                              </div>
-                              <div className="flex items-center justify-between mt-1">
-                                <span className="text-[10px] opacity-75">
-                                  {formatTime(block.startTime)} - {formatTime(block.endTime)}
-                                </span>
-                                {block.client && (
-                                  <span
-                                    className="inline-block w-2 h-2 rounded-full"
-                                    style={{ backgroundColor: block.client.color }}
-                                  />
-                                )}
-                              </div>
-                              {block.client && (
-                                <div className="mt-1">
-                                  <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                                    {block.client.name}
-                                  </Badge>
-                                  {block.project && (
-                                    <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
-                                      {block.project.name}
-                                    </Badge>
+                        {gapIdx === 0 && gapLine}
+                        {dayBlocks.map((block, idx) => {
+                          const isActive = activeIdx === idx;
+                          return (
+                            <div key={block.id} ref={isActive ? activeBlockRef : undefined}>
+                              <div
+                                className={`p-2 rounded text-xs relative overflow-visible ${getBlockClass(block.type)} ${
+                                  isPast(block) ? "block-past" : ""
+                                } ${isActive ? "block-active" : ""}`}
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="font-medium truncate">{block.title}</span>
+                                  <button
+                                    onClick={() => toggleLock(block)}
+                                    className="shrink-0 opacity-60 hover:opacity-100"
+                                    title={block.locked ? "Unlock" : "Lock"}
+                                  >
+                                    {block.locked ? (
+                                      <Lock className="h-3 w-3" />
+                                    ) : (
+                                      <Unlock className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                </div>
+                                <div className="flex items-center justify-between mt-1">
+                                  <span className="text-[10px] opacity-75">
+                                    {formatTime(block.startTime)} - {formatTime(block.endTime)}
+                                  </span>
+                                  {block.client && (
+                                    <span
+                                      className="inline-block w-2 h-2 rounded-full"
+                                      style={{ backgroundColor: block.client.color }}
+                                    />
                                   )}
                                 </div>
-                              )}
-                              {!block.locked && block.generated && (
-                                <button
-                                  onClick={() => deleteBlock(block.id)}
-                                  className="text-[10px] text-red-400 hover:text-red-600 mt-1"
-                                >
-                                  Remove
-                                </button>
-                              )}
+                                {block.client && (
+                                  <div className="mt-1">
+                                    <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                                      {block.client.name}
+                                    </Badge>
+                                    {block.project && (
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">
+                                        {block.project.name}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                                {!block.locked && block.generated && (
+                                  <button
+                                    onClick={() => deleteBlock(block.id)}
+                                    className="text-[10px] text-red-400 hover:text-red-600 mt-1"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                                {/* Current time indicator positioned within active block */}
+                                {isActive && (
+                                  <div
+                                    className="current-time-line"
+                                    style={{ top: `${progress * 100}%`, transition: "top 10s linear" }}
+                                  >
+                                    <span className="absolute -top-2.5 right-0 text-[10px] font-mono text-red-500 leading-none">
+                                      {formatTime(currentTime)}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              {gapIdx === idx + 1 && gapLine}
                             </div>
-                            {lineBeforeIdx === idx + 1 && timeIndicator}
-                          </div>
-                        ))}
-                        {lineAfterAll && timeIndicator}
+                          );
+                        })}
+                        {gapAfterAll && gapLine}
                       </>
                     );
                   })()}

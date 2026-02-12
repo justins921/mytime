@@ -111,6 +111,11 @@ body {
 .notion-content del { text-decoration: line-through; }
 .notion-content input[type="checkbox"] { margin-right: 0.4rem; }
 
+/* Active block glow */
+.block-active {
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3), 0 0 8px rgba(239, 68, 68, 0.15);
+}
+
 /* Current time indicator */
 .current-time-line {
   position: absolute;
@@ -119,6 +124,7 @@ body {
   height: 2px;
   background-color: #ef4444;
   z-index: 10;
+  pointer-events: none;
 }
 .current-time-line::before {
   content: '';
