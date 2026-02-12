@@ -426,20 +426,21 @@ export default async function LandingPage() {
       </section>
 
       {/* ──────────────────────────────────────────────────────────
-          PRATFALL + HONESTY — Psychology: Pratfall Effect
-          (admitting limits builds trust), Unity Principle
-          Copywriting: Honest > sensational
+          HUB VALUE PROP — Psychology: Switching Costs (once
+          everything is here, they won't leave), Status-Quo Bias
+          (reduce friction of switching between tools)
+          Copywriting: Benefit-first, specific tools named
           ────────────────────────────────────────────────────────── */}
       <section className="py-16">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-xl font-bold mb-4">
-            MyTime is not a project management tool.
+            Stop tab-switching your workday.
           </h2>
           <p className="text-sm text-gray-500 leading-relaxed max-w-lg mx-auto">
-            It won&apos;t replace Notion, Linear, or Asana. It does one thing:
-            it takes your clients, availability, and hour targets and builds
-            you the best possible week. Then it gets out of your way and
-            lets you work.
+            Your schedule, time tracking, client hours, calendar events,
+            email triage, Notion notes, and Slack messages — all in one place.
+            MyTime connects the tools you already use so you can stop bouncing
+            between apps and actually get to work.
           </p>
         </div>
       </section>
