@@ -3,20 +3,20 @@ import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
-  const isLoginPage = req.nextUrl.pathname === "/login";
-  const isLandingPage = req.nextUrl.pathname === "/";
-  const isAuthApi = req.nextUrl.pathname.startsWith("/api/auth");
+  const { pathname } = req.nextUrl;
+  const isPublicPage = pathname === "/" || pathname === "/login" || pathname === "/signup";
+  const isAuthApi = pathname.startsWith("/api/auth");
 
   if (isAuthApi) {
     return NextResponse.next();
   }
 
-  if (!isLoggedIn && !isLoginPage && !isLandingPage) {
+  if (!isLoggedIn && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  if (isLoggedIn && isLoginPage) {
-    return NextResponse.redirect(new URL("/", req.url));
+  if (isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
+    return NextResponse.redirect(new URL("/schedule", req.url));
   }
 
   return NextResponse.next();

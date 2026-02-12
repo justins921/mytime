@@ -17,8 +17,10 @@ import {
   Mail,
   StickyNote,
   BookOpen,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 
 const navItems = [
   { href: "/schedule", label: "Schedule", icon: Calendar },
@@ -89,6 +91,15 @@ export function Sidebar() {
             );
           })}
         </nav>
+        <div className="absolute bottom-0 left-0 right-0 p-2 border-t">
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        </div>
       </aside>
     </>
   );

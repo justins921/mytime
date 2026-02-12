@@ -10,6 +10,8 @@ const links = [
   { href: "#integrations", label: "Integrations" },
   { href: "#calculator", label: "Calculator" },
   { href: "#faq", label: "FAQ" },
+  { href: "/login", label: "Sign in" },
+  { href: "/signup", label: "Create account" },
 ];
 
 export function MobileNav() {

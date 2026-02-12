@@ -28,10 +28,10 @@ export function StickyCTA() {
       style={{ animation: "slideUp 0.3s ease-out" }}
     >
       <a
-        href="#waitlist"
+        href="/signup"
         className="flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-6 py-3 rounded-md text-sm w-full"
       >
-        Get Early Access
+        Start Free Trial
         <ArrowRight className="h-4 w-4" />
       </a>
     </div>

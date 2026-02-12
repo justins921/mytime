@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { ProductDemo } from "@/components/product-demo";
-import { WaitlistForm } from "@/components/waitlist-form";
 import { StickyCTA } from "@/components/sticky-cta";
 import { ScheduleCalculator } from "@/components/schedule-calculator";
 import { MobileNav } from "@/components/mobile-nav";
@@ -192,7 +191,7 @@ export default async function LandingPage() {
                   Sign in
                 </Link>
                 <a
-                  href="#waitlist"
+                  href="/signup"
                   className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-gray-800 transition-colors"
                 >
                   Get Early Access
@@ -229,7 +228,7 @@ export default async function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a
-                href="#waitlist"
+                href="/signup"
                 className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-6 py-3 rounded-md hover:bg-gray-800 transition-colors text-sm"
               >
                 Get Early Access
@@ -573,7 +572,7 @@ export default async function LandingPage() {
                 <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Basic reports</li>
               </ul>
               <a
-                href="#waitlist"
+                href="/signup"
                 className="block text-center px-4 py-2.5 rounded-md border font-medium text-sm hover:bg-gray-50 transition-colors"
               >
                 Start Free
@@ -602,7 +601,7 @@ export default async function LandingPage() {
                 <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> CSV export</li>
               </ul>
               <a
-                href="#waitlist"
+                href="/signup"
                 className="block text-center px-4 py-2.5 rounded-md bg-gray-900 text-white font-medium text-sm hover:bg-gray-800 transition-colors"
               >
                 Get Early Access
@@ -627,7 +626,7 @@ export default async function LandingPage() {
                 <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Custom integrations</li>
               </ul>
               <a
-                href="#waitlist"
+                href="/signup"
                 className="block text-center px-4 py-2.5 rounded-md border font-medium text-sm hover:bg-gray-50 transition-colors"
               >
                 Get Early Access
@@ -719,27 +718,45 @@ export default async function LandingPage() {
           signup-flow-cro: progressive commitment, value before ask
           referral-program: double-sided reward, queue jumping
           ═══════════════════════════════════════════════════════════ */}
-      <section id="waitlist" className="py-24">
+      <section id="signup" className="py-24">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-bold mb-4">
             Every week without a plan is money left on the table.
           </h2>
           <p className="text-gray-500 mb-8 max-w-md mx-auto">
-            Join the waitlist for early access. Early members lock in
-            launch pricing and get first access as we roll out invites.
+            Start your 14-day free trial today. No credit card required.
           </p>
-          <WaitlistForm />
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
+            <a
+              href="/signup"
+              className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-8 py-3.5 rounded-md hover:bg-gray-800 transition-colors text-sm"
+            >
+              Create Free Account
+              <ArrowRight className="h-4 w-4" />
+            </a>
+            <a
+              href="/login"
+              className="inline-flex items-center justify-center gap-2 border font-medium px-8 py-3.5 rounded-md hover:bg-gray-50 transition-colors text-sm"
+            >
+              Sign In
+            </a>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-400">
+            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> 14-day free trial</span>
+            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> No credit card</span>
+            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Cancel anytime</span>
+          </div>
 
           {/* Referral Program */}
           <div className="mt-12 p-6 rounded-xl border bg-gray-50 max-w-md mx-auto text-left">
             <div className="flex items-center gap-2 mb-3">
               <Users className="h-4 w-4 text-blue-600" />
-              <p className="text-sm font-semibold">Skip the line</p>
+              <p className="text-sm font-semibold">Refer &amp; earn</p>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed mb-3">
-              Refer a friend and you both move up the waitlist. For every
-              friend who joins, you each get an extra free month added to
-              your trial when we launch.
+              Refer a friend and you both get rewarded. For every
+              friend who signs up, you each get an extra free month
+              added to your account.
             </p>
             <div className="flex gap-4 text-xs text-gray-400">
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> You get 1 month free</span>
@@ -757,16 +774,18 @@ export default async function LandingPage() {
               <Clock className="h-4 w-4" />
               <span>MyTime</span>
             </div>
-            <div className="flex items-center gap-6 text-xs text-gray-400">
+            <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400">
               <a href="#features" className="hover:text-gray-600 transition-colors">Features</a>
               <a href="#pricing" className="hover:text-gray-600 transition-colors">Pricing</a>
               <a href="#integrations" className="hover:text-gray-600 transition-colors">Integrations</a>
               <a href="#calculator" className="hover:text-gray-600 transition-colors">Calculator</a>
               <a href="#faq" className="hover:text-gray-600 transition-colors">FAQ</a>
+              <a href="/signup" className="hover:text-gray-600 transition-colors">Sign Up</a>
+              <a href="/login" className="hover:text-gray-600 transition-colors">Sign In</a>
             </div>
-            <p className="text-xs text-gray-400">
-              Built for freelancers, by a freelancer.
-            </p>
+          </div>
+          <div className="mt-4 pt-4 border-t text-center text-xs text-gray-400">
+            &copy; {new Date().getFullYear()} Sobojinski Solutions LLC. All rights reserved.
           </div>
         </div>
       </footer>

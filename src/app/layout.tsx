@@ -41,9 +41,13 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Organization",
-      name: "MyTime",
+      name: "Sobojinski Solutions LLC",
       url: "https://mytime.app",
       description: "The workday manager for freelancers who juggle multiple clients.",
+      brand: {
+        "@type": "Brand",
+        name: "MyTime",
+      },
       sameAs: [],
     },
     {
