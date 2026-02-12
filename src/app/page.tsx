@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+import { ScheduleDemo } from "@/components/schedule-demo";
 import {
   Calendar,
   Clock,
@@ -97,17 +98,6 @@ function FeatureCard({ icon: Icon, title, description }: {
   );
 }
 
-function StepCard({ number, title, description }: { number: number; title: string; description: string }) {
-  return (
-    <div className="text-center">
-      <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center mx-auto mb-4 text-sm font-bold">
-        {number}
-      </div>
-      <h3 className="font-semibold mb-2">{title}</h3>
-      <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
-    </div>
-  );
-}
 
 function TestimonialCard({ quote, name, role, metric }: {
   quote: string; name: string; role: string; metric: string;
@@ -360,32 +350,17 @@ export default async function LandingPage() {
       </section>
 
       {/* ──────────────────────────────────────────────────────────
-          HOW IT WORKS — Copywriting: Reduce perceived complexity
-          Psychology: Activation Energy (make first step easy)
+          HOW IT WORKS — Animated interactive demo
+          Psychology: Activation Energy (looks easy), IKEA Effect
+          (watching it build creates ownership feeling)
           ────────────────────────────────────────────────────────── */}
       <section id="how" className="py-20">
         <div className="max-w-4xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold mb-3">Three steps. Zero spreadsheets.</h2>
-            <p className="text-gray-500">Set up once, generate every week.</p>
+            <p className="text-gray-500">Set up once, generate every week. Watch it happen.</p>
           </div>
-          <div className="grid sm:grid-cols-3 gap-10">
-            <StepCard
-              number={1}
-              title="Add your clients"
-              description="Name, weekly hour target, monthly cap, priority weight. Takes about 5 minutes for your whole roster."
-            />
-            <StepCard
-              number={2}
-              title="Hit generate"
-              description="One button. MyTime builds your optimal week — deep work, support, breaks, and tasks balanced across every client."
-            />
-            <StepCard
-              number={3}
-              title="Work the plan"
-              description="Follow the live timeline. Lock blocks you like. Regenerate what you don't. Hours track automatically as you go."
-            />
-          </div>
+          <ScheduleDemo />
         </div>
       </section>
 
