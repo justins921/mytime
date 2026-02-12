@@ -162,7 +162,7 @@ export default async function LandingPage() {
                   href="#waitlist"
                   className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-gray-800 transition-colors"
                 >
-                  Plan My Free Week
+                  Get Early Access
                 </a>
               </>
             )}
@@ -201,7 +201,7 @@ export default async function LandingPage() {
                 href="#waitlist"
                 className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-6 py-3 rounded-md hover:bg-gray-800 transition-colors text-sm"
               >
-                Plan My Free Week
+                Get Early Access
                 <ArrowRight className="h-4 w-4" />
               </a>
               <a
@@ -211,9 +211,9 @@ export default async function LandingPage() {
                 See how it works
               </a>
             </div>
-            {/* Psychology: Zero-price effect + risk reversal */}
+            {/* Psychology: Risk reversal */}
             <div className="flex items-center gap-4 mt-5 text-xs text-gray-400">
-              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Free forever during beta</span>
+              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> 14-day free trial</span>
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> No credit card</span>
             </div>
           </div>
@@ -472,10 +472,9 @@ export default async function LandingPage() {
       {/* ──────────────────────────────────────────────────────────
           CTA / WAITLIST — Launch Strategy: Phase 4 early access,
           ORB framework (email = owned channel)
-          Psychology: Scarcity (founding members), Commitment &
-          Consistency (small ask → bigger commitment), Reciprocity
-          (free beta), Zero-Price Effect
-          Marketing Ideas: Waitlist referral, early access pricing
+          Psychology: Scarcity (early access pricing), Commitment &
+          Consistency (small ask → bigger commitment)
+          Referral Program: Double-sided reward, queue jumping
           Copywriting: Risk reversal, strong CTA formula
           ────────────────────────────────────────────────────────── */}
       <section id="waitlist" className="py-24">
@@ -485,16 +484,11 @@ export default async function LandingPage() {
             Every week without a plan is money left on the table.
           </h2>
           <p className="text-gray-500 mb-2 max-w-md mx-auto">
-            Join as a founding member and get MyTime free — forever.
-            No catch. We&apos;re building this in public and want early
-            feedback from real freelancers.
-          </p>
-          {/* Launch Strategy: Scarcity — limited founding spots */}
-          <p className="text-sm font-medium text-blue-600 mb-8">
-            Limited to the first 500 founding members.
+            Join the waitlist for early access. Early members lock in
+            launch pricing and get first access as we roll out invites.
           </p>
           <form
-            className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+            className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto mt-8"
             action="#waitlist"
           >
             <input
@@ -507,15 +501,34 @@ export default async function LandingPage() {
               type="submit"
               className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-6 h-11 rounded-md hover:bg-gray-800 transition-colors text-sm shrink-0"
             >
-              Claim My Free Spot
+              Join the Waitlist
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
-          {/* Psychology: Risk reversal — remove all objections */}
+          {/* Psychology: Risk reversal */}
           <div className="flex items-center justify-center gap-4 mt-4 text-xs text-gray-400">
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Free forever for founders</span>
+            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> 14-day free trial</span>
             <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> No credit card</span>
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Unsubscribe anytime</span>
+            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Cancel anytime</span>
+          </div>
+
+          {/* Referral Program: Double-sided reward, queue jumping
+              Trigger: right after waitlist signup (high-intent moment)
+              Incentive: both parties benefit (double-sided) */}
+          <div className="mt-12 p-6 rounded-xl border bg-gray-50 max-w-md mx-auto text-left">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="h-4 w-4 text-blue-600" />
+              <p className="text-sm font-semibold">Skip the line</p>
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed mb-3">
+              Refer a friend and you both move up the waitlist. For every
+              friend who joins, you each get an extra free month added to
+              your trial when we launch.
+            </p>
+            <div className="flex gap-4 text-xs text-gray-400">
+              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> You get 1 month free</span>
+              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> They get 1 month free</span>
+            </div>
           </div>
         </div>
       </section>
