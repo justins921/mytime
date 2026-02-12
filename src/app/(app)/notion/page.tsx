@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,15 +14,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
   BookOpen,
   Star,
   StarOff,
   Plus,
-  Trash2,
   ExternalLink,
   Search,
   ArrowLeft,
   Loader2,
+  Key,
 } from "lucide-react";
 
 interface NotionWorkspace {
@@ -41,7 +50,7 @@ interface NotionFavorite {
   workspace?: { id: string; workspaceName: string };
 }
 
-interface NotionPage {
+interface NotionPageResult {
   id: string;
   title: string;
   icon: string;
@@ -63,11 +72,15 @@ export default function NotionPage() {
   const [favorites, setFavorites] = useState<NotionFavorite[]>([]);
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<NotionPage[]>([]);
+  const [searchResults, setSearchResults] = useState<NotionPageResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [viewingPage, setViewingPage] = useState<PageContent | null>(null);
   const [loadingPage, setLoadingPage] = useState(false);
   const [showBrowse, setShowBrowse] = useState(false);
+  const [newToken, setNewToken] = useState("");
+  const [newName, setNewName] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState("");
 
   const fetchWorkspaces = useCallback(async () => {
     const res = await fetch("/api/notion/workspaces");
@@ -87,13 +100,27 @@ export default function NotionPage() {
   useEffect(() => {
     fetchWorkspaces();
     fetchFavorites();
-
-    // Check for OAuth callback messages
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("connected")) {
-      window.history.replaceState({}, "", "/notion");
-    }
   }, [fetchWorkspaces, fetchFavorites]);
+
+  async function connectWorkspace() {
+    if (!newToken.trim()) return;
+    setConnecting(true);
+    setConnectError("");
+    const res = await fetch("/api/notion/workspaces", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: newToken.trim(), name: newName.trim() || undefined }),
+    });
+    if (res.ok) {
+      setNewToken("");
+      setNewName("");
+      fetchWorkspaces();
+    } else {
+      const data = await res.json();
+      setConnectError(data.error || "Failed to connect");
+    }
+    setConnecting(false);
+  }
 
   async function searchPages() {
     if (!selectedWorkspace) return;
@@ -119,7 +146,7 @@ export default function NotionPage() {
     setLoadingPage(false);
   }
 
-  async function addFavorite(page: NotionPage) {
+  async function addFavorite(page: NotionPageResult) {
     if (!selectedWorkspace) return;
     const res = await fetch("/api/notion/favorites", {
       method: "POST",
@@ -167,11 +194,7 @@ export default function NotionPage() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setViewingPage(null)}
-          >
+          <Button variant="ghost" size="icon" onClick={() => setViewingPage(null)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h2 className="text-xl font-semibold flex-1 truncate">{viewingPage.title}</h2>
@@ -204,11 +227,65 @@ export default function NotionPage() {
           <BookOpen className="h-5 w-5" />
           <h2 className="text-xl font-semibold">Notion</h2>
         </div>
-        <a href="/api/notion/oauth">
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Connect Workspace
-          </Button>
-        </a>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1" /> Connect Workspace
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Connect Notion Workspace</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1.5">
+                <p className="font-medium text-foreground">How to connect:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Go to <strong>notion.so/my-integrations</strong></li>
+                  <li>Click <strong>New integration</strong></li>
+                  <li>Select the workspace, give it a name (e.g. "MyTime")</li>
+                  <li>Choose <strong>Internal</strong> type and submit</li>
+                  <li>Copy the <strong>Internal Integration Secret</strong></li>
+                  <li>In Notion, open each page you want to access, click <strong>...</strong> &rarr; <strong>Connect to</strong> &rarr; select your integration</li>
+                </ol>
+              </div>
+              <div className="space-y-2">
+                <Label>Workspace Name</Label>
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. Work, Personal"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Integration Token</Label>
+                <div className="relative">
+                  <Key className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    value={newToken}
+                    onChange={(e) => { setNewToken(e.target.value); setConnectError(""); }}
+                    placeholder="ntn_..."
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+              {connectError && (
+                <p className="text-xs text-destructive">{connectError}</p>
+              )}
+              <DialogClose asChild>
+                <Button
+                  onClick={connectWorkspace}
+                  disabled={connecting || !newToken.trim()}
+                  className="w-full"
+                >
+                  {connecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  {connecting ? "Connecting..." : "Connect"}
+                </Button>
+              </DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Connected workspaces */}
@@ -256,7 +333,7 @@ export default function NotionPage() {
             <div className="text-center text-muted-foreground">
               <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-20" />
               <p className="text-sm">No Notion workspaces connected yet.</p>
-              <p className="text-xs mt-1">Click "Connect Workspace" to get started.</p>
+              <p className="text-xs mt-1">Click "Connect Workspace" to add an integration token.</p>
             </div>
           </CardContent>
         </Card>
@@ -364,7 +441,7 @@ export default function NotionPage() {
 
               {searchResults.length === 0 && !searching && (
                 <p className="text-xs text-muted-foreground text-center py-4">
-                  Search for pages or browse your workspace.
+                  Search for pages or browse your workspace. Make sure pages are shared with your integration in Notion.
                 </p>
               )}
 
