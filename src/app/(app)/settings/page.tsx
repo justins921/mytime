@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const [clickupWorkspaceMap, setClickupWorkspaceMap] = useState<Record<string, string>>({});
   const [clickupWorkspaces, setClickupWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [clickupLoading, setClickupLoading] = useState(false);
+  const [clickupTestError, setClickupTestError] = useState("");
   const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -367,13 +368,25 @@ export default function SettingsPage() {
                 disabled={!clickupApiToken || clickupLoading}
                 onClick={async () => {
                   setClickupLoading(true);
+                  setClickupTestError("");
                   try {
+                    // Save the token to the database first so the API can use it
+                    await fetch("/api/settings", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ clickupApiToken }),
+                    });
                     const res = await fetch("/api/clickup?action=workspaces");
                     const data = await res.json();
                     if (Array.isArray(data)) {
                       setClickupWorkspaces(data.map((t: { id: string | number; name: string }) => ({ id: String(t.id), name: t.name })));
+                      setClickupTestError("");
+                    } else {
+                      setClickupTestError(data.error || "Invalid response from ClickUp. Check your token.");
                     }
-                  } catch { /* ignore */ }
+                  } catch {
+                    setClickupTestError("Failed to connect to ClickUp. Check your token and try again.");
+                  }
                   setClickupLoading(false);
                 }}
               >
@@ -382,8 +395,11 @@ export default function SettingsPage() {
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Find this in ClickUp &rarr; Settings &rarr; Apps. Save settings before testing.
+              Find this in ClickUp &rarr; Settings &rarr; Apps.
             </p>
+            {clickupTestError && (
+              <p className="text-xs text-red-600">{clickupTestError}</p>
+            )}
           </div>
 
           {clickupWorkspaces.length > 0 && (
