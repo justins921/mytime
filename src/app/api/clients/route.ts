@@ -15,13 +15,14 @@ export async function POST(req: NextRequest) {
   const client = await prisma.client.create({
     data: {
       name: body.name,
-      retainerMonthly: body.retainerMonthly ?? 2000,
-      baselineRateHourly: body.baselineRateHourly ?? 50,
-      weeklyTargetHours: body.weeklyTargetHours ?? 10,
-      monthlyCapHours: body.monthlyCapHours ?? (body.retainerMonthly ?? 2000) / (body.baselineRateHourly ?? 50),
+      retainerMonthly: body.isPersonal ? 0 : (body.retainerMonthly ?? 2000),
+      baselineRateHourly: body.isPersonal ? 0 : (body.baselineRateHourly ?? 50),
+      weeklyTargetHours: body.isPersonal ? 0 : (body.weeklyTargetHours ?? 10),
+      monthlyCapHours: body.isPersonal ? 0 : (body.monthlyCapHours ?? (body.retainerMonthly ?? 2000) / (body.baselineRateHourly ?? 50)),
       priorityWeight: body.priorityWeight ?? 1.0,
-      style: body.style ?? "DeepWork",
+      style: body.isPersonal ? "Personal" : (body.style ?? "DeepWork"),
       dailyTouch: body.dailyTouch ?? false,
+      isPersonal: body.isPersonal ?? false,
       color: body.color ?? "#3b82f6",
     },
   });

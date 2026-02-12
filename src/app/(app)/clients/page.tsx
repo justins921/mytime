@@ -42,6 +42,7 @@ interface Client {
   priorityWeight: number;
   style: string;
   dailyTouch: boolean;
+  isPersonal: boolean;
   color: string;
   projects: Project[];
 }
@@ -59,6 +60,7 @@ export default function ClientsPage() {
   const [newTarget, setNewTarget] = useState("10");
   const [newStyle, setNewStyle] = useState("DeepWork");
   const [newDailyTouch, setNewDailyTouch] = useState(false);
+  const [newIsPersonal, setNewIsPersonal] = useState(false);
   const [newColor, setNewColor] = useState(COLORS[0]);
 
   useEffect(() => {
@@ -76,11 +78,12 @@ export default function ClientsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: newName,
-        retainerMonthly: retainer,
-        baselineRateHourly: rate,
-        weeklyTargetHours: parseFloat(newTarget) || 10,
-        monthlyCapHours: retainer / rate,
-        style: newStyle,
+        isPersonal: newIsPersonal,
+        retainerMonthly: newIsPersonal ? 0 : retainer,
+        baselineRateHourly: newIsPersonal ? 0 : rate,
+        weeklyTargetHours: newIsPersonal ? 0 : (parseFloat(newTarget) || 10),
+        monthlyCapHours: newIsPersonal ? 0 : (retainer / rate),
+        style: newIsPersonal ? "Personal" : newStyle,
         dailyTouch: newDailyTouch,
         color: newColor,
       }),
@@ -117,35 +120,43 @@ export default function ClientsPage() {
                 <Label>Name</Label>
                 <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Client name" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Monthly Retainer ($)</Label>
-                  <Input type="number" value={newRetainer} onChange={(e) => setNewRetainer(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Hourly Rate ($)</Label>
-                  <Input type="number" value={newRate} onChange={(e) => setNewRate(e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Weekly Target Hours</Label>
-                <Input type="number" value={newTarget} onChange={(e) => setNewTarget(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Style</Label>
-                <Select value={newStyle} onValueChange={setNewStyle}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DeepWork">Deep Work</SelectItem>
-                    <SelectItem value="Support">Support</SelectItem>
-                    <SelectItem value="Mixed">Mixed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="flex items-center gap-2">
-                <Switch checked={newDailyTouch} onCheckedChange={setNewDailyTouch} />
-                <Label>Daily touch required</Label>
+                <Switch checked={newIsPersonal} onCheckedChange={setNewIsPersonal} />
+                <Label>Personal (no budget/hours)</Label>
               </div>
+              {!newIsPersonal && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Monthly Retainer ($)</Label>
+                      <Input type="number" value={newRetainer} onChange={(e) => setNewRetainer(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Hourly Rate ($)</Label>
+                      <Input type="number" value={newRate} onChange={(e) => setNewRate(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Weekly Target Hours</Label>
+                    <Input type="number" value={newTarget} onChange={(e) => setNewTarget(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Style</Label>
+                    <Select value={newStyle} onValueChange={setNewStyle}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DeepWork">Deep Work</SelectItem>
+                        <SelectItem value="Support">Support</SelectItem>
+                        <SelectItem value="Mixed">Mixed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={newDailyTouch} onCheckedChange={setNewDailyTouch} />
+                    <Label>Daily touch required</Label>
+                  </div>
+                </>
+              )}
               <div className="space-y-2">
                 <Label>Color</Label>
                 <div className="flex gap-2 flex-wrap">
@@ -180,24 +191,28 @@ export default function ClientsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Retainer:</span>{" "}
-                  <span className="font-medium">${client.retainerMonthly}/mo</span>
+              {client.isPersonal ? (
+                <div className="text-sm text-muted-foreground italic">Personal — no budget tracking</div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Retainer:</span>{" "}
+                    <span className="font-medium">${client.retainerMonthly}/mo</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Rate:</span>{" "}
+                    <span className="font-medium">${client.baselineRateHourly}/hr</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Weekly:</span>{" "}
+                    <span className="font-medium">{client.weeklyTargetHours}h</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Cap:</span>{" "}
+                    <span className="font-medium">{client.monthlyCapHours}h/mo</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Rate:</span>{" "}
-                  <span className="font-medium">${client.baselineRateHourly}/hr</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Weekly:</span>{" "}
-                  <span className="font-medium">{client.weeklyTargetHours}h</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Cap:</span>{" "}
-                  <span className="font-medium">{client.monthlyCapHours}h/mo</span>
-                </div>
-              </div>
+              )}
               {client.dailyTouch && (
                 <Badge variant="outline" className="text-xs">Daily touch</Badge>
               )}

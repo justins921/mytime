@@ -37,8 +37,17 @@ interface ClientInfo {
   name: string;
   color: string;
   monthlyCapHours: number;
+  isPersonal: boolean;
   projects?: { id: string; name: string }[];
 }
+
+interface AvailabilityWindow {
+  start: string;
+  end: string;
+  enabled: boolean;
+}
+
+type ViewMode = "work" | "personal" | "all";
 
 interface FloatingTask {
   id: string;
@@ -105,6 +114,9 @@ export default function SchedulePage() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", estimateMinutes: 60, clientId: "", projectId: "", dueDate: "", priority: "P2", mustSchedule: true });
+  const [viewMode, setViewMode] = useState<ViewMode>("work");
+  const [availabilityWindows, setAvailabilityWindows] = useState<Record<string, AvailabilityWindow>>({});
+  const [autoDetect, setAutoDetect] = useState(true);
 
   const weekDates = getWeekDates(
     new Date(Date.now() + weekOffset * 7 * 24 * 60 * 60 * 1000)
@@ -128,6 +140,16 @@ export default function SchedulePage() {
       const res = await fetch("/api/clients?include=projects");
       const data = await res.json();
       setClients(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ }
+  }, []);
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/settings");
+      const data = await res.json();
+      if (data.availabilityJson) {
+        setAvailabilityWindows(JSON.parse(data.availabilityJson));
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -191,7 +213,8 @@ export default function SchedulePage() {
   useEffect(() => {
     fetchClients();
     fetchFloatingTasks();
-  }, [fetchClients, fetchFloatingTasks]);
+    fetchSettings();
+  }, [fetchClients, fetchFloatingTasks, fetchSettings]);
 
   useEffect(() => {
     function tick() {
@@ -210,6 +233,50 @@ export default function SchedulePage() {
     const interval = setInterval(tick, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-detect work vs personal view based on current time and availability
+  useEffect(() => {
+    if (!autoDetect || !currentTime || Object.keys(availabilityWindows).length === 0) return;
+    const now = new Date();
+    const dayNames = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    const dayKey = dayNames[now.getDay()];
+    const window = availabilityWindows[dayKey];
+
+    if (!window || !window.enabled) {
+      // Not a work day — show personal
+      setViewMode("personal");
+      return;
+    }
+
+    const nowMins = timeToMinutes(currentTime);
+    const startMins = timeToMinutes(window.start);
+    const endMins = timeToMinutes(window.end);
+
+    if (nowMins >= startMins && nowMins < endMins) {
+      setViewMode("work");
+    } else {
+      setViewMode("personal");
+    }
+  }, [autoDetect, currentTime, availabilityWindows]);
+
+  // Build set of personal client IDs for filtering
+  const personalClientIds = new Set(clients.filter((c) => c.isPersonal).map((c) => c.id));
+
+  // Filter blocks based on view mode
+  function filterBlocksByView(allBlocks: ScheduleBlock[]): ScheduleBlock[] {
+    if (viewMode === "all") return allBlocks;
+    if (viewMode === "personal") {
+      return allBlocks.filter((b) => {
+        if (!b.clientId) return false; // non-client blocks (break, lunch, admin) only in work view
+        return personalClientIds.has(b.clientId);
+      });
+    }
+    // work mode: show everything except personal client blocks
+    return allBlocks.filter((b) => {
+      if (!b.clientId) return true; // breaks, lunch, admin, external
+      return !personalClientIds.has(b.clientId);
+    });
+  }
 
   async function handleGenerate() {
     setGenerating(true);
@@ -353,7 +420,7 @@ export default function SchedulePage() {
   }
 
   function blocksByDate(date: string) {
-    return blocks.filter((b) => b.date === date);
+    return filterBlocksByView(blocks.filter((b) => b.date === date));
   }
 
   function getBlockClass(type: string) {
@@ -365,6 +432,7 @@ export default function SchedulePage() {
       Lunch: "block-lunch",
       Task: "block-task",
       External: "block-external",
+      Personal: "block-personal",
     };
     return map[type] || "block-deepwork";
   }
@@ -401,6 +469,38 @@ export default function SchedulePage() {
         </div>
       </div>
 
+      {/* View mode toggle */}
+      <div className="flex items-center gap-3">
+        <div className="flex rounded-md border overflow-hidden text-sm">
+          <button
+            className={`px-3 py-1.5 ${viewMode === "work" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            onClick={() => { setViewMode("work"); setAutoDetect(false); }}
+          >
+            Work
+          </button>
+          <button
+            className={`px-3 py-1.5 border-x ${viewMode === "personal" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            onClick={() => { setViewMode("personal"); setAutoDetect(false); }}
+          >
+            Personal
+          </button>
+          <button
+            className={`px-3 py-1.5 ${viewMode === "all" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            onClick={() => { setViewMode("all"); setAutoDetect(false); }}
+          >
+            All
+          </button>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Switch
+            id="autoDetect"
+            checked={autoDetect}
+            onCheckedChange={setAutoDetect}
+          />
+          <Label htmlFor="autoDetect" className="text-xs text-muted-foreground">Auto</Label>
+        </div>
+      </div>
+
       {/* Generate controls */}
       <Card>
         <CardContent className="pt-4 pb-4">
@@ -427,8 +527,8 @@ export default function SchedulePage() {
         </CardContent>
       </Card>
 
-      {/* Monthly hours summary */}
-      {clients.length > 0 && (
+      {/* Monthly hours summary (work clients only) */}
+      {viewMode !== "personal" && clients.filter((c) => !c.isPersonal).length > 0 && (
         <Card>
           <CardHeader className="py-3 px-4">
             <CardTitle className="text-sm">
@@ -437,7 +537,7 @@ export default function SchedulePage() {
           </CardHeader>
           <CardContent className="px-4 pb-3">
             <div className="grid gap-2 sm:grid-cols-3">
-              {clients.map((client) => {
+              {clients.filter((c) => !c.isPersonal).map((client) => {
                 const used = monthlyHours[client.id] || 0;
                 const cap = client.monthlyCapHours;
                 const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
@@ -757,6 +857,7 @@ export default function SchedulePage() {
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-deepwork" /> Deep Work</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-support" /> Support</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-task" /> Task</div>
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-personal" /> Personal</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-external" /> Calendar</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-break" /> Break</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-admin" /> Admin</div>

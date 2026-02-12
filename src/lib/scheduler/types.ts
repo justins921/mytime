@@ -23,8 +23,9 @@ export interface ClientConfig {
   weeklyTargetHours: number;
   monthlyCapHours: number;
   priorityWeight: number;
-  style: "DeepWork" | "Support" | "Mixed";
+  style: "DeepWork" | "Support" | "Mixed" | "Personal";
   dailyTouch: boolean;
+  isPersonal: boolean;
   projects: ProjectConfig[];
 }
 
@@ -81,7 +82,7 @@ export interface GeneratedBlock {
   clientId: string | null;
   projectId: string | null;
   title: string;
-  type: "Support" | "DeepWork" | "Break" | "Admin" | "Lunch" | "Task" | "External";
+  type: "Support" | "DeepWork" | "Break" | "Admin" | "Lunch" | "Task" | "External" | "Personal";
   locked: boolean;
   generated: boolean;
   notes: string;

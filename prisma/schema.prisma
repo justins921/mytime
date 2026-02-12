@@ -64,8 +64,9 @@ model Client {
   weeklyTargetHours     Float           @default(10)
   monthlyCapHours       Float           @default(40)
   priorityWeight        Float           @default(1.0)
-  style                 String          @default("DeepWork") // DeepWork | Support | Mixed
+  style                 String          @default("DeepWork") // DeepWork | Support | Mixed | Personal
   dailyTouch            Boolean         @default(false)
+  isPersonal            Boolean         @default(false)
   color                 String          @default("#3b82f6")
   sortOrder             Int             @default(0)
   archived              Boolean         @default(false)

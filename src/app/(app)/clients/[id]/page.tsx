@@ -50,6 +50,7 @@ interface Client {
   priorityWeight: number;
   style: string;
   dailyTouch: boolean;
+  isPersonal: boolean;
   color: string;
   projects: Project[];
 }
@@ -78,12 +79,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: form.name,
-        retainerMonthly: form.retainerMonthly,
-        baselineRateHourly: form.baselineRateHourly,
-        weeklyTargetHours: form.weeklyTargetHours,
-        monthlyCapHours: form.monthlyCapHours,
+        isPersonal: form.isPersonal,
+        retainerMonthly: form.isPersonal ? 0 : form.retainerMonthly,
+        baselineRateHourly: form.isPersonal ? 0 : form.baselineRateHourly,
+        weeklyTargetHours: form.isPersonal ? 0 : form.weeklyTargetHours,
+        monthlyCapHours: form.isPersonal ? 0 : form.monthlyCapHours,
         priorityWeight: form.priorityWeight,
-        style: form.style,
+        style: form.isPersonal ? "Personal" : form.style,
         dailyTouch: form.dailyTouch,
       }),
     });
@@ -156,52 +158,64 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <Label className="text-xs">Name</Label>
                 <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Style</Label>
-                <Select value={form.style || "DeepWork"} onValueChange={(v) => setForm({ ...form, style: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DeepWork">Deep Work</SelectItem>
-                    <SelectItem value="Support">Support</SelectItem>
-                    <SelectItem value="Mixed">Mixed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Monthly Retainer ($)</Label>
-                <Input type="number" value={form.retainerMonthly || ""} onChange={(e) => setForm({ ...form, retainerMonthly: parseFloat(e.target.value) })} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Hourly Rate ($)</Label>
-                <Input type="number" value={form.baselineRateHourly || ""} onChange={(e) => setForm({ ...form, baselineRateHourly: parseFloat(e.target.value) })} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Weekly Target (hours)</Label>
-                <Input type="number" value={form.weeklyTargetHours || ""} onChange={(e) => setForm({ ...form, weeklyTargetHours: parseFloat(e.target.value) })} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Monthly Cap (hours)</Label>
-                <Input type="number" value={form.monthlyCapHours || ""} onChange={(e) => setForm({ ...form, monthlyCapHours: parseFloat(e.target.value) })} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Priority Weight</Label>
-                <Input type="number" value={form.priorityWeight || ""} onChange={(e) => setForm({ ...form, priorityWeight: parseFloat(e.target.value) })} />
-              </div>
               <div className="flex items-center gap-2 pt-5">
-                <Switch checked={form.dailyTouch || false} onCheckedChange={(v) => setForm({ ...form, dailyTouch: v })} />
-                <Label className="text-xs">Daily touch required</Label>
+                <Switch checked={form.isPersonal || false} onCheckedChange={(v) => setForm({ ...form, isPersonal: v })} />
+                <Label className="text-xs">Personal (no budget/hours)</Label>
               </div>
+              {!form.isPersonal && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Style</Label>
+                    <Select value={form.style || "DeepWork"} onValueChange={(v) => setForm({ ...form, style: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DeepWork">Deep Work</SelectItem>
+                        <SelectItem value="Support">Support</SelectItem>
+                        <SelectItem value="Mixed">Mixed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Monthly Retainer ($)</Label>
+                    <Input type="number" value={form.retainerMonthly || ""} onChange={(e) => setForm({ ...form, retainerMonthly: parseFloat(e.target.value) })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Hourly Rate ($)</Label>
+                    <Input type="number" value={form.baselineRateHourly || ""} onChange={(e) => setForm({ ...form, baselineRateHourly: parseFloat(e.target.value) })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Weekly Target (hours)</Label>
+                    <Input type="number" value={form.weeklyTargetHours || ""} onChange={(e) => setForm({ ...form, weeklyTargetHours: parseFloat(e.target.value) })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Monthly Cap (hours)</Label>
+                    <Input type="number" value={form.monthlyCapHours || ""} onChange={(e) => setForm({ ...form, monthlyCapHours: parseFloat(e.target.value) })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Priority Weight</Label>
+                    <Input type="number" value={form.priorityWeight || ""} onChange={(e) => setForm({ ...form, priorityWeight: parseFloat(e.target.value) })} />
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <Switch checked={form.dailyTouch || false} onCheckedChange={(v) => setForm({ ...form, dailyTouch: v })} />
+                    <Label className="text-xs">Daily touch required</Label>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-3 text-sm">
-              <div><span className="text-muted-foreground">Retainer:</span> ${client.retainerMonthly}/mo</div>
-              <div><span className="text-muted-foreground">Rate:</span> ${client.baselineRateHourly}/hr</div>
-              <div><span className="text-muted-foreground">Weekly Target:</span> {client.weeklyTargetHours}h</div>
-              <div><span className="text-muted-foreground">Monthly Cap:</span> {client.monthlyCapHours}h</div>
-              <div><span className="text-muted-foreground">Priority:</span> {client.priorityWeight}</div>
-              <div><span className="text-muted-foreground">Style:</span> {client.style}</div>
-              {client.dailyTouch && <Badge variant="outline" className="w-fit">Daily touch</Badge>}
-            </div>
+            client.isPersonal ? (
+              <div className="text-sm text-muted-foreground italic">Personal — no budget tracking</div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-3 text-sm">
+                <div><span className="text-muted-foreground">Retainer:</span> ${client.retainerMonthly}/mo</div>
+                <div><span className="text-muted-foreground">Rate:</span> ${client.baselineRateHourly}/hr</div>
+                <div><span className="text-muted-foreground">Weekly Target:</span> {client.weeklyTargetHours}h</div>
+                <div><span className="text-muted-foreground">Monthly Cap:</span> {client.monthlyCapHours}h</div>
+                <div><span className="text-muted-foreground">Priority:</span> {client.priorityWeight}</div>
+                <div><span className="text-muted-foreground">Style:</span> {client.style}</div>
+                {client.dailyTouch && <Badge variant="outline" className="w-fit">Daily touch</Badge>}
+              </div>
+            )
           )}
         </CardContent>
       </Card>

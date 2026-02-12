@@ -41,19 +41,22 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
   // Preserve locked/manual existing blocks
   const lockedBlocks = (input.existingBlocks || []).filter((b) => b.locked);
 
-  // Identify support client (style === "Support")
-  const supportClient = clients.find((c) => c.style === "Support");
+  // Filter out personal clients from work scheduling
+  const workClients = clients.filter((c) => !c.isPersonal);
 
-  // Deep work clients (excluding support)
-  const deepWorkClients = clients.filter((c) => c.style !== "Support");
+  // Identify support client (style === "Support")
+  const supportClient = workClients.find((c) => c.style === "Support");
+
+  // Deep work clients (excluding support and personal)
+  const deepWorkClients = workClients.filter((c) => c.style !== "Support");
 
   // Compute deep work total hours available per week
   // We'll compute per-day then allocate
   const dayKeys = ["mon", "tue", "wed", "thu", "fri"];
 
-  // Calculate effective weekly target capped by remaining monthly capacity
+  // Calculate effective weekly target capped by remaining monthly capacity (work clients only)
   const effectiveWeeklyTarget: Record<string, number> = {};
-  for (const client of clients) {
+  for (const client of workClients) {
     const usedThisMonth = monthlyHoursUsed[client.id] || 0;
     const remainingMonthly = Math.max(0, client.monthlyCapHours - usedThisMonth);
     effectiveWeeklyTarget[client.id] = Math.min(client.weeklyTargetHours, remainingMonthly);
@@ -61,11 +64,11 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
 
   // Track allocated hours per client (within this week's generation)
   const clientAllocated: Record<string, number> = {};
-  clients.forEach((c) => (clientAllocated[c.id] = 0));
+  workClients.forEach((c) => (clientAllocated[c.id] = 0));
 
   // Track daily touch fulfillment
   const dailyTouchFulfilled: Record<string, Set<string>> = {};
-  clients.filter((c) => c.dailyTouch).forEach((c) => {
+  workClients.filter((c) => c.dailyTouch).forEach((c) => {
     dailyTouchFulfilled[c.id] = new Set();
   });
 
@@ -396,7 +399,7 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
     remainingSlots = remainingSlots.filter((s) => s.end - s.start >= 15);
 
     // Ensure daily touch clients have at least one block
-    for (const client of clients.filter((c) => c.dailyTouch)) {
+    for (const client of workClients.filter((c) => c.dailyTouch)) {
       if (dailyTouchFulfilled[client.id]?.has(dateStr)) continue;
 
       // Grab some time from first remaining slot
@@ -699,7 +702,7 @@ export function generateWarnings(
     }
   }
 
-  for (const client of clients) {
+  for (const client of clients.filter((c) => !c.isPersonal)) {
     const weekHours = clientHours[client.id] || 0;
     if (weekHours > client.weeklyTargetHours * 1.1) {
       warnings.push(
