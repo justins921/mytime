@@ -8,6 +8,13 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   MessageSquare,
   Hash,
   User,
@@ -37,6 +44,8 @@ interface Conversation {
   is_im: boolean;
   is_mpim: boolean;
   user: string | null;
+  workspaceId: string;
+  workspaceName: string;
 }
 
 interface SlackMessage {
@@ -53,11 +62,13 @@ interface WorkContext {
   source: "timer" | "schedule" | "none";
 }
 
+const ALL_WORKSPACES = "__all__";
+
 // ─── Component ────────────────────────────────────────────
 
 export default function MessagesPage() {
   const [workspaces, setWorkspaces] = useState<SlackWorkspace[]>([]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>(ALL_WORKSPACES);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
@@ -95,21 +106,39 @@ export default function MessagesPage() {
         return;
       }
     }
-    // Default to first workspace
-    if (!activeWorkspaceId) {
+    // Default to unified view when not in focus mode
+    if (!focusMode) {
+      setActiveWorkspaceId(ALL_WORKSPACES);
+    } else if (activeWorkspaceId === ALL_WORKSPACES) {
       setActiveWorkspaceId(workspaces[0].id);
     }
   }, [workspaces, focusMode, context, activeWorkspaceId]);
 
+  // Determine visible workspaces
+  const visibleWorkspaces =
+    focusMode && context.clientId
+      ? workspaces.filter((w) => w.clientId === context.clientId)
+      : workspaces;
+
+  // Get workspace IDs to fetch
+  const getWorkspaceIdsToFetch = useCallback((): string => {
+    if (activeWorkspaceId === ALL_WORKSPACES) {
+      return visibleWorkspaces.map((w) => w.id).join(",");
+    }
+    return activeWorkspaceId;
+  }, [activeWorkspaceId, visibleWorkspaces]);
+
   // Fetch conversations when workspace changes
-  const fetchConversations = useCallback(async (wsId: string) => {
+  const fetchConversations = useCallback(async () => {
+    const wsIds = getWorkspaceIdsToFetch();
+    if (!wsIds) return;
     setLoadingConvos(true);
     setError("");
     setConversations([]);
     setActiveConversation(null);
     setMessages([]);
     try {
-      const res = await fetch(`/api/slack/conversations?workspaceId=${wsId}`);
+      const res = await fetch(`/api/slack/conversations?workspaceId=${encodeURIComponent(wsIds)}`);
       const data = await res.json();
       if (data.error) {
         setError(data.error);
@@ -121,23 +150,22 @@ export default function MessagesPage() {
       setError("Failed to load conversations");
     }
     setLoadingConvos(false);
-  }, []);
+  }, [getWorkspaceIdsToFetch]);
 
   useEffect(() => {
-    if (activeWorkspaceId) {
-      fetchConversations(activeWorkspaceId);
+    if (workspaces.length > 0) {
+      fetchConversations();
     }
-  }, [activeWorkspaceId, fetchConversations]);
+  }, [activeWorkspaceId, fetchConversations, workspaces.length]);
 
   // Fetch messages when conversation changes
   async function fetchMessages(conv: Conversation) {
-    if (!activeWorkspaceId) return;
     setActiveConversation(conv);
     setLoadingMessages(true);
     setMessages([]);
     try {
       const res = await fetch(
-        `/api/slack/messages?workspaceId=${activeWorkspaceId}&channel=${conv.id}`
+        `/api/slack/messages?workspaceId=${conv.workspaceId}&channel=${conv.id}`
       );
       const data = await res.json();
       if (data.error) {
@@ -159,14 +187,14 @@ export default function MessagesPage() {
 
   // Send message
   async function sendMessage() {
-    if (!messageInput.trim() || !activeWorkspaceId || !activeConversation || sending) return;
+    if (!messageInput.trim() || !activeConversation || sending) return;
     setSending(true);
     try {
       const res = await fetch("/api/slack/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          workspaceId: activeWorkspaceId,
+          workspaceId: activeConversation.workspaceId,
           channel: activeConversation.id,
           text: messageInput.trim(),
         }),
@@ -206,18 +234,12 @@ export default function MessagesPage() {
     return userMap[userId] || userId;
   }
 
-  // Determine visible workspaces
-  const visibleWorkspaces =
-    focusMode && context.clientId
-      ? workspaces.filter((w) => w.clientId === context.clientId)
-      : workspaces;
-
-  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
-
   // Group conversations
   const channels = conversations.filter((c) => c.is_channel);
   const dms = conversations.filter((c) => c.is_im);
   const groupDms = conversations.filter((c) => c.is_mpim);
+
+  const showWorkspaceBadge = activeWorkspaceId === ALL_WORKSPACES && visibleWorkspaces.length > 1;
 
   // ─── Empty state ─────────────────────────────────────────
 
@@ -235,6 +257,33 @@ export default function MessagesPage() {
           Go to Settings
         </Button>
       </div>
+    );
+  }
+
+  // ─── Conversation list item renderer ────────────────────
+  function renderConversation(conv: Conversation) {
+    return (
+      <button
+        key={`${conv.workspaceId}-${conv.id}`}
+        onClick={() => fetchMessages(conv)}
+        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors text-left ${
+          activeConversation?.id === conv.id && activeConversation?.workspaceId === conv.workspaceId
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        }`}
+      >
+        {conv.is_channel ? (
+          <Hash className="h-3.5 w-3.5 shrink-0" />
+        ) : conv.is_mpim ? (
+          <Users className="h-3.5 w-3.5 shrink-0" />
+        ) : (
+          <User className="h-3.5 w-3.5 shrink-0" />
+        )}
+        <span className="truncate flex-1">{conv.name}</span>
+        {showWorkspaceBadge && (
+          <span className="text-[9px] opacity-60 shrink-0">{conv.workspaceName}</span>
+        )}
+      </button>
     );
   }
 
@@ -301,42 +350,38 @@ export default function MessagesPage() {
         <p className="text-xs text-red-600">{error}</p>
       )}
 
-      {/* Workspace tabs */}
-      {visibleWorkspaces.length > 1 && (
-        <div className="flex gap-1">
-          {visibleWorkspaces.map((ws) => (
-            <Button
-              key={ws.id}
-              variant={ws.id === activeWorkspaceId ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveWorkspaceId(ws.id)}
-              className="text-xs"
-            >
-              {ws.teamName}
-              {ws.client && (
-                <span
-                  className="ml-1.5 inline-block w-2 h-2 rounded-full"
-                  style={{ backgroundColor: ws.client.color }}
-                />
-              )}
-            </Button>
-          ))}
-        </div>
-      )}
-
       {/* Main content: sidebar + messages */}
       <div className="flex gap-3 h-[calc(100vh-220px)] min-h-[400px]">
         {/* Conversation sidebar */}
         <Card className="w-64 shrink-0 flex flex-col">
-          <div className="p-2 border-b flex items-center justify-between">
-            <span className="text-xs font-medium truncate">
-              {activeWorkspace?.teamName || "Select workspace"}
-            </span>
+          <div className="p-2 border-b flex items-center gap-2">
+            {/* Workspace dropdown */}
+            <Select
+              value={activeWorkspaceId}
+              onValueChange={setActiveWorkspaceId}
+            >
+              <SelectTrigger className="h-7 text-xs flex-1 min-w-0">
+                <SelectValue placeholder="Select workspace" />
+              </SelectTrigger>
+              <SelectContent>
+                {visibleWorkspaces.length > 1 && (
+                  <SelectItem value={ALL_WORKSPACES} className="text-xs">
+                    All Workspaces ({visibleWorkspaces.length})
+                  </SelectItem>
+                )}
+                {visibleWorkspaces.map((ws) => (
+                  <SelectItem key={ws.id} value={ws.id} className="text-xs">
+                    {ws.teamName}
+                    {ws.client ? ` (${ws.client.name})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0"
-              onClick={() => activeWorkspaceId && fetchConversations(activeWorkspaceId)}
+              className="h-6 w-6 p-0 shrink-0"
+              onClick={fetchConversations}
             >
               <RefreshCw className={`h-3 w-3 ${loadingConvos ? "animate-spin" : ""}`} />
             </Button>
@@ -353,20 +398,7 @@ export default function MessagesPage() {
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">
                     Channels
                   </p>
-                  {channels.map((conv) => (
-                    <button
-                      key={conv.id}
-                      onClick={() => fetchMessages(conv)}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors text-left ${
-                        activeConversation?.id === conv.id
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                      }`}
-                    >
-                      <Hash className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{conv.name}</span>
-                    </button>
-                  ))}
+                  {channels.map(renderConversation)}
                 </div>
               )}
 
@@ -376,20 +408,7 @@ export default function MessagesPage() {
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">
                     Direct Messages
                   </p>
-                  {dms.map((conv) => (
-                    <button
-                      key={conv.id}
-                      onClick={() => fetchMessages(conv)}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors text-left ${
-                        activeConversation?.id === conv.id
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                      }`}
-                    >
-                      <User className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{conv.name}</span>
-                    </button>
-                  ))}
+                  {dms.map(renderConversation)}
                 </div>
               )}
 
@@ -399,20 +418,7 @@ export default function MessagesPage() {
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">
                     Group Messages
                   </p>
-                  {groupDms.map((conv) => (
-                    <button
-                      key={conv.id}
-                      onClick={() => fetchMessages(conv)}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors text-left ${
-                        activeConversation?.id === conv.id
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                      }`}
-                    >
-                      <Users className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{conv.name}</span>
-                    </button>
-                  ))}
+                  {groupDms.map(renderConversation)}
                 </div>
               )}
 
@@ -438,9 +444,9 @@ export default function MessagesPage() {
                 <User className="h-4 w-4 text-muted-foreground" />
               )}
               <span className="font-medium text-sm">{activeConversation.name}</span>
-              <span className="text-xs text-muted-foreground ml-auto">
-                {activeWorkspace?.teamName}
-              </span>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal ml-auto">
+                {activeConversation.workspaceName}
+              </Badge>
             </div>
           ) : (
             <div className="p-3 border-b">

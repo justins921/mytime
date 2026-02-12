@@ -200,6 +200,18 @@ model EmailCard {
   @@unique([gmailMessageId, accountId])
 }
 
+model TimeOff {
+  id        String   @id @default(cuid())
+  startDate String   // YYYY-MM-DD
+  endDate   String   // YYYY-MM-DD (inclusive)
+  title     String
+  type      String   @default("Vacation") // Vacation | SickDay | Holiday | Personal
+  allDay    Boolean  @default(true)
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Settings {
   id                    String   @id @default("singleton")
   timezone              String   @default("America/Chicago")

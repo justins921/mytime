@@ -15,6 +15,7 @@ import {
   Lock,
   Unlock,
   AlertTriangle,
+  Palmtree,
 } from "lucide-react";
 
 interface ClientInfo {
@@ -57,6 +58,8 @@ export default function SchedulePage() {
   const [today, setToday] = useState("");
   const [clients, setClients] = useState<ClientInfo[]>([]);
   const [monthlyHours, setMonthlyHours] = useState<Record<string, number>>({});
+  const [timeOffDates, setTimeOffDates] = useState<Set<string>>(new Set());
+  const [timeOffs, setTimeOffs] = useState<{ title: string; type: string; startDate: string; endDate: string }[]>([]);
 
   const weekDates = getWeekDates(
     new Date(Date.now() + weekOffset * 7 * 24 * 60 * 60 * 1000)
@@ -95,10 +98,33 @@ export default function SchedulePage() {
     setLoading(false);
   }, [weekStart, weekEnd]);
 
+  const fetchTimeOff = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/timeoff?startDate=${weekStart}&endDate=${weekEnd}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setTimeOffs(data.map((t: { title: string; type: string; startDate: string; endDate: string }) => ({
+          title: t.title, type: t.type, startDate: t.startDate, endDate: t.endDate,
+        })));
+        // Build date set
+        const dates = new Set<string>();
+        for (const to of data) {
+          const start = new Date(to.startDate + "T12:00:00");
+          const end = new Date(to.endDate + "T12:00:00");
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            dates.add(d.toISOString().slice(0, 10));
+          }
+        }
+        setTimeOffDates(dates);
+      }
+    } catch { /* ignore */ }
+  }, [weekStart, weekEnd]);
+
   useEffect(() => {
     fetchBlocks();
     fetchMonthlyHours();
-  }, [fetchBlocks, fetchMonthlyHours]);
+    fetchTimeOff();
+  }, [fetchBlocks, fetchMonthlyHours, fetchTimeOff]);
 
   useEffect(() => {
     fetchClients();
@@ -158,6 +184,8 @@ export default function SchedulePage() {
         ]);
         setWarnings(data.warnings || []);
         if (data.monthlyHoursUsed) setMonthlyHours(data.monthlyHoursUsed);
+        if (data.timeOffDates) setTimeOffDates(new Set(data.timeOffDates));
+        if (data.timeOffs) setTimeOffs(data.timeOffs);
       }
     } catch {
       setWarnings(["Failed to generate schedule"]);
@@ -350,19 +378,22 @@ export default function SchedulePage() {
             const dayBlocks = blocksByDate(dateStr);
             const isToday = dateStr === today;
             const isPastDay = dateStr < today;
+            const isTimeOff = timeOffDates.has(dateStr);
+            const timeOffEntry = timeOffs.find((t) => dateStr >= t.startDate && dateStr <= t.endDate);
 
             return (
-              <Card key={dateStr} className={`${isToday ? "ring-2 ring-primary" : ""} ${isPastDay ? "opacity-60" : ""}`}>
+              <Card key={dateStr} className={`${isToday ? "ring-2 ring-primary" : ""} ${isPastDay ? "opacity-60" : ""} ${isTimeOff ? "bg-purple-50 dark:bg-purple-950/20" : ""}`}>
                 <CardHeader className="py-3 px-4">
                   <CardTitle className="text-sm flex items-center justify-between">
-                    <div>
+                    <div className="flex items-center gap-1.5">
+                      {isTimeOff && <Palmtree className="h-3.5 w-3.5 text-purple-500" />}
                       <span className="hidden md:inline">{DAY_NAMES[i]}</span>
                       <span className="md:hidden">{DAY_NAMES_SHORT[i]}</span>
                       <span className="text-xs font-normal text-muted-foreground ml-2">
                         {new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </span>
                     </div>
-                    {!isPastDay && (
+                    {!isPastDay && !isTimeOff && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -377,12 +408,23 @@ export default function SchedulePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-3 space-y-1.5 relative">
-                  {isToday && currentTime && (
+                  {isTimeOff && timeOffEntry && (
+                    <div className="p-2 rounded text-xs bg-purple-100 dark:bg-purple-900/30 border-l-3 border-purple-500 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <Palmtree className="h-3.5 w-3.5 text-purple-500" />
+                        <span className="font-medium text-purple-700 dark:text-purple-300">{timeOffEntry.title}</span>
+                      </div>
+                      <span className="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5 block">
+                        {timeOffEntry.type} &mdash; All Day
+                      </span>
+                    </div>
+                  )}
+                  {isToday && currentTime && !isTimeOff && (
                     <div className="text-xs text-red-500 font-mono mb-2 text-center">
                       Now: {formatTime(currentTime)}
                     </div>
                   )}
-                  {dayBlocks.length === 0 && (
+                  {dayBlocks.length === 0 && !isTimeOff && (
                     <p className="text-xs text-muted-foreground text-center py-4">No blocks</p>
                   )}
                   {dayBlocks.map((block) => (
@@ -453,6 +495,7 @@ export default function SchedulePage() {
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-break" /> Break</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-admin" /> Admin</div>
         <div className="flex items-center gap-1"><div className="w-3 h-3 rounded block-lunch" /> Lunch</div>
+        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-purple-100 border-l-2 border-purple-500" /> Time Off</div>
       </div>
     </div>
   );

@@ -26,6 +26,7 @@ import {
   GripVertical,
   Plus,
   X,
+  Archive,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────
@@ -316,6 +317,32 @@ export default function EmailPage() {
     }
   }
 
+  // Archive email (remove from inbox)
+  async function archiveEmail(email: Email) {
+    const acctId = email.accountId;
+    if (!acctId) return;
+    try {
+      const res = await fetch("/api/gmail/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: acctId, messageId: email.id }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        // Remove from list
+        setEmails((prev) => prev.filter((e) => !(e.id === email.id && e.accountId === acctId)));
+        // Clear detail if it was the selected email
+        if (selectedEmail?.id === email.id) {
+          setSelectedEmail(null);
+        }
+      } else {
+        setError(data.error || "Failed to archive");
+      }
+    } catch {
+      setError("Failed to archive email");
+    }
+  }
+
   // Format date
   function formatDate(dateStr: string) {
     try {
@@ -570,6 +597,16 @@ export default function EmailPage() {
                       {selectedEmail.subject || "(no subject)"}
                     </h3>
                     <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={() => archiveEmail(selectedEmail as unknown as Email)}
+                        title="Archive"
+                      >
+                        <Archive className="h-3 w-3 mr-1" />
+                        Archive
+                      </Button>
                       {!getCardForEmail(selectedEmail.id, selectedEmail.accountId) ? (
                         <Button
                           variant="outline"

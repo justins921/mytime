@@ -18,6 +18,30 @@ export async function POST(req: NextRequest) {
     settings = await prisma.settings.create({ data: { id: "singleton" } });
   }
 
+  // Load time-off entries that overlap with the requested dates
+  const firstWeekDate = weekDates[0];
+  const lastWeekDate = weekDates[weekDates.length - 1];
+  const timeOffs = await prisma.timeOff.findMany({
+    where: {
+      startDate: { lte: lastWeekDate },
+      endDate: { gte: firstWeekDate },
+    },
+  });
+
+  // Build a set of dates that are fully blocked by time-off
+  const timeOffDates = new Set<string>();
+  for (const to of timeOffs) {
+    // Mark each date in the range as time-off
+    const start = new Date(to.startDate + "T12:00:00");
+    const end = new Date(to.endDate + "T12:00:00");
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      timeOffDates.add(d.toISOString().slice(0, 10));
+    }
+  }
+
+  // Filter out time-off dates from schedule generation
+  const availableWeekDates = weekDates.filter((d) => !timeOffDates.has(d));
+
   // Load clients with projects
   const clients = await prisma.client.findMany({
     where: { archived: false },
@@ -45,9 +69,14 @@ export async function POST(req: NextRequest) {
     return false;
   });
 
-  // Delete non-kept blocks
+  // Delete non-kept blocks (and all generated blocks on time-off dates)
   const keepIds = new Set(blocksToKeep.map((b) => b.id));
-  const toDelete = existingBlocks.filter((b) => !keepIds.has(b.id));
+  const toDelete = existingBlocks.filter((b) => {
+    // Always delete generated blocks on time-off dates
+    if (timeOffDates.has(b.date) && b.generated) return true;
+    // Delete non-kept blocks as normal
+    return !keepIds.has(b.id);
+  });
   if (toDelete.length > 0) {
     await prisma.scheduleBlock.deleteMany({
       where: { id: { in: toDelete.map((b) => b.id) } },
@@ -106,7 +135,7 @@ export async function POST(req: NextRequest) {
   }));
 
   const schedulerInput: SchedulerInput = {
-    weekDates,
+    weekDates: availableWeekDates,
     availability,
     fixedBreaks,
     lunchReserve,
@@ -196,5 +225,11 @@ export async function POST(req: NextRequest) {
     monthlyHoursUsed
   );
 
-  return NextResponse.json({ blocks: allBlocks, warnings, monthlyHoursUsed });
+  return NextResponse.json({
+    blocks: allBlocks,
+    warnings,
+    monthlyHoursUsed,
+    timeOffDates: Array.from(timeOffDates),
+    timeOffs: timeOffs.map((t) => ({ title: t.title, type: t.type, startDate: t.startDate, endDate: t.endDate })),
+  });
 }

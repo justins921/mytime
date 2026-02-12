@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink } from "lucide-react";
+import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink, Palmtree } from "lucide-react";
 
 interface AvailabilityWindow {
   start: string;
@@ -66,6 +66,10 @@ export default function SettingsPage() {
     { id: string; email: string; clientId: string | null; client: { id: string; name: string; color: string } | null }[]
   >([]);
   const [gmailMessage, setGmailMessage] = useState("");
+  const [timeOffs, setTimeOffs] = useState<
+    { id: string; startDate: string; endDate: string; title: string; type: string; notes: string }[]
+  >([]);
+  const [newTimeOff, setNewTimeOff] = useState({ startDate: "", endDate: "", title: "", type: "Vacation", notes: "" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -94,6 +98,9 @@ export default function SettingsPage() {
     fetch("/api/gmail/accounts")
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setGmailAccounts(data); });
+    fetch("/api/timeoff")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setTimeOffs(data); });
     // Handle OAuth redirect params
     const params = new URLSearchParams(window.location.search);
     const slackConnected = params.get("slack_connected");
@@ -376,6 +383,119 @@ export default function SettingsPage() {
                 </div>
               );
             })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Time Off */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Palmtree className="h-4 w-4" />
+            Time Off
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-[10px] text-muted-foreground">
+            Schedule vacations, sick days, holidays, or other unavailable times. The schedule generator will skip these dates.
+          </p>
+
+          {/* Existing time-off entries */}
+          {timeOffs.length > 0 && (
+            <div className="space-y-2">
+              {timeOffs.map((to) => (
+                <div key={to.id} className="flex items-center gap-2 flex-wrap text-sm">
+                  <span className="font-medium w-32 truncate">{to.title}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {to.startDate === to.endDate ? to.startDate : `${to.startDate} to ${to.endDate}`}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted">{to.type}</span>
+                  {to.notes && <span className="text-xs text-muted-foreground truncate max-w-32">{to.notes}</span>}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive ml-auto"
+                    onClick={async () => {
+                      await fetch("/api/timeoff", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: to.id }),
+                      });
+                      setTimeOffs((prev) => prev.filter((t) => t.id !== to.id));
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add new time-off */}
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="space-y-1">
+              <Label className="text-xs">Title</Label>
+              <Input
+                value={newTimeOff.title}
+                onChange={(e) => setNewTimeOff({ ...newTimeOff, title: e.target.value })}
+                placeholder="e.g. Spring Break"
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Start Date</Label>
+              <Input
+                type="date"
+                value={newTimeOff.startDate}
+                onChange={(e) => setNewTimeOff({ ...newTimeOff, startDate: e.target.value })}
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">End Date</Label>
+              <Input
+                type="date"
+                value={newTimeOff.endDate}
+                onChange={(e) => setNewTimeOff({ ...newTimeOff, endDate: e.target.value })}
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Type</Label>
+              <Select
+                value={newTimeOff.type}
+                onValueChange={(v) => setNewTimeOff({ ...newTimeOff, type: v })}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Vacation">Vacation</SelectItem>
+                  <SelectItem value="SickDay">Sick Day</SelectItem>
+                  <SelectItem value="Holiday">Holiday</SelectItem>
+                  <SelectItem value="Personal">Personal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!newTimeOff.title || !newTimeOff.startDate || !newTimeOff.endDate}
+              onClick={async () => {
+                const res = await fetch("/api/timeoff", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(newTimeOff),
+                });
+                const created = await res.json();
+                if (created.id) {
+                  setTimeOffs((prev) => [...prev, created].sort((a, b) => a.startDate.localeCompare(b.startDate)));
+                  setNewTimeOff({ startDate: "", endDate: "", title: "", type: "Vacation", notes: "" });
+                }
+              }}
+            >
+              Add Time Off
+            </Button>
           </div>
         </CardContent>
       </Card>

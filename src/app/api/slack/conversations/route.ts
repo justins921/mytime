@@ -8,39 +8,60 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
   }
 
-  const workspace = await prisma.slackWorkspace.findUnique({
-    where: { id: workspaceId },
-  });
-  if (!workspace) {
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-  }
+  // Support comma-separated workspace IDs for unified view
+  const workspaceIds = workspaceId.split(",").map((id) => id.trim()).filter(Boolean);
 
-  const [convResult, usersResult] = await Promise.all([
-    listConversations(workspace.accessToken),
-    getUsersList(workspace.accessToken),
-  ]);
+  const allConversations: {
+    id: string;
+    name: string;
+    is_channel: boolean;
+    is_im: boolean;
+    is_mpim: boolean;
+    user: string | null;
+    workspaceId: string;
+    workspaceName: string;
+  }[] = [];
+  const mergedUserMap: Record<string, string> = {};
 
-  if (!convResult.ok) {
-    return NextResponse.json({ error: convResult.error }, { status: 400 });
-  }
+  await Promise.all(
+    workspaceIds.map(async (wsId) => {
+      const workspace = await prisma.slackWorkspace.findUnique({
+        where: { id: wsId },
+      });
+      if (!workspace) return;
 
-  // Build user map for DM display names
-  const userMap: Record<string, string> = {};
-  if (usersResult.ok && Array.isArray(usersResult.members)) {
-    for (const u of usersResult.members) {
-      userMap[u.id] = u.profile?.display_name || u.real_name || u.name || u.id;
-    }
-  }
+      const [convResult, usersResult] = await Promise.all([
+        listConversations(workspace.accessToken),
+        getUsersList(workspace.accessToken),
+      ]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const conversations = (convResult.channels || []).map((ch: any) => ({
-    id: ch.id,
-    name: ch.name || (ch.user ? userMap[ch.user] : null) || ch.id,
-    is_channel: !!(ch.is_channel || ch.is_group),
-    is_im: !!ch.is_im,
-    is_mpim: !!ch.is_mpim,
-    user: ch.user || null,
-  }));
+      if (!convResult.ok) return;
 
-  return NextResponse.json({ conversations, userMap });
+      // Build user map
+      const userMap: Record<string, string> = {};
+      if (usersResult.ok && Array.isArray(usersResult.members)) {
+        for (const u of usersResult.members) {
+          const name = u.profile?.display_name || u.real_name || u.name || u.id;
+          userMap[u.id] = name;
+          mergedUserMap[u.id] = name;
+        }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const conversations = (convResult.channels || []).map((ch: any) => ({
+        id: ch.id,
+        name: ch.name || (ch.user ? userMap[ch.user] : null) || ch.id,
+        is_channel: !!(ch.is_channel || ch.is_group),
+        is_im: !!ch.is_im,
+        is_mpim: !!ch.is_mpim,
+        user: ch.user || null,
+        workspaceId: workspace.id,
+        workspaceName: workspace.teamName,
+      }));
+
+      allConversations.push(...conversations);
+    })
+  );
+
+  return NextResponse.json({ conversations: allConversations, userMap: mergedUserMap });
 }
