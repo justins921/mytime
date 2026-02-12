@@ -95,7 +95,8 @@ export default function MessagesPage() {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setWorkspaces(data);
-      });
+      })
+      .catch(() => {});
   }, []);
 
   // Auto-select workspace based on focus mode + context
