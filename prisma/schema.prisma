@@ -22,6 +22,9 @@ model User {
   plan                 String    @default("free") // free | starter | pro | business
   planExpiresAt        DateTime?
 
+  // Role: admin | manager | user
+  role                 String    @default("user")
+
   accounts      Account[]
   sessions      Session[]
   clients       Client[]

@@ -19,8 +19,9 @@ import {
   BookOpen,
   LogOut,
   HelpCircle,
+  ShieldAlert,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 
 const navItems = [
@@ -41,6 +42,23 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    // Check if user has admin/manager role to show admin link
+    fetch("/api/stripe/plan")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.role === "admin" || data.role === "manager") {
+          setIsAdmin(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const allItems = isAdmin
+    ? [...navItems, { href: "/admin", label: "Admin", icon: ShieldAlert }]
+    : navItems;
 
   return (
     <>
@@ -72,7 +90,7 @@ export function Sidebar() {
           <p className="text-xs text-muted-foreground">Workday Manager</p>
         </div>
         <nav className="p-2 space-y-1">
-          {navItems.map((item) => {
+          {allItems.map((item) => {
             const Icon = item.icon;
             const active = pathname.startsWith(item.href);
             return (

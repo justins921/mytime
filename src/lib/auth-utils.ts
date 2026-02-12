@@ -47,3 +47,36 @@ export const PLAN_LIMITS = {
 export function getPlanLimits(plan: string) {
   return PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] ?? PLAN_LIMITS.free;
 }
+
+// ─── Role helpers ──────────────────────────────────────
+
+/** The one and only super admin email */
+export const ADMIN_EMAIL = "justin.sobojinski@gmail.com";
+
+/** Role hierarchy: admin > manager > user */
+const ROLE_LEVEL: Record<string, number> = {
+  user: 0,
+  manager: 1,
+  admin: 2,
+};
+
+/** Check if a user's role meets the minimum required level */
+export function hasRole(userRole: string, requiredRole: string): boolean {
+  return (ROLE_LEVEL[userRole] ?? 0) >= (ROLE_LEVEL[requiredRole] ?? 0);
+}
+
+/** Require admin role — returns 403 response if not admin */
+export function requireAdmin(user: { role: string }) {
+  if (!hasRole(user.role, "admin")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}
+
+/** Require at least manager role — returns 403 response if not manager+ */
+export function requireManager(user: { role: string }) {
+  if (!hasRole(user.role, "manager")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}

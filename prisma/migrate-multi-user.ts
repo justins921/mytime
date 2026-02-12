@@ -21,6 +21,7 @@ async function main() {
     { name: "plan", type: "TEXT", default: "'free'" },
     { name: "planExpiresAt", type: "TIMESTAMP(3)" },
     { name: "passwordHash", type: "TEXT" },
+    { name: "role", type: "TEXT", default: "'user'" },
   ];
 
   for (const field of userFields) {
@@ -139,6 +140,20 @@ async function main() {
     `);
     await prisma.$executeRawUnsafe(`CREATE INDEX "SupportTicket_userId_idx" ON "SupportTicket"("userId")`);
     console.log(`  ✓ SupportTicket table created`);
+  }
+
+  // Set justin.sobojinski@gmail.com as admin
+  const ADMIN_EMAIL = "justin.sobojinski@gmail.com";
+  await prisma.$executeRawUnsafe(
+    `UPDATE "User" SET "role" = 'admin' WHERE "email" = $1 AND "role" != 'admin'`,
+    ADMIN_EMAIL
+  );
+  const adminCheck = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+    `SELECT id FROM "User" WHERE email = $1`,
+    ADMIN_EMAIL
+  );
+  if (adminCheck.length > 0) {
+    console.log(`  ✓ Set ${ADMIN_EMAIL} as admin`);
   }
 
   console.log("\nMigration complete!");
