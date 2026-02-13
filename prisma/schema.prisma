@@ -423,3 +423,18 @@ model SupportTicket {
 
   @@index([userId])
 }
+
+// ─── Knowledge Base ──────────────────────────────────
+model KnowledgeBaseArticle {
+  id                String   @id @default(cuid())
+  title             String
+  slug              String   @unique
+  content           String   // Markdown content
+  category          String   // "getting-started" | "integrations" | "billing" | "features" | "troubleshooting"
+  tags              String   @default("") // comma-separated
+  relatedTicketTypes String  @default("") // comma-separated: "bug,support"
+  status            String   @default("draft") // draft | published
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
