@@ -1,10 +1,12 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Clock } from "@/components/layout/clock";
 import { HeaderTimer } from "@/components/layout/header-timer";
+import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
+      <ImpersonationBanner />
       <Sidebar />
       <div className="md:ml-56">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-background/95 backdrop-blur px-4 py-3 md:px-6">

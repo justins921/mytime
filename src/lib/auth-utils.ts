@@ -1,26 +1,44 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 /**
  * Get the authenticated user from the session.
- * Returns the full User record or a 401 response.
+ * If an admin is impersonating another user (via cookie), returns
+ * the impersonated user instead, along with impersonation metadata.
  */
 export async function getAuthUser() {
   const session = await auth();
   if (!session?.user?.email) {
-    return { user: null, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return { user: null, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }), impersonating: false };
   }
 
-  const user = await prisma.user.findUnique({
+  const realUser = await prisma.user.findUnique({
     where: { email: session.user.email },
   });
 
-  if (!user) {
-    return { user: null, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  if (!realUser) {
+    return { user: null, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }), impersonating: false };
   }
 
-  return { user, res: null };
+  // Check for admin impersonation
+  if (realUser.role === "admin") {
+    try {
+      const cookieStore = await cookies();
+      const targetId = cookieStore.get("impersonate_user_id")?.value;
+      if (targetId && targetId !== realUser.id) {
+        const impersonatedUser = await prisma.user.findUnique({ where: { id: targetId } });
+        if (impersonatedUser) {
+          return { user: impersonatedUser, res: null, impersonating: true, realUser };
+        }
+      }
+    } catch {
+      // cookies() can throw in some contexts — fall through to normal flow
+    }
+  }
+
+  return { user: realUser, res: null, impersonating: false };
 }
 
 /** Plan hierarchy for feature gating */

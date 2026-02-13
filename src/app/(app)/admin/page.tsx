@@ -219,6 +219,17 @@ export default function AdminPage() {
     }
   }
 
+  async function impersonateUser(userId: string, name: string | null, email: string) {
+    const res = await fetch("/api/admin/impersonate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (res.ok) {
+      window.location.href = "/timer";
+    }
+  }
+
   async function deleteUser(userId: string, email: string) {
     if (!confirm(`Delete user ${email}? This will permanently delete all their data.`)) return;
     const res = await fetch("/api/admin/users", {
@@ -557,6 +568,13 @@ export default function AdminPage() {
                             <option value="manager">Manager</option>
                             <option value="admin">Admin</option>
                           </select>
+                          <button
+                            onClick={() => impersonateUser(u.id, u.name, u.email)}
+                            className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition-colors"
+                            title={`View as ${u.name || u.email}`}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
                           <button
                             onClick={() => deleteUser(u.id, u.email)}
                             className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
