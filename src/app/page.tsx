@@ -220,6 +220,7 @@ export default async function LandingPage() {
               <br />
               <span className="text-gray-400">in one click.</span>
             </h1>
+            <p className="text-sm font-medium text-gray-500 mb-4">Built for freelancers, by a freelancer.</p>
             <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-lg">
               Freelancers waste 2+ hours every week building schedules by hand.
               MyTime generates your optimal week across every client in seconds,
