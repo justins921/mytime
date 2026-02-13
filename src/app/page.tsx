@@ -252,9 +252,9 @@ export default async function LandingPage() {
             <p className="text-sm font-medium text-gray-500 mb-4">Built for freelancers, by a freelancer.</p>
             <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-lg">
               Schedule, time track, manage clients, close leads, triage your inbox,
-              and run reports — without cobbling together 5 different tools.
-              MyTime replaces the spreadsheets, the Sunday night planning ritual,
-              and the tab-switching that eats your best hours.
+              and run reports — all from one screen. Your existing tools stay.
+              MyTime pulls them together so you can stop tab-switching
+              and start working.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a
@@ -273,7 +273,7 @@ export default async function LandingPage() {
             </div>
             <div className="flex items-center gap-4 mt-5 text-xs text-gray-400">
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> 14-day free trial</span>
-              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> No invoicing bloat</span>
+              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Focused on the workday</span>
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Cancel anytime</span>
             </div>
           </div>
@@ -299,7 +299,7 @@ export default async function LandingPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">9</p>
-              <p className="text-xs text-gray-500 mt-1">Tools replaced</p>
+              <p className="text-xs text-gray-500 mt-1">Tools in one screen</p>
             </div>
             <div>
               <p className="text-2xl font-bold">6</p>
@@ -382,7 +382,7 @@ export default async function LandingPage() {
                 <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Guess how many hours you&apos;ve given each client</li>
                 <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Track leads in a spreadsheet you never update</li>
                 <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Bounce between Slack, Gmail, Notion, calendar, timer</li>
-                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Pay for Toggl + Notion + HubSpot + Sunsama separately</li>
+                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Alt-tab between Toggl, Notion, HubSpot, and Sunsama all day</li>
                 <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> End the week busy but behind, unsure where the time went</li>
               </ul>
             </div>
@@ -393,7 +393,7 @@ export default async function LandingPage() {
                 <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Live progress bars track hours against monthly caps</li>
                 <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Built-in CRM moves leads from first touch to client</li>
                 <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Slack, Gmail, Notion, and tasks in one dashboard</li>
-                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> One subscription replaces your entire tool stack</li>
+                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Your existing tools, surfaced in one dashboard</li>
                 <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Know exactly where every hour went with one glance</li>
               </ul>
             </div>
@@ -412,9 +412,9 @@ export default async function LandingPage() {
               Everything a freelancer needs. Nothing they don&apos;t.
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto">
-              Built by a freelancer who got tired of duct-taping 5 tools together.
+              Built by a freelancer who got tired of switching between 5 tabs.
               Every feature exists because I needed it myself.
-              Intentionally no invoicing — your accountant already has that covered.
+              Focused on the workday, not invoicing — you already have a tool for that.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -542,12 +542,13 @@ export default async function LandingPage() {
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold mb-3">
-              Other tools do pieces. MyTime does the whole day.
+              Other tools live in their own tab. MyTime pulls them together.
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto">
               Freelancer tools either focus on invoicing (Bonsai, Plutio, Moxie)
-              or daily planning (Sunsama, Motion). MyTime bridges the gap —
-              your entire workday, minus the invoicing bloat.
+              or daily planning (Sunsama, Motion). MyTime brings your schedule,
+              clients, and integrations into one screen — so your workday
+              actually flows.
             </p>
           </div>
           <div className="rounded-xl border bg-white overflow-hidden">
@@ -622,10 +623,10 @@ export default async function LandingPage() {
               metric="Recovered $2,250/mo in unbilled work"
             />
             <TestimonialCard
-              quote="Having Slack, email, and my schedule in one place means I don't lose 20 minutes every time I check a message. I cancelled Toggl, Sunsama, and a Notion Pro plan."
+              quote="Having Slack, email, and my schedule in one place means I don't lose 20 minutes every time I check a message. I finally have one screen for my entire workday."
               name="Priya R."
               role="UX Design Consultant, 5 clients"
-              metric="Replaced 3 tools, saving $67/mo"
+              metric="Cut tab-switching by 80%"
             />
           </div>
         </div>
@@ -640,7 +641,7 @@ export default async function LandingPage() {
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold mb-3">
-              Replaces $80+/mo in tools. Starts at $0.
+              Your whole workday for less than one tool costs.
             </h2>
             <p className="text-gray-500 max-w-md mx-auto">
               Start free. Upgrade when it pays for itself — and it will.
@@ -762,11 +763,11 @@ export default async function LandingPage() {
             <div className="px-6">
               <FAQItem
                 q="Who is MyTime for?"
-                a="Freelancers, consultants, and independent contractors who juggle multiple clients. If you spend Sunday nights building next week's schedule, track time in one tool and manage leads in another, MyTime replaces all of it."
+                a="Freelancers, consultants, and independent contractors who juggle multiple clients. If you spend Sunday nights building next week's schedule, track time in one tool and manage leads in another, MyTime brings all of that into one screen."
               />
               <FAQItem
                 q="How is this different from Bonsai, Plutio, or Moxie?"
-                a="Those tools are built around invoicing and payments. MyTime is built around your workday — schedule generation, time tracking, CRM, triage inbox, and integrations. We intentionally skip invoicing because your accountant (or FreshBooks, or Wave) already does that. The result is a faster, more focused tool for the 8 hours you actually work."
+                a="Those tools are built around invoicing and payments. MyTime is built around your workday — schedule generation, time tracking, CRM, triage inbox, and integrations. We skip invoicing so we can stay focused on the part of your day that actually matters: the work. The result is a faster, more focused tool for the 8 hours you actually work."
               />
               <FAQItem
                 q="How is this different from Sunsama or Motion?"
@@ -782,7 +783,7 @@ export default async function LandingPage() {
               />
               <FAQItem
                 q="Why no invoicing?"
-                a="Intentional. Invoicing tools already exist and most freelancers already have one (FreshBooks, Wave, QuickBooks, or even just PayPal). Adding invoicing would make MyTime slower and more complex for a problem you've already solved. We'd rather be the best workday tool than a mediocre everything tool."
+                a="We want to stay focused on the workday itself. Invoicing touches payments, taxes, and compliance — things that dedicated tools like FreshBooks, Wave, and QuickBooks handle well. Adding it would pull focus from what makes MyTime different: schedule generation, time tracking, CRM, and integrations working together seamlessly. We'd rather be the best workday tool than a mediocre everything tool."
               />
               <FAQItem
                 q="Is there a free plan?"
@@ -812,7 +813,7 @@ export default async function LandingPage() {
           </h2>
           <p className="text-gray-500 mb-8 max-w-md mx-auto">
             Start your 14-day free trial today. No credit card required.
-            Replaces $80+/mo in tools you&apos;re already paying for.
+            One screen for the tools you&apos;re already using.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
             <a
