@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Pencil, Camera, Send, X, Check, ExternalLink, Trash2, ChevronDown } from "lucide-react";
+import { Pencil, Camera, Send, X, Check, ExternalLink, Trash2, ChevronDown, Copy, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -161,6 +161,30 @@ export function DevNotesButton() {
     setNotes((prev) => prev.filter((n) => n.id !== id));
   }
 
+  async function copyForClaude() {
+    const drafts = notes.filter((n) => n.status === "draft");
+    if (drafts.length === 0) return;
+
+    const formatted = drafts
+      .map((note, i) => {
+        const parts = [`## Dev Note ${i + 1}`];
+        if (note.pageUrl) parts.push(`**Page:** ${note.pageUrl}`);
+        parts.push("", note.content);
+        return parts.join("\n");
+      })
+      .join("\n\n---\n\n");
+
+    const prompt = `Please implement the following dev notes:\n\n${formatted}`;
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setMessage("Copied!");
+      setTimeout(() => setMessage(""), 2000);
+    } catch {
+      setMessage("Copy failed");
+    }
+  }
+
   async function sendExistingNote(id: string) {
     setSending(true);
     const res = await fetch("/api/dev-notes/send", {
@@ -288,7 +312,25 @@ export function DevNotesButton() {
         )}
 
         {view === "list" && (
-          <div className="max-h-80 overflow-y-auto">
+          <div>
+            {notes.filter((n) => n.status === "draft").length > 0 && (
+              <div className="px-3 pt-2 pb-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-7 text-xs"
+                  onClick={copyForClaude}
+                >
+                  {message === "Copied!" ? (
+                    <ClipboardCheck className="h-3 w-3 mr-1" />
+                  ) : (
+                    <Copy className="h-3 w-3 mr-1" />
+                  )}
+                  {message === "Copied!" ? "Copied!" : `Copy ${notes.filter((n) => n.status === "draft").length} draft${notes.filter((n) => n.status === "draft").length === 1 ? "" : "s"} for Claude Code`}
+                </Button>
+              </div>
+            )}
+            <div className="max-h-72 overflow-y-auto">
             {notes.length === 0 && (
               <div className="py-8 text-center text-xs text-muted-foreground">No dev notes yet</div>
             )}
@@ -339,6 +381,7 @@ export function DevNotesButton() {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         )}
       </PopoverContent>
