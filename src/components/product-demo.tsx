@@ -12,16 +12,17 @@ import {
   Mail,
   BookOpen,
   Lock,
-  CheckSquare,
+  Contact,
 } from "lucide-react";
 
 /* ─── Tab types ─── */
-type Tab = "schedule" | "timer" | "hub" | "reports";
+type Tab = "schedule" | "timer" | "hub" | "crm" | "reports";
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "schedule", label: "Schedule", icon: Calendar },
   { id: "timer", label: "Timer", icon: Timer },
   { id: "hub", label: "Hub", icon: MessageSquare },
+  { id: "crm", label: "CRM", icon: Contact },
   { id: "reports", label: "Reports", icon: BarChart3 },
 ];
 
@@ -62,6 +63,24 @@ const NOTION_PAGES = [
   { icon: "📝", title: "Meeting Notes — Feb 12", workspace: "Personal" },
 ];
 
+/* ─── CRM data ─── */
+const CRM_STAGES = [
+  { name: "Lead", color: "#6b7280", contacts: [
+    { name: "Startup Inc.", value: "$3,000", activity: "Cold email sent" },
+    { name: "GreenTech Co.", value: "$5,000", activity: "Inbound inquiry" },
+  ]},
+  { name: "Contacted", color: "#3b82f6", contacts: [
+    { name: "Nova Labs", value: "$8,000", activity: "Discovery call booked" },
+  ]},
+  { name: "Proposal", color: "#f59e0b", contacts: [
+    { name: "Acme Corp", value: "$12,000", activity: "SOW sent 2 days ago" },
+    { name: "BrightPath", value: "$6,500", activity: "Follow-up pending" },
+  ]},
+  { name: "Won", color: "#10b981", contacts: [
+    { name: "Natalie Design", value: "$4,200", activity: "Signed last week" },
+  ]},
+];
+
 /* ─── Reports data ─── */
 const CLIENT_HOURS = [
   { name: "Acme Corp", hours: 18.5, cap: 20, color: "#3b82f6" },
@@ -94,6 +113,11 @@ export function ProductDemo() {
   const [visibleEmails, setVisibleEmails] = useState(0);
   const [visiblePages, setVisiblePages] = useState(0);
 
+  // CRM state
+  const [visibleStages, setVisibleStages] = useState(0);
+  const [visibleContacts, setVisibleContacts] = useState<Record<number, number>>({});
+  const [pipelineValue, setPipelineValue] = useState(false);
+
   // Reports state
   const [reportProgress, setReportProgress] = useState(0); // 0-100
 
@@ -118,6 +142,9 @@ export function ProductDemo() {
     setVisibleMessages(0);
     setVisibleEmails(0);
     setVisiblePages(0);
+    setVisibleStages(0);
+    setVisibleContacts({});
+    setPipelineValue(false);
     setReportProgress(0);
   }, []);
 
@@ -177,6 +204,23 @@ export function ProductDemo() {
       t(() => setPlaying(false), 3800);
     }
 
+    if (tab === "crm") {
+      // Pipeline columns appear one by one
+      for (let i = 0; i < CRM_STAGES.length; i++) {
+        t(() => setVisibleStages(i + 1), 300 + i * 350);
+        // Contacts cascade in for each stage
+        const stage = CRM_STAGES[i];
+        for (let j = 0; j < stage.contacts.length; j++) {
+          t(() => {
+            setVisibleContacts(prev => ({ ...prev, [i]: (prev[i] || 0) + 1 }));
+          }, 500 + i * 350 + j * 200);
+        }
+      }
+      // Pipeline value summary
+      t(() => setPipelineValue(true), 2200);
+      t(() => setPlaying(false), 3000);
+    }
+
     if (tab === "reports") {
       // Progress bars fill
       for (let p = 10; p <= 100; p += 10) {
@@ -189,12 +233,13 @@ export function ProductDemo() {
   // Auto-advance tabs
   useEffect(() => {
     if (!autoAdvance) return;
-    const tabOrder: Tab[] = ["schedule", "timer", "hub", "reports"];
+    const tabOrder: Tab[] = ["schedule", "timer", "hub", "crm", "reports"];
     const idx = tabOrder.indexOf(activeTab);
     const durations: Record<Tab, number> = {
       schedule: 5500,
       timer: 4300,
       hub: 4300,
+      crm: 3500,
       reports: 3700,
     };
     const id = setTimeout(() => {
@@ -550,6 +595,63 @@ export function ProductDemo() {
               </div>
             )}
 
+            {/* ─── CRM TAB ─── */}
+            {activeTab === "crm" && (
+              <div style={{ animation: "fadeIn 0.3s ease-out" }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Contact className="h-3.5 w-3.5 text-gray-400" />
+                    <span className="text-xs font-semibold">Pipeline</span>
+                  </div>
+                  {pipelineValue && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium animate-fade-in">
+                      $38,700 total value
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {CRM_STAGES.slice(0, visibleStages).map((stage, si) => (
+                    <div
+                      key={stage.name}
+                      className="min-h-[280px]"
+                      style={{ animation: "slideIn 0.25s ease-out" }}
+                    >
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <div
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: stage.color }}
+                        />
+                        <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                          {stage.name}
+                        </span>
+                        <span className="text-[9px] text-gray-400">
+                          {stage.contacts.length}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {stage.contacts.slice(0, visibleContacts[si] || 0).map((contact, ci) => (
+                          <div
+                            key={ci}
+                            className="p-2 rounded-md border bg-white text-xs"
+                            style={{ animation: "slideIn 0.2s ease-out" }}
+                          >
+                            <div className="font-medium text-[11px] truncate">{contact.name}</div>
+                            <div className="text-[10px] font-medium mt-1" style={{ color: stage.color }}>
+                              {contact.value}
+                            </div>
+                            <div className="text-[9px] text-gray-400 mt-0.5 truncate">
+                              {contact.activity}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ─── REPORTS TAB ─── */}
             {activeTab === "reports" && (
               <div style={{ animation: "fadeIn 0.3s ease-out" }}>
@@ -640,6 +742,7 @@ export function ProductDemo() {
             {activeTab === "schedule" && "Generate your week in one click"}
             {activeTab === "timer" && "Track time as you work"}
             {activeTab === "hub" && "Slack, Gmail, Notion — all in one place"}
+            {activeTab === "crm" && "Track leads and close deals"}
             {activeTab === "reports" && "Know exactly where your hours go"}
           </span>
         )}
