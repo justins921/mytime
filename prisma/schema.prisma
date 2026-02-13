@@ -43,6 +43,8 @@ model User {
   supportTickets   SupportTicket[]
   crmContacts      CRMContact[]
   crmActivities    CRMActivity[]
+  contractTemplates ContractTemplate[]
+  contracts         Contract[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -460,6 +462,7 @@ model CRMContact {
   updatedAt       DateTime      @updatedAt
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   activities      CRMActivity[]
+  contracts       Contract[]
 
   @@index([userId])
 }
@@ -476,6 +479,41 @@ model CRMActivity {
   updatedAt   DateTime   @updatedAt
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   contact     CRMContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([contactId])
+}
+
+// ─── Contract Templates & Contracts ─────────────────
+model ContractTemplate {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  content   String   @db.Text // Markdown with {{merge_fields}}
+  isDefault Boolean  @default(false) // built-in starter templates
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contracts Contract[]
+
+  @@index([userId])
+}
+
+model Contract {
+  id         String    @id @default(cuid())
+  userId     String
+  contactId  String
+  templateId String?
+  name       String
+  content    String    @db.Text // rendered Markdown (merge fields resolved)
+  status     String    @default("draft") // draft | sent | signed
+  sentAt     DateTime?
+  signedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contact    CRMContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  template   ContractTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([contactId])

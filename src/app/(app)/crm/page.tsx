@@ -24,6 +24,11 @@ import {
   StickyNote,
   Clock,
   ExternalLink,
+  ScrollText,
+  Download,
+  Copy,
+  Check as CheckIcon,
+  Pencil,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────
@@ -53,6 +58,22 @@ type Contact = {
   updatedAt: string;
   activities: { id: string; type: string; title: string; date: string }[];
   _count: { activities: number };
+};
+
+type ContractTemplate = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+};
+
+type Contract = {
+  id: string;
+  name: string;
+  content: string;
+  status: string;
+  templateId: string | null;
+  createdAt: string;
+  template: { id: string; name: string } | null;
 };
 
 // ─── Constants ─────────────────────────────────────
@@ -127,6 +148,18 @@ export default function CRMPage() {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
+  // Contracts
+  const [templates, setTemplates] = useState<ContractTemplate[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [showContractGen, setShowContractGen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [contractOverrides, setContractOverrides] = useState<Record<string, string>>({});
+  const [generatingContract, setGeneratingContract] = useState(false);
+  const [viewingContract, setViewingContract] = useState<Contract | null>(null);
+  const [editingContractContent, setEditingContractContent] = useState("");
+  const [isEditingContract, setIsEditingContract] = useState(false);
+  const [copiedContract, setCopiedContract] = useState(false);
+
   const loadContacts = useCallback(async () => {
     try {
       const data = await fetch("/api/crm").then((r) => r.json());
@@ -155,7 +188,10 @@ export default function CRMPage() {
   function selectContact(contact: Contact) {
     setSelected(contact);
     setShowActivityForm(false);
+    setShowContractGen(false);
+    setViewingContract(null);
     loadActivities(contact.id);
+    loadContracts(contact.id);
   }
 
   async function createContact() {
@@ -252,6 +288,101 @@ export default function CRMPage() {
     const val = field === "estimatedValue" ? parseFloat(editValue) || 0 : editValue;
     await updateContact(selected.id, { [field]: val });
     setEditingField(null);
+  }
+
+  // ─── Contract functions ──────────────────────────
+  async function loadTemplates() {
+    try {
+      const data = await fetch("/api/crm/contract-templates").then((r) => r.json());
+      if (Array.isArray(data)) {
+        setTemplates(data);
+        if (data.length > 0 && !selectedTemplate) setSelectedTemplate(data[0].id);
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function loadContracts(contactId: string) {
+    try {
+      const data = await fetch(`/api/crm/contracts?contactId=${contactId}`).then((r) => r.json());
+      if (Array.isArray(data)) setContracts(data);
+    } catch { /* ignore */ }
+  }
+
+  function openContractGenerator() {
+    loadTemplates();
+    setContractOverrides({});
+    setShowContractGen(true);
+  }
+
+  async function generateContract() {
+    if (!selected || !selectedTemplate) return;
+    setGeneratingContract(true);
+    try {
+      const res = await fetch("/api/crm/contracts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contactId: selected.id,
+          templateId: selectedTemplate,
+          overrides: contractOverrides,
+        }),
+      });
+      if (res.ok) {
+        const contract = await res.json();
+        setContracts([contract, ...contracts]);
+        setShowContractGen(false);
+        setViewingContract(contract);
+        setEditingContractContent(contract.content);
+      }
+    } catch { /* ignore */ }
+    setGeneratingContract(false);
+  }
+
+  async function updateContractStatus(contractId: string, status: string) {
+    const res = await fetch("/api/crm/contracts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: contractId, status }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setContracts(contracts.map((c) => (c.id === contractId ? updated : c)));
+      if (viewingContract?.id === contractId) setViewingContract(updated);
+    }
+  }
+
+  async function saveContractContent() {
+    if (!viewingContract) return;
+    const res = await fetch("/api/crm/contracts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: viewingContract.id, content: editingContractContent }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setContracts(contracts.map((c) => (c.id === updated.id ? updated : c)));
+      setViewingContract(updated);
+      setIsEditingContract(false);
+    }
+  }
+
+  async function deleteContract(contractId: string) {
+    const res = await fetch("/api/crm/contracts", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: contractId }),
+    });
+    if (res.ok) {
+      setContracts(contracts.filter((c) => c.id !== contractId));
+      if (viewingContract?.id === contractId) setViewingContract(null);
+    }
+  }
+
+  function copyContractToClipboard() {
+    if (!viewingContract) return;
+    navigator.clipboard.writeText(viewingContract.content);
+    setCopiedContract(true);
+    setTimeout(() => setCopiedContract(false), 2000);
   }
 
   // Filter contacts
@@ -718,6 +849,48 @@ export default function CRMPage() {
                 )}
               </div>
 
+              {/* Contracts */}
+              <div className="p-4 border-b">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contracts</h3>
+                  <button
+                    onClick={openContractGenerator}
+                    className="inline-flex items-center gap-1 text-xs text-primary font-medium"
+                  >
+                    <ScrollText className="h-3 w-3" />
+                    Generate
+                  </button>
+                </div>
+                {contracts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2">No contracts yet.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {contracts.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setViewingContract(c); setEditingContractContent(c.content); setIsEditingContract(false); }}
+                        className="w-full text-left p-2 rounded-md border hover:border-primary/40 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium truncate">{c.name}</p>
+                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            c.status === "signed" ? "bg-emerald-100 text-emerald-700" :
+                            c.status === "sent" ? "bg-blue-100 text-blue-700" :
+                            "bg-gray-100 text-gray-600"
+                          }`}>
+                            {c.status}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {new Date(c.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          {c.template && ` · ${c.template.name}`}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Activity log */}
               <div className="p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -835,8 +1008,242 @@ export default function CRMPage() {
           </div>
         )}
       </div>
+
+      {/* ─── Contract Generator Modal ─── */}
+      {showContractGen && selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg border shadow-lg w-full max-w-md p-5 space-y-4 m-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Generate Contract</h3>
+              <button onClick={() => setShowContractGen(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Select a template and fill in any details. Contact info and linked client
+              rates will be merged automatically.
+            </p>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Template</label>
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  className="w-full h-9 px-3 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Scope of Work</label>
+                <textarea
+                  value={contractOverrides.scope_of_work || ""}
+                  onChange={(e) => setContractOverrides({ ...contractOverrides, scope_of_work: e.target.value })}
+                  placeholder="Describe the work to be performed..."
+                  rows={3}
+                  className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Start Date</label>
+                  <input
+                    type="date"
+                    value={contractOverrides.start_date || ""}
+                    onChange={(e) => setContractOverrides({ ...contractOverrides, start_date: e.target.value })}
+                    className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">End Date</label>
+                  <input
+                    type="date"
+                    value={contractOverrides.end_date || ""}
+                    onChange={(e) => setContractOverrides({ ...contractOverrides, end_date: e.target.value })}
+                    className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Hourly Rate Override</label>
+                  <input
+                    type="text"
+                    value={contractOverrides.hourly_rate || ""}
+                    onChange={(e) => setContractOverrides({ ...contractOverrides, hourly_rate: e.target.value })}
+                    placeholder="Auto from client"
+                    className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Project Fee</label>
+                  <input
+                    type="text"
+                    value={contractOverrides.project_fee || ""}
+                    onChange={(e) => setContractOverrides({ ...contractOverrides, project_fee: e.target.value })}
+                    placeholder="For fixed-price"
+                    className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowContractGen(false)} className="px-3 py-2 text-sm rounded-md border hover:bg-muted">
+                Cancel
+              </button>
+              <button
+                onClick={generateContract}
+                disabled={generatingContract || !selectedTemplate}
+                className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-50"
+              >
+                <ScrollText className="h-4 w-4" />
+                {generatingContract ? "Generating..." : "Generate Contract"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Contract Viewer/Editor Modal ─── */}
+      {viewingContract && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg border shadow-lg w-full max-w-3xl m-4 flex flex-col" style={{ maxHeight: "90vh" }}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b shrink-0">
+              <div className="min-w-0">
+                <h3 className="font-semibold truncate">{viewingContract.name}</h3>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                    viewingContract.status === "signed" ? "bg-emerald-100 text-emerald-700" :
+                    viewingContract.status === "sent" ? "bg-blue-100 text-blue-700" :
+                    "bg-gray-100 text-gray-600"
+                  }`}>
+                    {viewingContract.status}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(viewingContract.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setViewingContract(null)} className="text-muted-foreground hover:text-foreground shrink-0">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {isEditingContract ? (
+                <textarea
+                  value={editingContractContent}
+                  onChange={(e) => setEditingContractContent(e.target.value)}
+                  className="w-full h-full min-h-[400px] px-3 py-2 text-sm font-mono rounded-md border focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                />
+              ) : (
+                <div className="prose prose-sm max-w-none">
+                  {viewingContract.content.split("\n").map((line, i) => {
+                    if (line.startsWith("# ")) return <h1 key={i} className="text-xl font-bold mt-4 mb-2">{line.slice(2)}</h1>;
+                    if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-semibold mt-4 mb-1">{line.slice(3)}</h2>;
+                    if (line.startsWith("### ")) return <h3 key={i} className="text-base font-semibold mt-3 mb-1">{line.slice(4)}</h3>;
+                    if (line.startsWith("---")) return <hr key={i} className="my-4" />;
+                    if (line.startsWith("- ")) return <li key={i} className="text-sm ml-4">{renderInline(line.slice(2))}</li>;
+                    if (line.startsWith("| ")) return <p key={i} className="text-sm font-mono">{line}</p>;
+                    if (line.trim() === "") return <div key={i} className="h-2" />;
+                    return <p key={i} className="text-sm leading-relaxed">{renderInline(line)}</p>;
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex items-center justify-between p-4 border-t shrink-0 gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                {viewingContract.status === "draft" && (
+                  <button
+                    onClick={() => updateContractStatus(viewingContract.id, "sent")}
+                    className="inline-flex items-center gap-1 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-blue-700"
+                  >
+                    <Send className="h-3 w-3" />
+                    Mark Sent
+                  </button>
+                )}
+                {(viewingContract.status === "draft" || viewingContract.status === "sent") && (
+                  <button
+                    onClick={() => updateContractStatus(viewingContract.id, "signed")}
+                    className="inline-flex items-center gap-1 text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-emerald-700"
+                  >
+                    <CheckIcon className="h-3 w-3" />
+                    Mark Signed
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => deleteContract(viewingContract.id)}
+                  className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
+                  title="Delete contract"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={copyContractToClipboard}
+                  className="inline-flex items-center gap-1 text-xs border px-3 py-1.5 rounded-md font-medium hover:bg-muted"
+                >
+                  {copiedContract ? <CheckIcon className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copiedContract ? "Copied" : "Copy"}
+                </button>
+                {isEditingContract ? (
+                  <button
+                    onClick={saveContractContent}
+                    className="inline-flex items-center gap-1 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md font-medium hover:bg-primary/90"
+                  >
+                    <CheckIcon className="h-3 w-3" />
+                    Save
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { setIsEditingContract(true); setEditingContractContent(viewingContract.content); }}
+                    className="inline-flex items-center gap-1 text-xs border px-3 py-1.5 rounded-md font-medium hover:bg-muted"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Edit
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+// ─── Helpers ──────────────────────────────────────
+
+/** Simple inline Markdown rendering for bold text */
+function renderInline(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    // Highlight unresolved merge fields
+    if (part.includes("{{")) {
+      const segments = part.split(/(\{\{[^}]+\}\})/g);
+      return segments.map((seg, j) => {
+        if (seg.startsWith("{{") && seg.endsWith("}}")) {
+          return (
+            <span key={`${i}-${j}`} className="px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-mono">
+              {seg}
+            </span>
+          );
+        }
+        return seg;
+      });
+    }
+    return part;
+  });
 }
 
 // ─── Detail Row Component ─────────────────────────

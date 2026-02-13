@@ -436,7 +436,7 @@ export default async function LandingPage() {
             <FeatureCard
               icon={Contact}
               title="Close leads with a built-in CRM"
-              description="Pipeline board tracks leads from first touch to won deal. Log emails, calls, and meetings. When they sign, convert them to a client in one click."
+              description="Pipeline board tracks leads from first touch to won deal. Log emails, calls, and meetings. Generate contracts from templates with auto-filled client details. When they sign, convert them to a client in one click."
             />
             <FeatureCard
               icon={CalendarClock}
@@ -775,7 +775,7 @@ export default async function LandingPage() {
               />
               <FAQItem
                 q="What's the CRM like?"
-                a="It's a lightweight pipeline built for freelancers — not a full-blown Salesforce. You track leads through stages (Lead → Contacted → Meeting → Proposal → Won), log activities like emails and calls, and see deal values. When a lead converts, they become a client with all the scheduling and time tracking built in."
+                a="It's a lightweight pipeline built for freelancers — not a full-blown Salesforce. You track leads through stages (Lead → Contacted → Meeting → Proposal → Won), log activities like emails and calls, and see deal values. You can also generate contracts from built-in templates — retainer agreements, project contracts, or SOWs — with client details auto-filled. When a lead converts, they become a client with all the scheduling and time tracking built in."
               />
               <FAQItem
                 q="What integrations are available?"
@@ -783,7 +783,7 @@ export default async function LandingPage() {
               />
               <FAQItem
                 q="Why no invoicing?"
-                a="We want to stay focused on the workday itself. Invoicing touches payments, taxes, and compliance — things that dedicated tools like FreshBooks, Wave, and QuickBooks handle well. Adding it would pull focus from what makes MyTime different: schedule generation, time tracking, CRM, and integrations working together seamlessly. We'd rather be the best workday tool than a mediocre everything tool."
+                a="We want to stay focused on the workday itself. Invoicing touches payments, taxes, and compliance — things that dedicated tools like FreshBooks, Wave, and QuickBooks handle well. That said, you can generate contracts (retainer agreements, project contracts, and SOWs) right from the CRM — so the paperwork that happens before an invoice is covered. We'd rather be the best workday tool than a mediocre everything tool."
               />
               <FAQItem
                 q="Is there a free plan?"
