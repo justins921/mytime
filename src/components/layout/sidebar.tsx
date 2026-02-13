@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   Lock,
   Contact,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -95,7 +96,11 @@ export function Sidebar() {
   }, []);
 
   const allItems: NavItem[] = isAdmin
-    ? [...navItems, { href: "/admin", label: "Admin", icon: ShieldAlert, requiredPlan: "free" as const }]
+    ? [
+        ...navItems,
+        { href: "/admin", label: "Admin", icon: ShieldAlert, requiredPlan: "free" as const },
+        { href: "/qa-checklist", label: "QA Checklist", icon: ClipboardCheck, requiredPlan: "free" as const },
+      ]
     : navItems;
 
   return (
