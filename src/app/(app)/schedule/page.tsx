@@ -38,6 +38,7 @@ interface ClientInfo {
   color: string;
   monthlyCapHours: number;
   isPersonal: boolean;
+  dailyTouch: boolean;
   projects?: { id: string; name: string }[];
 }
 
@@ -290,6 +291,17 @@ export default function SchedulePage() {
     });
   }
 
+  async function toggleDailyTouch(clientId: string, value: boolean) {
+    const res = await fetch(`/api/clients/${clientId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dailyTouch: value }),
+    });
+    if (res.ok) {
+      setClients((prev) => prev.map((c) => c.id === clientId ? { ...c, dailyTouch: value } : c));
+    }
+  }
+
   async function handleGenerate() {
     setGenerating(true);
     try {
@@ -515,7 +527,7 @@ export default function SchedulePage() {
 
       {/* Generate controls */}
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-4 pb-4 space-y-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
@@ -536,6 +548,29 @@ export default function SchedulePage() {
               {generating ? "Generating..." : "Generate Schedule"}
             </Button>
           </div>
+          {/* Daily required clients */}
+          {clients.filter((c) => !c.isPersonal).length > 0 && (
+            <div className="border-t pt-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Required daily (guaranteed a block every day)</p>
+              <div className="flex flex-wrap gap-2">
+                {clients.filter((c) => !c.isPersonal).map((client) => (
+                  <button
+                    key={client.id}
+                    onClick={() => toggleDailyTouch(client.id, !client.dailyTouch)}
+                    className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border transition-colors ${
+                      client.dailyTouch
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-muted-foreground/20 text-muted-foreground hover:border-muted-foreground/40"
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: client.color }} />
+                    {client.name}
+                    {client.dailyTouch && <CheckCircle2 className="h-3 w-3" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

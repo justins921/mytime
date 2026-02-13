@@ -335,7 +335,43 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
       remainingSlots = remainingSlots.filter((s) => s.end - s.start >= 15);
     }
 
-    // 2. Fill deep work blocks
+    // 2a. Reserve blocks for daily-touch clients FIRST (before deep work)
+    // This guarantees every daily-touch client gets at least one block per day
+    const dailyTouchClients = workClients.filter((c) => c.dailyTouch);
+    for (const client of dailyTouchClients) {
+      if (dailyTouchFulfilled[client.id]?.has(dateStr)) continue;
+
+      // Find a slot with enough room
+      for (let si = 0; si < remainingSlots.length; si++) {
+        const slot = remainingSlots[si];
+        const available = slot.end - slot.start;
+        const blockDuration = Math.min(30, available);
+        if (blockDuration < 15) continue;
+
+        const project = pickProject(client, uc30WeeklyHours, clientAllocated[client.id] || 0);
+        allBlocks.push({
+          date: dateStr,
+          startTime: minutesToTime(slot.start),
+          endTime: minutesToTime(slot.start + blockDuration),
+          clientId: client.id,
+          projectId: project?.id || null,
+          title: `${client.name} Daily Touch`,
+          type: "DeepWork",
+          locked: false,
+          generated: true,
+          notes: "",
+        });
+        clientAllocated[client.id] += blockDuration / 60;
+        dailyTouchFulfilled[client.id].add(dateStr);
+        slot.start += blockDuration;
+        break; // Move to next daily-touch client
+      }
+
+      // Clean up depleted slots
+      remainingSlots = remainingSlots.filter((s) => s.end - s.start >= 15);
+    }
+
+    // 2b. Fill deep work blocks
     // Calculate how much each deep work client needs today
     const workingDaysLeft = weekDates.length - dayIdx;
     const deepWorkAllocations: { client: ClientConfig; minutesNeeded: number }[] = [];
@@ -397,35 +433,6 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
 
     // Clean up empty slots
     remainingSlots = remainingSlots.filter((s) => s.end - s.start >= 15);
-
-    // Ensure daily touch clients have at least one block
-    for (const client of workClients.filter((c) => c.dailyTouch)) {
-      if (dailyTouchFulfilled[client.id]?.has(dateStr)) continue;
-
-      // Grab some time from first remaining slot
-      if (remainingSlots.length > 0) {
-        const slot = remainingSlots[0];
-        const blockDuration = Math.min(30, slot.end - slot.start);
-        if (blockDuration >= 15) {
-          const project = pickProject(client, uc30WeeklyHours, clientAllocated[client.id] || 0);
-          allBlocks.push({
-            date: dateStr,
-            startTime: minutesToTime(slot.start),
-            endTime: minutesToTime(slot.start + blockDuration),
-            clientId: client.id,
-            projectId: project?.id || null,
-            title: `${client.name} Daily Touch`,
-            type: "DeepWork",
-            locked: false,
-            generated: true,
-            notes: "",
-          });
-          clientAllocated[client.id] += blockDuration / 60;
-          dailyTouchFulfilled[client.id].add(dateStr);
-          slot.start += blockDuration;
-        }
-      }
-    }
 
     // 3. Admin block
     if (adminSlot) {
