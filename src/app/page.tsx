@@ -94,11 +94,16 @@ function ScheduleMockup() {
   );
 }
 
-function FeatureCard({ icon: Icon, title, description }: {
-  icon: React.ComponentType<{ className?: string }>; title: string; description: string;
+function FeatureCard({ icon: Icon, title, description, pro }: {
+  icon: React.ComponentType<{ className?: string }>; title: string; description: string; pro?: boolean;
 }) {
   return (
-    <div className="p-6 rounded-xl border bg-white hover:shadow-md transition-shadow">
+    <div className="p-6 rounded-xl border bg-white hover:shadow-md transition-shadow relative">
+      {pro && (
+        <span className="absolute top-3 right-3 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-900 text-white">
+          Pro
+        </span>
+      )}
       <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center mb-4">
         <Icon className="h-5 w-5 text-gray-700" />
       </div>
@@ -128,11 +133,16 @@ function TestimonialCard({ quote, name, role, metric }: {
   );
 }
 
-function IntegrationCard({ icon: Icon, name, description, color }: {
-  icon: React.ComponentType<{ className?: string }>; name: string; description: string; color: string;
+function IntegrationCard({ icon: Icon, name, description, color, pro }: {
+  icon: React.ComponentType<{ className?: string }>; name: string; description: string; color: string; pro?: boolean;
 }) {
   return (
-    <div className="p-5 rounded-xl border bg-white hover:shadow-md transition-shadow text-center">
+    <div className="p-5 rounded-xl border bg-white hover:shadow-md transition-shadow text-center relative">
+      {pro && (
+        <span className="absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-900 text-white">
+          Pro
+        </span>
+      )}
       <div className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: `${color}15` }}>
         <div style={{ color }}>
           <Icon className="h-5 w-5" />
@@ -437,11 +447,13 @@ export default async function LandingPage() {
               icon={BarChart3}
               title="Never over-service a client again"
               description="Visual progress bars track each client's hours against their monthly cap. They turn yellow at 70%, red at 90% — so you catch it before the invoice."
+              pro
             />
             <FeatureCard
               icon={Inbox}
               title="Triage inbox for every tool"
               description="Tasks from ClickUp, Trello, Asana, and Monday.com all land in one triage inbox. Accept, schedule, or dismiss — without switching tabs."
+              pro
             />
             <FeatureCard
               icon={StickyNote}
@@ -457,11 +469,13 @@ export default async function LandingPage() {
               icon={Layers}
               title="Slack, Gmail, Notion — one place"
               description="All your Slack workspaces, Gmail accounts, Outlook, and Notion pages in one sidebar. Read, respond, and triage without leaving your schedule."
+              pro
             />
             <FeatureCard
               icon={Calendar}
               title="Calendar feeds built right in"
               description="Pull in Google Calendar, Apple Calendar, or Outlook via iCal feeds. Events appear alongside your blocks so nothing double-books."
+              pro
             />
             <FeatureCard
               icon={HelpCircle}
@@ -505,15 +519,15 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 max-w-4xl mx-auto">
-            <IntegrationCard icon={MessageSquare} name="Slack" description="All workspaces, one inbox" color="#E01E5A" />
-            <IntegrationCard icon={Mail} name="Gmail & Outlook" description="Triage with kanban boards" color="#EA4335" />
-            <IntegrationCard icon={BookOpen} name="Notion" description="Browse and search pages" color="#000000" />
-            <IntegrationCard icon={Calendar} name="Calendar" description="iCal, Google, Outlook" color="#4285F4" />
-            <IntegrationCard icon={Inbox} name="ClickUp & Trello" description="Triage tasks in one inbox" color="#7B68EE" />
-            <IntegrationCard icon={CheckCircle2} name="Asana & Monday" description="Pull tasks for scheduling" color="#F06A6A" />
+            <IntegrationCard icon={MessageSquare} name="Slack" description="All workspaces, one inbox" color="#E01E5A" pro />
+            <IntegrationCard icon={Mail} name="Gmail & Outlook" description="Triage with kanban boards" color="#EA4335" pro />
+            <IntegrationCard icon={BookOpen} name="Notion" description="Browse and search pages" color="#000000" pro />
+            <IntegrationCard icon={Calendar} name="Calendar" description="iCal, Google, Outlook" color="#4285F4" pro />
+            <IntegrationCard icon={Inbox} name="ClickUp & Trello" description="Triage tasks in one inbox" color="#7B68EE" pro />
+            <IntegrationCard icon={CheckCircle2} name="Asana & Monday" description="Pull tasks for scheduling" color="#F06A6A" pro />
           </div>
           <p className="text-center text-xs text-gray-400 mt-6">
-            All integrations run inside MyTime — no context switching, no extra tabs.
+            All integrations are included on the Pro plan ($19/mo) and above. No extra per-integration fees.
           </p>
         </div>
       </section>
@@ -763,7 +777,7 @@ export default async function LandingPage() {
               />
               <FAQItem
                 q="What integrations are available?"
-                a="Slack (multiple workspaces), Gmail, Outlook, Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), ClickUp, Trello, Asana, and Monday.com. All integrations run inside MyTime — no tab switching."
+                a="Slack (multiple workspaces), Gmail, Outlook, Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), ClickUp, Trello, Asana, and Monday.com. All integrations are included on the Pro plan and above — no per-integration fees. They run natively inside MyTime, so there's no tab switching."
               />
               <FAQItem
                 q="Why no invoicing?"
