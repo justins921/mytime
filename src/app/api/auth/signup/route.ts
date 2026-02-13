@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     // If account exists but has no password (pre-auth migration), let them set one
     if (existing && !existing.passwordHash) {
       const passwordHash = await bcrypt.hash(password, 12);
-      const role = normalizedEmail === ADMIN_EMAIL.toLowerCase() ? "admin" : existing.role;
+      const role = normalizedEmail === ADMIN_EMAIL.toLowerCase() ? "owner" : existing.role;
       await prisma.user.update({
         where: { id: existing.id },
         data: {
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     const passwordHash = await bcrypt.hash(password, 12);
 
     // Auto-promote admin email
-    const role = normalizedEmail === ADMIN_EMAIL.toLowerCase() ? "admin" : "user";
+    const role = normalizedEmail === ADMIN_EMAIL.toLowerCase() ? "owner" : "user";
 
     const user = await prisma.user.create({
       data: {
