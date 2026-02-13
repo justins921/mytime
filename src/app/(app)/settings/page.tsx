@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink, Palmtree, CalendarClock, Plus, CreditCard, Lock, ChevronDown, BookOpen, Plug } from "lucide-react";
+import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink, Palmtree, CalendarClock, Plus, CreditCard, Lock, ChevronDown, BookOpen, Plug, KeyRound } from "lucide-react";
 
 interface AvailabilityWindow {
   start: string;
@@ -84,6 +84,12 @@ export default function SettingsPage() {
   const [userName, setUserName] = useState("");
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const canUseIntegrations = plan === "pro" || plan === "business" || role === "admin";
   const isAdmin = role === "admin";
@@ -214,6 +220,93 @@ export default function SettingsPage() {
               <span className="text-sm font-medium">{userName}</span>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Change Password */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <KeyRound className="h-4 w-4" />
+            Change Password
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-3 max-w-xl">
+            <div className="space-y-1">
+              <Label className="text-xs">Current password</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">New password</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Confirm new password</Label>
+              <Input
+                type="password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+          {passwordError && (
+            <p className="text-xs text-red-500">{passwordError}</p>
+          )}
+          {passwordMessage && (
+            <p className="text-xs text-green-600">{passwordMessage}</p>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={passwordLoading || !currentPassword || !newPassword || !confirmNewPassword}
+            onClick={async () => {
+              setPasswordError("");
+              setPasswordMessage("");
+              if (newPassword.length < 8) {
+                setPasswordError("New password must be at least 8 characters");
+                return;
+              }
+              if (newPassword !== confirmNewPassword) {
+                setPasswordError("Passwords don't match");
+                return;
+              }
+              setPasswordLoading(true);
+              try {
+                const res = await fetch("/api/auth/change-password", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ currentPassword, newPassword }),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                  setPasswordError(data.error || "Something went wrong");
+                } else {
+                  setPasswordMessage("Password updated successfully");
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmNewPassword("");
+                }
+              } catch {
+                setPasswordError("Something went wrong");
+              }
+              setPasswordLoading(false);
+            }}
+          >
+            {passwordLoading ? "Updating..." : "Update password"}
+          </Button>
         </CardContent>
       </Card>
 

@@ -181,6 +181,12 @@ export default function SignupPage() {
               <p className="text-xs text-center text-gray-500">
                 No credit card required. Cancel anytime.
               </p>
+              <p className="text-[10px] text-center text-gray-400">
+                By creating an account, you agree to our{" "}
+                <a href="/terms" className="underline hover:text-gray-600">Terms of Service</a>
+                {" "}and{" "}
+                <a href="/privacy" className="underline hover:text-gray-600">Privacy Policy</a>.
+              </p>
             </form>
 
             <div className="mt-6 pt-4 border-t text-center text-sm text-gray-500">

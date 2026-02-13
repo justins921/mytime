@@ -785,8 +785,12 @@ export default async function LandingPage() {
               <a href="/login" className="hover:text-gray-600 transition-colors">Sign In</a>
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t text-center text-xs text-gray-400">
-            &copy; {new Date().getFullYear()} Sobojinski Solutions LLC. All rights reserved.
+          <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
+            <span>&copy; {new Date().getFullYear()} Sobojinski Solutions LLC. All rights reserved.</span>
+            <div className="flex gap-4">
+              <a href="/privacy" className="hover:text-gray-600 transition-colors">Privacy Policy</a>
+              <a href="/terms" className="hover:text-gray-600 transition-colors">Terms of Service</a>
+            </div>
           </div>
         </div>
       </footer>
