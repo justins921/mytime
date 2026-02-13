@@ -30,6 +30,7 @@ import {
   Circle,
   Clock,
   CalendarClock,
+  History,
 } from "lucide-react";
 
 interface ClientInfo {
@@ -118,6 +119,7 @@ export default function SchedulePage() {
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", estimateMinutes: 60, clientId: "", projectId: "", dueDate: "", priority: "P2", mustSchedule: true });
   const [viewMode, setViewMode] = useState<ViewMode>("work");
+  const [showPastDays, setShowPastDays] = useState(false);
   const [availabilityWindows, setAvailabilityWindows] = useState<Record<string, AvailabilityWindow>>({});
   const [weekStartDay, setWeekStartDay] = useState<"monday" | "sunday">("monday");
   const [autoDetect, setAutoDetect] = useState(true);
@@ -793,11 +795,30 @@ export default function SchedulePage() {
           const hasBlocks = blocks.some((b) => b.date === dateStr);
           return avail?.enabled || hasBlocks;
         });
-        const colCount = Math.min(visibleDays.length, 7);
-        const gridClass = `grid grid-cols-1 md:grid-cols-${colCount} gap-3`;
+
+        // Split into past and current/future days
+        const isCurrentWeek = weekOffset === 0;
+        const pastDays = isCurrentWeek ? visibleDays.filter((d) => formatDate(d) < today) : [];
+        const currentAndFutureDays = isCurrentWeek ? visibleDays.filter((d) => formatDate(d) >= today) : visibleDays;
+        const displayDays = showPastDays ? visibleDays : currentAndFutureDays;
+        const colCount = Math.min(displayDays.length, 7);
         return (
-        <div className={gridClass} style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
-          {visibleDays.map((date) => {
+        <>
+        {/* Past days toggle */}
+        {isCurrentWeek && pastDays.length > 0 && (
+          <button
+            onClick={() => setShowPastDays(!showPastDays)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
+          >
+            <History className="h-3.5 w-3.5" />
+            {showPastDays ? "Hide past days" : `Show ${pastDays.length} past day${pastDays.length > 1 ? "s" : ""} (${pastDays.map((d) => {
+              const idx = weekDates.indexOf(d);
+              return dayNamesShort[idx];
+            }).join(", ")})`}
+          </button>
+        )}
+        <div className="grid grid-cols-1 gap-3" style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
+          {displayDays.map((date) => {
             const weekIdx = weekDates.indexOf(date);
             const dateStr = formatDate(date);
             const dayBlocks = blocksByDate(dateStr);
@@ -819,16 +840,14 @@ export default function SchedulePage() {
                       </span>
                     </div>
                     {!isPastDay && !isTimeOff && dayBlocks.length > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 px-2 text-[11px] gap-1"
+                      <button
                         onClick={() => handleGenerateDay(dateStr)}
                         disabled={generatingDay === dateStr}
+                        className="h-5 w-5 rounded hover:bg-muted flex items-center justify-center transition-colors disabled:opacity-50"
+                        title="Regenerate day"
                       >
-                        <RefreshCw className={`h-3 w-3 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
-                        {generatingDay === dateStr ? "..." : "Regenerate"}
-                      </Button>
+                        <RefreshCw className={`h-3 w-3 text-muted-foreground ${generatingDay === dateStr ? "animate-spin" : ""}`} />
+                      </button>
                     )}
                   </CardTitle>
                 </CardHeader>
@@ -869,11 +888,10 @@ export default function SchedulePage() {
                         <button
                           onClick={() => handleGenerateDay(dateStr)}
                           disabled={generatingDay === dateStr}
-                          className="w-full flex flex-col items-center gap-2 py-8 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-lg border-2 border-dashed border-muted-foreground/20 hover:border-primary/30 transition-colors"
+                          className="w-full flex items-center justify-center gap-1.5 py-6 text-muted-foreground hover:text-primary rounded-md border border-dashed border-muted-foreground/20 hover:border-primary/30 transition-colors"
                         >
-                          <RefreshCw className={`h-6 w-6 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
-                          <span className="text-sm font-medium">{generatingDay === dateStr ? "Generating..." : "Generate today's schedule"}</span>
-                          <span className="text-[10px] text-muted-foreground">Click to auto-fill this day</span>
+                          <RefreshCw className={`h-3.5 w-3.5 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
+                          <span className="text-xs">{generatingDay === dateStr ? "Generating..." : "Generate"}</span>
                         </button>
                       ) : (
                         <p className="text-xs text-muted-foreground text-center py-4">No blocks</p>
@@ -992,6 +1010,7 @@ export default function SchedulePage() {
             );
           })}
         </div>
+        </>
         );
       })()}
 

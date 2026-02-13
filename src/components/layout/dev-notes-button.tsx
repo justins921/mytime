@@ -63,15 +63,22 @@ export function DevNotesButton() {
   async function captureScreenshot() {
     setCapturing(true);
     try {
-      // Temporarily hide the popover for the capture
       const popoverEl = document.querySelector("[data-radix-popper-content-wrapper]") as HTMLElement;
       if (popoverEl) popoverEl.style.display = "none";
 
-      const canvas = await html2canvas(document.body, {
+      // Target <main> content area instead of full body to avoid sidebar/header rendering issues
+      const target = document.querySelector("main") || document.body;
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      const canvas = await html2canvas(target as HTMLElement, {
         scale: 0.5,
         logging: false,
         useCORS: true,
         allowTaint: true,
+        foreignObjectRendering: false,
+        removeContainer: true,
+        backgroundColor: "#ffffff",
       });
 
       if (popoverEl) popoverEl.style.display = "";
