@@ -808,14 +808,14 @@ export default function SchedulePage() {
                     </div>
                     {!isPastDay && !isTimeOff && (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-[11px] gap-1"
                         onClick={() => handleGenerateDay(dateStr)}
                         disabled={generatingDay === dateStr}
-                        title={`Generate ${DAY_NAMES[i]}`}
                       >
-                        <RefreshCw className={`h-3.5 w-3.5 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
+                        <RefreshCw className={`h-3 w-3 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
+                        {generatingDay === dateStr ? "..." : "Generate"}
                       </Button>
                     )}
                   </CardTitle>
@@ -853,7 +853,18 @@ export default function SchedulePage() {
                           </span>
                         </div>
                       )}
-                      <p className="text-xs text-muted-foreground text-center py-4">No blocks</p>
+                      {!isPastDay ? (
+                        <button
+                          onClick={() => handleGenerateDay(dateStr)}
+                          disabled={generatingDay === dateStr}
+                          className="w-full flex flex-col items-center gap-1.5 py-6 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-md transition-colors"
+                        >
+                          <RefreshCw className={`h-5 w-5 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
+                          <span className="text-xs font-medium">{generatingDay === dateStr ? "Generating..." : "Generate this day"}</span>
+                        </button>
+                      ) : (
+                        <p className="text-xs text-muted-foreground text-center py-4">No blocks</p>
+                      )}
                     </>
                   )}
                   {(() => {
