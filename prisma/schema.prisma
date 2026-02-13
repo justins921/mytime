@@ -41,6 +41,8 @@ model User {
   outlookAccounts  OutlookAccount[]
   triageDismissals TriageDismissal[]
   supportTickets   SupportTicket[]
+  crmContacts      CRMContact[]
+  crmActivities    CRMActivity[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -437,4 +439,44 @@ model KnowledgeBaseArticle {
   sortOrder         Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+// ─── CRM ─────────────────────────────────────────────
+model CRMContact {
+  id              String        @id @default(cuid())
+  userId          String
+  name            String
+  email           String        @default("")
+  phone           String        @default("")
+  company         String        @default("")
+  website         String        @default("")
+  stage           String        @default("lead") // lead | contacted | meeting | proposal | won | lost
+  source          String        @default("other") // referral | website | linkedin | cold_outreach | event | other
+  estimatedValue  Float         @default(0) // potential deal value
+  notes           String        @default("")
+  linkedClientId  String?       // optional link to an existing Client once won
+  lastContactedAt DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities      CRMActivity[]
+
+  @@index([userId])
+}
+
+model CRMActivity {
+  id          String     @id @default(cuid())
+  userId      String
+  contactId   String
+  type        String     // email | call | meeting | note | follow_up | proposal
+  title       String
+  description String     @default("")
+  date        DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contact     CRMContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([contactId])
 }

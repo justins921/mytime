@@ -21,6 +21,7 @@ import {
   HelpCircle,
   ShieldAlert,
   Lock,
+  Contact,
   type LucideIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { href: "/tasks", label: "Tasks", icon: CheckSquare, requiredPlan: "free" },
   { href: "/timer", label: "Timer", icon: Timer, requiredPlan: "free" },
   { href: "/notes", label: "Notes", icon: StickyNote, requiredPlan: "free" },
+  { href: "/crm", label: "CRM", icon: Contact, requiredPlan: "free" },
   { href: "/messages", label: "Messages", icon: MessageSquare, requiredPlan: "pro" },
   { href: "/email", label: "Email", icon: Mail, requiredPlan: "pro" },
   { href: "/notion", label: "Notion", icon: BookOpen, requiredPlan: "pro" },
