@@ -750,16 +750,33 @@ export default function TriagePage() {
         </div>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center space-y-3">
-              <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto" />
-              <h3 className="font-medium">No Integrations Configured</h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                To pull tasks into your triage queue, connect at least one integration
-                (ClickUp, Trello, Asana, or Monday.com) in Settings.
-              </p>
-              <Button variant="outline" onClick={() => window.location.href = "/settings"}>
-                Go to Settings
-              </Button>
+            <div className="text-center space-y-4">
+              <Inbox className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+              <div>
+                <h3 className="font-medium">Connect a task management tool</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1">
+                  Pull tasks from your existing tools into a unified triage queue.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+                <button onClick={() => window.location.href = "/settings"} className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 hover:border-primary/30 transition-colors text-left">
+                  <Inbox className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div><div className="text-sm font-medium">ClickUp</div><div className="text-[10px] text-muted-foreground">API token</div></div>
+                </button>
+                <button onClick={() => window.location.href = "/settings"} className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 hover:border-primary/30 transition-colors text-left">
+                  <Inbox className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div><div className="text-sm font-medium">Trello</div><div className="text-[10px] text-muted-foreground">API key:token</div></div>
+                </button>
+                <button onClick={() => window.location.href = "/settings"} className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 hover:border-primary/30 transition-colors text-left">
+                  <Inbox className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div><div className="text-sm font-medium">Asana</div><div className="text-[10px] text-muted-foreground">Access token</div></div>
+                </button>
+                <button onClick={() => window.location.href = "/settings"} className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 hover:border-primary/30 transition-colors text-left">
+                  <Inbox className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div><div className="text-sm font-medium">Monday.com</div><div className="text-[10px] text-muted-foreground">API token</div></div>
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">Token-based integrations are configured in Settings.</p>
             </div>
           </CardContent>
         </Card>

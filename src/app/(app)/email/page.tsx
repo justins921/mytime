@@ -543,13 +543,18 @@ export default function EmailPage() {
         <Mail className="h-12 w-12 text-muted-foreground" />
         <div>
           <h2 className="text-lg font-semibold">No email accounts connected</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Go to Settings to connect your Gmail or Outlook accounts and map them to clients.
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+            Connect your Gmail or Outlook account to view and manage emails. You&apos;ll be redirected to authorize access.
           </p>
         </div>
-        <Button variant="outline" onClick={() => (window.location.href = "/settings")}>
-          Go to Settings
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={() => (window.location.href = "/api/gmail/oauth")}>
+            Connect Gmail
+          </Button>
+          <Button variant="outline" onClick={() => (window.location.href = "/api/outlook/oauth")}>
+            Connect Outlook
+          </Button>
+        </div>
       </div>
     );
   }

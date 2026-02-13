@@ -13,7 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink, Palmtree, CalendarClock, Plus, CreditCard, Lock, ChevronDown, BookOpen, Plug, KeyRound } from "lucide-react";
+import { Settings as SettingsIcon, Save, RefreshCw, MessageSquare, Mail, Trash2, ExternalLink, Palmtree, CalendarClock, Plus, CreditCard, Lock, ChevronDown, BookOpen, Plug, KeyRound, CheckCircle2, Inbox, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface AvailabilityWindow {
   start: string;
@@ -91,6 +97,9 @@ export default function SettingsPage() {
     { id: string; name: string; url: string; color: string; enabled: boolean; lastSync: string | null; lastSyncError: string }[]
   >([]);
   const [newFeed, setNewFeed] = useState({ name: "", url: "", color: "#8b5cf6" });
+  const [showAddIntegration, setShowAddIntegration] = useState(false);
+  const [addIntegrationStep, setAddIntegrationStep] = useState<"pick" | "clickup" | "notion" | "trello" | "asana" | "monday">("pick");
+  const [managingIntegration, setManagingIntegration] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [plan, setPlan] = useState("free");
@@ -929,691 +938,425 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Integrations header with plan gate */}
-      <div className="flex items-center gap-2 pt-4">
-        <Plug className="h-5 w-5" />
-        <h2 className="text-lg font-semibold">Integrations</h2>
-        {!canUseIntegrations && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
-            <Lock className="h-3 w-3" />
-            Pro plan required
-          </span>
-        )}
-      </div>
-
-      <p className="text-[10px] text-muted-foreground -mt-1">
-        Some integrations may require a paid plan from the respective service (e.g. Slack, ClickUp, Notion).
-      </p>
-
-      {!canUseIntegrations && (
-        <Card>
-          <CardContent className="py-8 text-center space-y-3">
-            <Lock className="h-8 w-8 mx-auto text-muted-foreground" />
-            <p className="text-sm font-medium">Integrations require a Pro or Business plan</p>
-            <p className="text-xs text-muted-foreground max-w-md mx-auto">
-              Connect Slack, Gmail, Notion, ClickUp, and Calendar feeds to manage all your communication in one place.
-              Upgrade to Pro to unlock all integrations.
-            </p>
-            <Button
-              size="sm"
-              onClick={async () => {
-                setBillingLoading(true);
-                const res = await fetch("/api/stripe/checkout", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ plan: "pro", billing: "monthly" }),
-                });
-                const data = await res.json();
-                if (data.url) window.location.href = data.url;
-                setBillingLoading(false);
-              }}
-              disabled={billingLoading}
-            >
-              Upgrade to Pro — $19/mo
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {canUseIntegrations && (
-        <>
-      {/* ClickUp integration */}
+      {/* Integrations */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">ClickUp Integration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <details className="text-xs mb-3">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
-              <ChevronDown className="h-3 w-3" />
-              How to connect ClickUp (step by step)
-            </summary>
-            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
-              <li>Go to ClickUp &rarr; click your avatar (bottom-left) &rarr; <strong>Settings</strong></li>
-              <li>Click <strong>Apps</strong> in the left sidebar</li>
-              <li>Under &quot;API Token&quot;, click <strong>Generate</strong> (or copy your existing token)</li>
-              <li>Paste the token below and click <strong>Test</strong></li>
-              <li>Once connected, map each ClickUp workspace to a MyTime client</li>
-              <li>Tasks from mapped workspaces will appear in the <strong>Triage</strong> tab</li>
-            </ol>
-          </details>
-
-          <div className="space-y-1">
-            <Label className="text-xs">Personal API Token</Label>
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                value={clickupApiToken}
-                onChange={(e) => setClickupApiToken(e.target.value)}
-                placeholder="pk_..."
-                className="font-mono"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!clickupApiToken || clickupLoading}
-                onClick={async () => {
-                  setClickupLoading(true);
-                  setClickupTestError("");
-                  try {
-                    // Save the token to the database first so the API can use it
-                    await fetch("/api/settings", {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ clickupApiToken }),
-                    });
-                    const res = await fetch("/api/clickup?action=workspaces");
-                    const data = await res.json();
-                    if (Array.isArray(data)) {
-                      setClickupWorkspaces(data.map((t: { id: string | number; name: string }) => ({ id: String(t.id), name: t.name })));
-                      setClickupTestError("");
-                    } else {
-                      setClickupTestError(data.error || "Invalid response from ClickUp. Check your token.");
-                    }
-                  } catch {
-                    setClickupTestError("Failed to connect to ClickUp. Check your token and try again.");
-                  }
-                  setClickupLoading(false);
-                }}
-              >
-                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${clickupLoading ? "animate-spin" : ""}`} />
-                Test
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Find this in ClickUp &rarr; Settings &rarr; Apps.
-            </p>
-            {clickupTestError && (
-              <p className="text-xs text-red-600">{clickupTestError}</p>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Plug className="h-4 w-4" />
+            Integrations
+            {!canUseIntegrations && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                <Lock className="h-3 w-3" />
+                Pro plan required
+              </span>
             )}
-          </div>
-
-          {clickupWorkspaces.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-xs">Workspace → Client Mapping</Label>
-              <p className="text-[10px] text-muted-foreground">
-                Map each ClickUp workspace to a MyTime client so triage tasks auto-select the right client.
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!canUseIntegrations ? (
+            <div className="text-center space-y-3 py-4">
+              <Lock className="h-8 w-8 mx-auto text-muted-foreground" />
+              <p className="text-sm font-medium">Integrations require a Pro or Business plan</p>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                Connect Slack, Gmail, Notion, ClickUp, and more to manage all your communication in one place.
               </p>
-              {clickupWorkspaces.map((ws) => (
-                <div key={ws.id} className="flex items-center gap-2">
-                  <span className="text-sm w-36 truncate">{ws.name}</span>
-                  <span className="text-xs text-muted-foreground">→</span>
-                  <Select
-                    value={clickupWorkspaceMap[ws.id] || ""}
-                    onValueChange={(v) =>
-                      setClickupWorkspaceMap({ ...clickupWorkspaceMap, [ws.id]: v })
-                    }
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {allClients.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      {/* Slack integration */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Slack Integration
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {slackMessage && (
-            <p className={`text-xs ${slackMessage.includes("error") ? "text-red-600" : "text-green-600"}`}>
-              {slackMessage}
-            </p>
-          )}
-
-          <p className="text-[10px] text-muted-foreground">
-            Connect your Slack workspaces and map them to clients. Messages will be filtered based on your current schedule.
-          </p>
-
-          <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
-              <ChevronDown className="h-3 w-3" />
-              How to connect Slack (step by step)
-            </summary>
-            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
-              <li>Click <strong>&quot;Connect Slack Workspace&quot;</strong> below</li>
-              <li>You&apos;ll be redirected to Slack&apos;s authorization page</li>
-              <li>Select the workspace you want to connect</li>
-              <li>Click <strong>&quot;Allow&quot;</strong> to grant MyTime access</li>
-              <li>You&apos;ll be redirected back here — your workspace will appear below</li>
-              <li>Map each workspace to a client using the dropdown</li>
-            </ol>
-          </details>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { window.location.href = "/api/slack/oauth"; }}
-          >
-            <ExternalLink className="h-3.5 w-3.5 mr-1" />
-            Connect Slack Workspace
-          </Button>
-
-          {slackWorkspaces.length > 0 && (
-            <div className="space-y-3">
-              <Label className="text-xs">Connected Workspaces</Label>
-              {slackWorkspaces.map((ws) => (
-                <div key={ws.id} className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium w-36 truncate">{ws.teamName}</span>
-                  <span className="text-xs text-muted-foreground">&rarr;</span>
-                  <Select
-                    value={ws.clientId || "none"}
-                    onValueChange={async (v) => {
-                      const clientId = v === "none" ? null : v;
-                      const res = await fetch("/api/slack/workspaces", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: ws.id, clientId }),
-                      });
-                      const updated = await res.json();
-                      setSlackWorkspaces((prev) =>
-                        prev.map((w) => (w.id === ws.id ? { ...w, clientId: updated.clientId, client: updated.client } : w))
-                      );
-                    }}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No client</SelectItem>
-                      {allClients.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={async () => {
-                      await fetch("/api/slack/workspaces", {
-                        method: "DELETE",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: ws.id }),
-                      });
-                      setSlackWorkspaces((prev) => prev.filter((w) => w.id !== ws.id));
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Gmail integration */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Gmail Integration
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {gmailMessage && (
-            <p className={`text-xs ${gmailMessage.includes("error") ? "text-red-600" : "text-green-600"}`}>
-              {gmailMessage}
-            </p>
-          )}
-
-          <p className="text-[10px] text-muted-foreground">
-            Connect your Gmail accounts and map them to clients. Emails will be available in your unified inbox and kanban board.
-          </p>
-
-          <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
-              <ChevronDown className="h-3 w-3" />
-              How to connect Gmail (step by step)
-            </summary>
-            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
-              <li>Click <strong>&quot;Connect Gmail Account&quot;</strong> below</li>
-              <li>You&apos;ll be redirected to Google&apos;s sign-in page</li>
-              <li>Choose the Gmail account you want to connect</li>
-              <li>Review the permissions and click <strong>&quot;Allow&quot;</strong></li>
-              <li>You&apos;ll be redirected back here — your account will appear below</li>
-              <li>Map each account to a client using the dropdown</li>
-              <li>Emails from this account will now appear in the <strong>Email</strong> tab</li>
-            </ol>
-          </details>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { window.location.href = "/api/gmail/oauth"; }}
-          >
-            <ExternalLink className="h-3.5 w-3.5 mr-1" />
-            Connect Gmail Account
-          </Button>
-
-          {gmailAccounts.length > 0 && (
-            <div className="space-y-3">
-              <Label className="text-xs">Connected Accounts</Label>
-              {gmailAccounts.map((acct) => (
-                <div key={acct.id} className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium w-48 truncate">{acct.email}</span>
-                  <span className="text-xs text-muted-foreground">&rarr;</span>
-                  <Select
-                    value={acct.clientId || "none"}
-                    onValueChange={async (v) => {
-                      const clientId = v === "none" ? null : v;
-                      const res = await fetch("/api/gmail/accounts", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: acct.id, clientId }),
-                      });
-                      const updated = await res.json();
-                      setGmailAccounts((prev) =>
-                        prev.map((a) => (a.id === acct.id ? { ...a, clientId: updated.clientId, client: updated.client } : a))
-                      );
-                    }}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No client</SelectItem>
-                      {allClients.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={async () => {
-                      await fetch("/api/gmail/accounts", {
-                        method: "DELETE",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: acct.id }),
-                      });
-                      setGmailAccounts((prev) => prev.filter((a) => a.id !== acct.id));
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Outlook integration */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Outlook Integration
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {outlookMessage && (
-            <p className={`text-xs ${outlookMessage.includes("error") ? "text-red-600" : "text-green-600"}`}>
-              {outlookMessage}
-            </p>
-          )}
-
-          <p className="text-[10px] text-muted-foreground">
-            Connect your Outlook / Microsoft 365 email accounts and map them to clients. Emails will appear alongside Gmail in your unified inbox.
-          </p>
-
-          <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
-              <ChevronDown className="h-3 w-3" />
-              How to connect Outlook (step by step)
-            </summary>
-            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
-              <li>Click <strong>&quot;Connect Outlook Account&quot;</strong> below</li>
-              <li>You&apos;ll be redirected to Microsoft&apos;s sign-in page</li>
-              <li>Sign in with the Outlook / Microsoft 365 account you want to connect</li>
-              <li>Review the permissions and click <strong>&quot;Accept&quot;</strong></li>
-              <li>You&apos;ll be redirected back here — your account will appear below</li>
-              <li>Map each account to a client using the dropdown</li>
-              <li>Emails from this account will now appear in the <strong>Email</strong> tab</li>
-            </ol>
-          </details>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { window.location.href = "/api/outlook/oauth"; }}
-          >
-            <ExternalLink className="h-3.5 w-3.5 mr-1" />
-            Connect Outlook Account
-          </Button>
-
-          {outlookAccounts.length > 0 && (
-            <div className="space-y-3">
-              <Label className="text-xs">Connected Accounts</Label>
-              {outlookAccounts.map((acct) => (
-                <div key={acct.id} className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium w-48 truncate">{acct.email}</span>
-                  <span className="text-xs text-muted-foreground">&rarr;</span>
-                  <Select
-                    value={acct.clientId || "none"}
-                    onValueChange={async (v) => {
-                      const clientId = v === "none" ? null : v;
-                      const res = await fetch("/api/outlook/accounts", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: acct.id, clientId }),
-                      });
-                      const updated = await res.json();
-                      setOutlookAccounts((prev) =>
-                        prev.map((a) => (a.id === acct.id ? { ...a, clientId: updated.clientId, client: updated.client } : a))
-                      );
-                    }}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No client</SelectItem>
-                      {allClients.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={async () => {
-                      await fetch("/api/outlook/accounts", {
-                        method: "DELETE",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: acct.id }),
-                      });
-                      setOutlookAccounts((prev) => prev.filter((a) => a.id !== acct.id));
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Notion integration */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Notion Integration
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {notionMessage && (
-            <p className={`text-xs ${notionMessage.includes("error") || notionMessage.includes("Error") ? "text-red-600" : "text-green-600"}`}>
-              {notionMessage}
-            </p>
-          )}
-
-          <p className="text-[10px] text-muted-foreground">
-            Connect Notion to browse and search your pages directly from MyTime.
-          </p>
-
-          <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
-              <ChevronDown className="h-3 w-3" />
-              How to connect Notion (step by step)
-            </summary>
-            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
-              <li>In Notion, go to <strong>Settings &amp; members</strong> &rarr; <strong>Connections</strong> &rarr; <strong>Develop or manage integrations</strong></li>
-              <li>Click <strong>New integration</strong>, give it a name, and select your workspace</li>
-              <li>Copy the <strong>Internal Integration Token</strong></li>
-              <li>Paste it below and click <strong>Connect</strong></li>
-              <li>In Notion, share the pages you want accessible with your integration</li>
-            </ol>
-          </details>
-
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                value={notionToken}
-                onChange={(e) => setNotionToken(e.target.value)}
-                placeholder="ntn_..."
-                className="font-mono flex-1"
-              />
-              <Input
-                value={notionName}
-                onChange={(e) => setNotionName(e.target.value)}
-                placeholder="Workspace name (optional)"
-                className="w-48"
-              />
               <Button
-                variant="outline"
                 size="sm"
-                disabled={!notionToken || notionLoading}
                 onClick={async () => {
-                  setNotionLoading(true);
-                  setNotionMessage("");
-                  try {
-                    const res = await fetch("/api/notion/workspaces", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ token: notionToken, name: notionName || undefined }),
-                    });
-                    const data = await res.json();
-                    if (!res.ok) {
-                      setNotionMessage(data.error || "Failed to connect");
-                    } else {
-                      setNotionWorkspaces((prev) => {
-                        const exists = prev.find((w) => w.id === data.id);
-                        return exists ? prev.map((w) => (w.id === data.id ? data : w)) : [...prev, data];
-                      });
-                      setNotionToken("");
-                      setNotionName("");
-                      setNotionMessage(`Connected to ${data.workspaceName}!`);
-                    }
-                  } catch {
-                    setNotionMessage("Error: failed to connect. Check your token and try again.");
-                  }
-                  setNotionLoading(false);
+                  setBillingLoading(true);
+                  const res = await fetch("/api/stripe/checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ plan: "pro", billing: "monthly" }),
+                  });
+                  const data = await res.json();
+                  if (data.url) window.location.href = data.url;
+                  setBillingLoading(false);
                 }}
+                disabled={billingLoading}
               >
-                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${notionLoading ? "animate-spin" : ""}`} />
-                Connect
+                Upgrade to Pro — $19/mo
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              Find this in Notion &rarr; Settings &rarr; Connections &rarr; Develop or manage integrations.
-            </p>
-          </div>
+          ) : (
+            <>
+              {slackMessage && <p className={`text-xs ${slackMessage.includes("error") ? "text-red-600" : "text-green-600"}`}>{slackMessage}</p>}
+              {gmailMessage && <p className={`text-xs ${gmailMessage.includes("error") ? "text-red-600" : "text-green-600"}`}>{gmailMessage}</p>}
+              {outlookMessage && <p className={`text-xs ${outlookMessage.includes("error") ? "text-red-600" : "text-green-600"}`}>{outlookMessage}</p>}
+              {notionMessage && <p className={`text-xs ${notionMessage.includes("error") || notionMessage.includes("Error") ? "text-red-600" : "text-green-600"}`}>{notionMessage}</p>}
+              {clickupTestError && <p className="text-xs text-red-600">{clickupTestError}</p>}
 
-          {notionWorkspaces.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-xs">Connected Workspaces</Label>
-              {notionWorkspaces.map((ws) => (
-                <div key={ws.id} className="flex items-center gap-2">
-                  <span className="text-sm font-medium truncate flex-1">{ws.workspaceName}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={async () => {
-                      await fetch("/api/notion/workspaces", {
-                        method: "DELETE",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ id: ws.id }),
-                      });
-                      setNotionWorkspaces((prev) => prev.filter((w) => w.id !== ws.id));
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+              {/* Connected integrations list */}
+              {(() => {
+                const connected: { key: string; icon: React.ReactNode; label: string; detail: string }[] = [];
+                if (slackWorkspaces.length > 0) connected.push({ key: "slack", icon: <MessageSquare className="h-4 w-4" />, label: "Slack", detail: `${slackWorkspaces.length} workspace${slackWorkspaces.length > 1 ? "s" : ""}` });
+                if (gmailAccounts.length > 0) connected.push({ key: "gmail", icon: <Mail className="h-4 w-4" />, label: "Gmail", detail: `${gmailAccounts.length} account${gmailAccounts.length > 1 ? "s" : ""}` });
+                if (outlookAccounts.length > 0) connected.push({ key: "outlook", icon: <Mail className="h-4 w-4" />, label: "Outlook", detail: `${outlookAccounts.length} account${outlookAccounts.length > 1 ? "s" : ""}` });
+                if (notionWorkspaces.length > 0) connected.push({ key: "notion", icon: <BookOpen className="h-4 w-4" />, label: "Notion", detail: `${notionWorkspaces.length} workspace${notionWorkspaces.length > 1 ? "s" : ""}` });
+                if (clickupApiToken) connected.push({ key: "clickup", icon: <Inbox className="h-4 w-4" />, label: "ClickUp", detail: clickupWorkspaces.length > 0 ? `${clickupWorkspaces.length} workspace${clickupWorkspaces.length > 1 ? "s" : ""}` : "Connected" });
+                if (trelloApiToken) connected.push({ key: "trello", icon: <Plug className="h-4 w-4" />, label: "Trello", detail: "Connected" });
+                if (asanaApiToken) connected.push({ key: "asana", icon: <Plug className="h-4 w-4" />, label: "Asana", detail: "Connected" });
+                if (mondayApiToken) connected.push({ key: "monday", icon: <Plug className="h-4 w-4" />, label: "Monday.com", detail: "Connected" });
+
+                if (connected.length === 0) {
+                  return (
+                    <div className="text-center py-6 space-y-3">
+                      <Plug className="h-8 w-8 mx-auto text-muted-foreground/30" />
+                      <p className="text-sm text-muted-foreground">No integrations connected yet</p>
+                      <Button size="sm" onClick={() => { setAddIntegrationStep("pick"); setShowAddIntegration(true); }}>
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add Integration
+                      </Button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2">
+                    {connected.map((item) => (
+                      <div key={item.key}>
+                        <div
+                          className="flex items-center gap-3 p-2.5 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
+                          onClick={() => setManagingIntegration(managingIntegration === item.key ? null : item.key)}
+                        >
+                          <div className="text-muted-foreground">{item.icon}</div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium">{item.label}</span>
+                            <span className="text-xs text-muted-foreground ml-2">{item.detail}</span>
+                          </div>
+                          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${managingIntegration === item.key ? "rotate-180" : ""}`} />
+                        </div>
+
+                        {/* Expanded management panel */}
+                        {managingIntegration === "slack" && item.key === "slack" && (
+                          <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-3">
+                            {slackWorkspaces.map((ws) => (
+                              <div key={ws.id} className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium w-36 truncate">{ws.teamName}</span>
+                                <span className="text-xs text-muted-foreground">&rarr;</span>
+                                <Select value={ws.clientId || "none"} onValueChange={async (v) => {
+                                  const clientId = v === "none" ? null : v;
+                                  const res = await fetch("/api/slack/workspaces", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: ws.id, clientId }) });
+                                  const updated = await res.json();
+                                  setSlackWorkspaces((prev) => prev.map((w) => (w.id === ws.id ? { ...w, clientId: updated.clientId, client: updated.client } : w)));
+                                }}>
+                                  <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="Select client" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none" className="text-xs">No client</SelectItem>
+                                    {allClients.map((c) => <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                                <Button variant="ghost" size="sm" className="text-destructive h-7 px-2" onClick={async () => {
+                                  await fetch("/api/slack/workspaces", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: ws.id }) });
+                                  setSlackWorkspaces((prev) => prev.filter((w) => w.id !== ws.id));
+                                }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                              </div>
+                            ))}
+                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.href = "/api/slack/oauth"; }}>
+                              <Plus className="h-3 w-3 mr-1" />Add Another Workspace
+                            </Button>
+                          </div>
+                        )}
+
+                        {managingIntegration === "gmail" && item.key === "gmail" && (
+                          <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-3">
+                            {gmailAccounts.map((acct) => (
+                              <div key={acct.id} className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium w-44 truncate">{acct.email}</span>
+                                <span className="text-xs text-muted-foreground">&rarr;</span>
+                                <Select value={acct.clientId || "none"} onValueChange={async (v) => {
+                                  const clientId = v === "none" ? null : v;
+                                  const res = await fetch("/api/gmail/accounts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: acct.id, clientId }) });
+                                  const updated = await res.json();
+                                  setGmailAccounts((prev) => prev.map((a) => (a.id === acct.id ? { ...a, clientId: updated.clientId, client: updated.client } : a)));
+                                }}>
+                                  <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="Select client" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none" className="text-xs">No client</SelectItem>
+                                    {allClients.map((c) => <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                                <Button variant="ghost" size="sm" className="text-destructive h-7 px-2" onClick={async () => {
+                                  await fetch("/api/gmail/accounts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: acct.id }) });
+                                  setGmailAccounts((prev) => prev.filter((a) => a.id !== acct.id));
+                                }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                              </div>
+                            ))}
+                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.href = "/api/gmail/oauth"; }}>
+                              <Plus className="h-3 w-3 mr-1" />Add Another Account
+                            </Button>
+                          </div>
+                        )}
+
+                        {managingIntegration === "outlook" && item.key === "outlook" && (
+                          <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-3">
+                            {outlookAccounts.map((acct) => (
+                              <div key={acct.id} className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium w-44 truncate">{acct.email}</span>
+                                <span className="text-xs text-muted-foreground">&rarr;</span>
+                                <Select value={acct.clientId || "none"} onValueChange={async (v) => {
+                                  const clientId = v === "none" ? null : v;
+                                  const res = await fetch("/api/outlook/accounts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: acct.id, clientId }) });
+                                  const updated = await res.json();
+                                  setOutlookAccounts((prev) => prev.map((a) => (a.id === acct.id ? { ...a, clientId: updated.clientId, client: updated.client } : a)));
+                                }}>
+                                  <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="Select client" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none" className="text-xs">No client</SelectItem>
+                                    {allClients.map((c) => <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                                <Button variant="ghost" size="sm" className="text-destructive h-7 px-2" onClick={async () => {
+                                  await fetch("/api/outlook/accounts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: acct.id }) });
+                                  setOutlookAccounts((prev) => prev.filter((a) => a.id !== acct.id));
+                                }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                              </div>
+                            ))}
+                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.href = "/api/outlook/oauth"; }}>
+                              <Plus className="h-3 w-3 mr-1" />Add Another Account
+                            </Button>
+                          </div>
+                        )}
+
+                        {managingIntegration === "notion" && item.key === "notion" && (
+                          <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-3">
+                            {notionWorkspaces.map((ws) => (
+                              <div key={ws.id} className="flex items-center gap-2">
+                                <span className="text-sm font-medium truncate flex-1">{ws.workspaceName}</span>
+                                <Button variant="ghost" size="sm" className="text-destructive h-7 px-2" onClick={async () => {
+                                  await fetch("/api/notion/workspaces", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: ws.id }) });
+                                  setNotionWorkspaces((prev) => prev.filter((w) => w.id !== ws.id));
+                                }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                              </div>
+                            ))}
+                            <div className="flex gap-2">
+                              <Input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="ntn_..." className="font-mono h-8 text-xs flex-1" />
+                              <Input value={notionName} onChange={(e) => setNotionName(e.target.value)} placeholder="Name (optional)" className="w-32 h-8 text-xs" />
+                              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!notionToken || notionLoading} onClick={async () => {
+                                setNotionLoading(true); setNotionMessage("");
+                                try {
+                                  const res = await fetch("/api/notion/workspaces", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: notionToken, name: notionName || undefined }) });
+                                  const data = await res.json();
+                                  if (!res.ok) { setNotionMessage(data.error || "Failed to connect"); }
+                                  else { setNotionWorkspaces((prev) => { const exists = prev.find((w) => w.id === data.id); return exists ? prev.map((w) => (w.id === data.id ? data : w)) : [...prev, data]; }); setNotionToken(""); setNotionName(""); setNotionMessage(`Connected to ${data.workspaceName}!`); }
+                                } catch { setNotionMessage("Error: failed to connect."); }
+                                setNotionLoading(false);
+                              }}>
+                                <Plus className="h-3 w-3 mr-1" />{notionLoading ? "..." : "Add"}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {managingIntegration === "clickup" && item.key === "clickup" && (
+                          <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-3">
+                            <div className="flex gap-2">
+                              <Input type="password" value={clickupApiToken} onChange={(e) => setClickupApiToken(e.target.value)} placeholder="pk_..." className="font-mono h-8 text-xs flex-1" />
+                              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!clickupApiToken || clickupLoading} onClick={async () => {
+                                setClickupLoading(true); setClickupTestError("");
+                                try {
+                                  await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clickupApiToken }) });
+                                  const res = await fetch("/api/clickup?action=workspaces"); const data = await res.json();
+                                  if (Array.isArray(data)) { setClickupWorkspaces(data.map((t: { id: string | number; name: string }) => ({ id: String(t.id), name: t.name }))); }
+                                  else { setClickupTestError(data.error || "Invalid response"); }
+                                } catch { setClickupTestError("Failed to connect"); }
+                                setClickupLoading(false);
+                              }}>
+                                <RefreshCw className={`h-3 w-3 mr-1 ${clickupLoading ? "animate-spin" : ""}`} />Test
+                              </Button>
+                            </div>
+                            {clickupWorkspaces.length > 0 && clickupWorkspaces.map((ws) => (
+                              <div key={ws.id} className="flex items-center gap-2">
+                                <span className="text-sm w-36 truncate">{ws.name}</span>
+                                <span className="text-xs text-muted-foreground">&rarr;</span>
+                                <Select value={clickupWorkspaceMap[ws.id] || ""} onValueChange={(v) => setClickupWorkspaceMap({ ...clickupWorkspaceMap, [ws.id]: v })}>
+                                  <SelectTrigger className="w-36 h-8 text-xs"><SelectValue placeholder="Select client" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none" className="text-xs">None</SelectItem>
+                                    {allClients.map((c) => <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            ))}
+                            <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => { setClickupApiToken(""); setClickupWorkspaces([]); }}>
+                              <Trash2 className="h-3 w-3 mr-1" />Disconnect ClickUp
+                            </Button>
+                          </div>
+                        )}
+
+                        {managingIntegration === "trello" && item.key === "trello" && (
+                          <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-2">
+                            <div className="flex gap-2">
+                              <Input type="password" value={trelloApiToken} onChange={(e) => setTrelloApiToken(e.target.value)} placeholder="key:token" className="font-mono h-8 text-xs flex-1" />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">API key and token separated by colon. Save settings to apply.</p>
+                            <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => setTrelloApiToken("")}>
+                              <Trash2 className="h-3 w-3 mr-1" />Disconnect Trello
+                            </Button>
+                          </div>
+                        )}
+
+                        {managingIntegration === "asana" && item.key === "asana" && (
+                          <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-2">
+                            <div className="flex gap-2">
+                              <Input type="password" value={asanaApiToken} onChange={(e) => setAsanaApiToken(e.target.value)} placeholder="1/1234567890:abcdef..." className="font-mono h-8 text-xs flex-1" />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">Personal Access Token. Save settings to apply.</p>
+                            <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => setAsanaApiToken("")}>
+                              <Trash2 className="h-3 w-3 mr-1" />Disconnect Asana
+                            </Button>
+                          </div>
+                        )}
+
+                        {managingIntegration === "monday" && item.key === "monday" && (
+                          <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-2">
+                            <div className="flex gap-2">
+                              <Input type="password" value={mondayApiToken} onChange={(e) => setMondayApiToken(e.target.value)} placeholder="eyJhbGciOi..." className="font-mono h-8 text-xs flex-1" />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">API token. Save settings to apply.</p>
+                            <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => setMondayApiToken("")}>
+                              <Trash2 className="h-3 w-3 mr-1" />Disconnect Monday.com
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => { setAddIntegrationStep("pick"); setShowAddIntegration(true); }}>
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add Another Integration
+                    </Button>
+                  </div>
+                );
+              })()}
+            </>
           )}
         </CardContent>
       </Card>
 
-      {/* Trello integration */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Plug className="h-4 w-4" />
-            Trello Integration
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-[10px] text-muted-foreground">
-            Connect Trello to pull cards into your triage queue. Cards from your boards will appear as tasks you can schedule.
-          </p>
+      {/* Add Integration Dialog */}
+      <Dialog open={showAddIntegration} onOpenChange={setShowAddIntegration}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {addIntegrationStep === "pick" ? "Add Integration" : (
+                <button onClick={() => setAddIntegrationStep("pick")} className="flex items-center gap-2 hover:text-muted-foreground transition-colors">
+                  <ChevronDown className="h-4 w-4 rotate-90" />
+                  Back
+                </button>
+              )}
+            </DialogTitle>
+          </DialogHeader>
 
-          <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
-              <ChevronDown className="h-3 w-3" />
-              How to get your Trello API key &amp; token
-            </summary>
-            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
-              <li>Go to <strong>trello.com/power-ups/admin</strong></li>
-              <li>Create a new Power-Up (or use an existing one)</li>
-              <li>Copy your <strong>API Key</strong></li>
-              <li>Generate a <strong>Token</strong> by clicking the link on that page</li>
-              <li>Paste your key and token below in the format: <code>key:token</code></li>
-            </ol>
-          </details>
+          {addIntegrationStep === "pick" && (
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { key: "slack" as const, icon: <MessageSquare className="h-5 w-5" />, label: "Slack", desc: "Messages & channels", action: "oauth" },
+                { key: "gmail" as const, icon: <Mail className="h-5 w-5" />, label: "Gmail", desc: "Email inbox & kanban", action: "oauth" },
+                { key: "outlook" as const, icon: <Mail className="h-5 w-5" />, label: "Outlook", desc: "Microsoft 365 email", action: "oauth" },
+                { key: "notion" as const, icon: <BookOpen className="h-5 w-5" />, label: "Notion", desc: "Pages & docs", action: "token" },
+                { key: "clickup" as const, icon: <Inbox className="h-5 w-5" />, label: "ClickUp", desc: "Task triage", action: "token" },
+                { key: "trello" as const, icon: <Plug className="h-5 w-5" />, label: "Trello", desc: "Card triage", action: "token" },
+                { key: "asana" as const, icon: <Plug className="h-5 w-5" />, label: "Asana", desc: "Task triage", action: "token" },
+                { key: "monday" as const, icon: <Plug className="h-5 w-5" />, label: "Monday.com", desc: "Item triage", action: "token" },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => {
+                    if (item.key === "slack") { window.location.href = "/api/slack/oauth"; }
+                    else if (item.key === "gmail") { window.location.href = "/api/gmail/oauth"; }
+                    else if (item.key === "outlook") { window.location.href = "/api/outlook/oauth"; }
+                    else { setAddIntegrationStep(item.key); }
+                  }}
+                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 hover:border-primary/30 transition-colors text-left"
+                >
+                  <div className="text-muted-foreground">{item.icon}</div>
+                  <div>
+                    <div className="text-sm font-medium">{item.label}</div>
+                    <div className="text-[10px] text-muted-foreground">{item.desc}</div>
+                  </div>
+                  {item.action === "oauth" && <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />}
+                </button>
+              ))}
+            </div>
+          )}
 
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              value={trelloApiToken}
-              onChange={(e) => setTrelloApiToken(e.target.value)}
-              placeholder="key:token"
-              className="font-mono flex-1"
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            Paste your Trello API key and token separated by a colon. Save settings to apply.
-          </p>
-        </CardContent>
-      </Card>
+          {addIntegrationStep === "clickup" && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">Find your API token in ClickUp &rarr; Settings &rarr; Apps.</p>
+              <div className="flex gap-2">
+                <Input type="password" value={clickupApiToken} onChange={(e) => setClickupApiToken(e.target.value)} placeholder="pk_..." className="font-mono" />
+                <Button variant="outline" disabled={!clickupApiToken || clickupLoading} onClick={async () => {
+                  setClickupLoading(true); setClickupTestError("");
+                  try {
+                    await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clickupApiToken }) });
+                    const res = await fetch("/api/clickup?action=workspaces"); const data = await res.json();
+                    if (Array.isArray(data)) { setClickupWorkspaces(data.map((t: { id: string | number; name: string }) => ({ id: String(t.id), name: t.name }))); setShowAddIntegration(false); }
+                    else { setClickupTestError(data.error || "Invalid response"); }
+                  } catch { setClickupTestError("Failed to connect"); }
+                  setClickupLoading(false);
+                }}>
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${clickupLoading ? "animate-spin" : ""}`} />Connect
+                </Button>
+              </div>
+              {clickupTestError && <p className="text-xs text-red-600">{clickupTestError}</p>}
+            </div>
+          )}
 
-      {/* Asana integration */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Plug className="h-4 w-4" />
-            Asana Integration
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-[10px] text-muted-foreground">
-            Connect Asana to pull tasks into your triage queue. Tasks assigned to you will appear as items you can schedule.
-          </p>
+          {addIntegrationStep === "notion" && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">Create an integration in Notion &rarr; Settings &rarr; Connections &rarr; Develop or manage integrations, then paste the token.</p>
+              <div className="flex gap-2">
+                <Input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="ntn_..." className="font-mono flex-1" />
+                <Input value={notionName} onChange={(e) => setNotionName(e.target.value)} placeholder="Name (optional)" className="w-40" />
+                <Button variant="outline" disabled={!notionToken || notionLoading} onClick={async () => {
+                  setNotionLoading(true); setNotionMessage("");
+                  try {
+                    const res = await fetch("/api/notion/workspaces", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: notionToken, name: notionName || undefined }) });
+                    const data = await res.json();
+                    if (!res.ok) { setNotionMessage(data.error || "Failed to connect"); }
+                    else { setNotionWorkspaces((prev) => { const exists = prev.find((w) => w.id === data.id); return exists ? prev.map((w) => (w.id === data.id ? data : w)) : [...prev, data]; }); setNotionToken(""); setNotionName(""); setShowAddIntegration(false); setNotionMessage(`Connected to ${data.workspaceName}!`); }
+                  } catch { setNotionMessage("Error: failed to connect."); }
+                  setNotionLoading(false);
+                }}>
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${notionLoading ? "animate-spin" : ""}`} />Connect
+                </Button>
+              </div>
+            </div>
+          )}
 
-          <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
-              <ChevronDown className="h-3 w-3" />
-              How to get your Asana Personal Access Token
-            </summary>
-            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
-              <li>Go to <strong>app.asana.com/-/developer_console</strong></li>
-              <li>Click <strong>Create new token</strong></li>
-              <li>Give it a name and click <strong>Create</strong></li>
-              <li>Copy the token and paste it below</li>
-            </ol>
-          </details>
+          {addIntegrationStep === "trello" && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">Get your API key and token from trello.com/power-ups/admin. Paste them as <code className="bg-muted px-1 rounded">key:token</code>.</p>
+              <div className="flex gap-2">
+                <Input type="password" value={trelloApiToken} onChange={(e) => setTrelloApiToken(e.target.value)} placeholder="key:token" className="font-mono flex-1" />
+                <Button onClick={() => { if (trelloApiToken) { saveSettings(); setShowAddIntegration(false); } }} disabled={!trelloApiToken}>Save & Connect</Button>
+              </div>
+            </div>
+          )}
 
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              value={asanaApiToken}
-              onChange={(e) => setAsanaApiToken(e.target.value)}
-              placeholder="1/1234567890:abcdef..."
-              className="font-mono flex-1"
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            Paste your Asana Personal Access Token. Save settings to apply.
-          </p>
-        </CardContent>
-      </Card>
+          {addIntegrationStep === "asana" && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">Get your Personal Access Token from app.asana.com/-/developer_console.</p>
+              <div className="flex gap-2">
+                <Input type="password" value={asanaApiToken} onChange={(e) => setAsanaApiToken(e.target.value)} placeholder="1/1234567890:abcdef..." className="font-mono flex-1" />
+                <Button onClick={() => { if (asanaApiToken) { saveSettings(); setShowAddIntegration(false); } }} disabled={!asanaApiToken}>Save & Connect</Button>
+              </div>
+            </div>
+          )}
 
-      {/* Monday.com integration */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Plug className="h-4 w-4" />
-            Monday.com Integration
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-[10px] text-muted-foreground">
-            Connect Monday.com to pull items into your triage queue. Items from your boards will appear as tasks you can schedule.
-          </p>
-
-          <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
-              <ChevronDown className="h-3 w-3" />
-              How to get your Monday.com API token
-            </summary>
-            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
-              <li>In Monday.com, click your avatar &rarr; <strong>Administration</strong></li>
-              <li>Go to <strong>API</strong> section</li>
-              <li>Copy your <strong>Personal API Token</strong></li>
-              <li>Paste it below</li>
-            </ol>
-          </details>
-
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              value={mondayApiToken}
-              onChange={(e) => setMondayApiToken(e.target.value)}
-              placeholder="eyJhbGciOi..."
-              className="font-mono flex-1"
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            Paste your Monday.com API token. Save settings to apply.
-          </p>
-        </CardContent>
-      </Card>
-        </>
-      )}
+          {addIntegrationStep === "monday" && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">Get your API token from Monday.com &rarr; avatar &rarr; Administration &rarr; API.</p>
+              <div className="flex gap-2">
+                <Input type="password" value={mondayApiToken} onChange={(e) => setMondayApiToken(e.target.value)} placeholder="eyJhbGciOi..." className="font-mono flex-1" />
+                <Button onClick={() => { if (mondayApiToken) { saveSettings(); setShowAddIntegration(false); } }} disabled={!mondayApiToken}>Save & Connect</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

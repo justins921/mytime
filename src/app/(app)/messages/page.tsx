@@ -291,12 +291,12 @@ export default function MessagesPage() {
         <MessageSquare className="h-12 w-12 text-muted-foreground" />
         <div>
           <h2 className="text-lg font-semibold">No Slack workspaces connected</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Go to Settings to connect your Slack workspaces and map them to clients.
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+            Connect a Slack workspace to view and send messages. You&apos;ll be redirected to Slack to authorize access.
           </p>
         </div>
-        <Button variant="outline" onClick={() => (window.location.href = "/settings")}>
-          Go to Settings
+        <Button onClick={() => (window.location.href = "/api/slack/oauth")}>
+          Connect Slack Workspace
         </Button>
       </div>
     );
