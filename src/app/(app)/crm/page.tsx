@@ -108,6 +108,78 @@ const ACTIVITY_TYPES = [
 const STAGE_COLORS: Record<string, string> = {};
 for (const s of STAGES) STAGE_COLORS[s.value] = s.color;
 
+// ─── Scope of Work Services ──────────────────────────
+
+const SOW_CATEGORIES = [
+  {
+    label: "Design",
+    items: [
+      "UI/UX Design",
+      "Wireframing & Prototyping",
+      "Brand Identity Design",
+      "Graphic Design",
+      "Design System Creation",
+    ],
+  },
+  {
+    label: "Development",
+    items: [
+      "Frontend Development",
+      "Backend Development",
+      "Full-Stack Development",
+      "API Development & Integration",
+      "Database Design & Implementation",
+      "Mobile App Development",
+    ],
+  },
+  {
+    label: "Strategy & Consulting",
+    items: [
+      "Technical Consulting",
+      "Project Planning & Architecture",
+      "Code Review & Auditing",
+      "Performance Optimization",
+      "SEO / Analytics Setup",
+    ],
+  },
+  {
+    label: "Content & Marketing",
+    items: [
+      "Content Writing & Copywriting",
+      "Social Media Management",
+      "Email Marketing Setup",
+      "Marketing Strategy",
+    ],
+  },
+  {
+    label: "Operations & Support",
+    items: [
+      "DevOps & Infrastructure",
+      "Testing & QA",
+      "Bug Fixes & Maintenance",
+      "Training & Documentation",
+      "Ongoing Support & Retainer",
+    ],
+  },
+];
+
+// ─── Payment Types ──────────────────────────────────
+
+type PaymentLine = {
+  type: "hourly" | "monthly" | "yearly" | "project" | "maintenance";
+  rate: string;
+  hours?: string;
+  note?: string;
+};
+
+const PAYMENT_TYPE_LABELS: Record<string, string> = {
+  hourly: "Hourly Rate",
+  monthly: "Monthly Retainer",
+  yearly: "Annual Retainer",
+  project: "Fixed Project Fee",
+  maintenance: "Ongoing Maintenance",
+};
+
 // ─── Component ─────────────────────────────────────
 
 export default function CRMPage() {
@@ -159,6 +231,20 @@ export default function CRMPage() {
   const [editingContractContent, setEditingContractContent] = useState("");
   const [isEditingContract, setIsEditingContract] = useState(false);
   const [copiedContract, setCopiedContract] = useState(false);
+
+  // SOW builder
+  const [sowChecked, setSowChecked] = useState<Set<string>>(new Set());
+  const [sowCustomItems, setSowCustomItems] = useState<string[]>([]);
+  const [sowCustomInput, setSowCustomInput] = useState("");
+  const [sowDescription, setSowDescription] = useState("");
+
+  // Payment builder
+  const [paymentLines, setPaymentLines] = useState<PaymentLine[]>([{ type: "hourly", rate: "", hours: "" }]);
+  const [outOfScopeRate, setOutOfScopeRate] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+
+  // Generator step (for the wider modal)
+  const [genStep, setGenStep] = useState<"scope" | "payment" | "details">("scope");
 
   const loadContacts = useCallback(async () => {
     try {
@@ -311,7 +397,78 @@ export default function CRMPage() {
   function openContractGenerator() {
     loadTemplates();
     setContractOverrides({});
+    setSowChecked(new Set());
+    setSowCustomItems([]);
+    setSowCustomInput("");
+    setSowDescription("");
+    setPaymentLines([{ type: "hourly", rate: "", hours: "" }]);
+    setOutOfScopeRate("");
+    setPaymentNotes("");
+    setGenStep("scope");
     setShowContractGen(true);
+  }
+
+  function buildScopeText(): string {
+    const items = [...sowChecked, ...sowCustomItems];
+    let text = "";
+    if (items.length > 0) {
+      text += items.map((item) => `- ${item}`).join("\n");
+    }
+    if (sowDescription.trim()) {
+      text += (text ? "\n\n" : "") + sowDescription.trim();
+    }
+    return text || "TBD";
+  }
+
+  function buildPaymentText(): string {
+    const sections: string[] = [];
+    for (const line of paymentLines) {
+      if (!line.rate) continue;
+      const label = PAYMENT_TYPE_LABELS[line.type] || line.type;
+      let text = `- **${label}:** $${line.rate}`;
+      if (line.type === "hourly" && line.hours) {
+        text += ` (estimated ${line.hours} hours)`;
+      } else if (line.type === "monthly") {
+        text += "/month";
+        if (line.hours) text += ` (up to ${line.hours} hours/month)`;
+      } else if (line.type === "yearly") {
+        text += "/year";
+        if (line.hours) text += ` (up to ${line.hours} hours/year)`;
+      } else if (line.type === "project") {
+        text += " (fixed)";
+        if (line.hours) text += ` — includes up to ${line.hours} hours`;
+      } else if (line.type === "maintenance") {
+        text += "/month";
+        if (line.hours) text += ` (up to ${line.hours} hours/month)`;
+      }
+      if (line.note) text += `\n  *${line.note}*`;
+      sections.push(text);
+    }
+    if (outOfScopeRate) {
+      sections.push(`- **Out-of-Scope / Additional Work:** $${outOfScopeRate}/hour`);
+    }
+    if (paymentNotes.trim()) {
+      sections.push(`\n${paymentNotes.trim()}`);
+    }
+    return sections.join("\n") || "TBD";
+  }
+
+  function buildOverrides(): Record<string, string> {
+    const overrides: Record<string, string> = { ...contractOverrides };
+    overrides.scope_of_work = buildScopeText();
+    overrides.payment_terms = buildPaymentText();
+
+    // Also set individual fields for backwards-compatible templates
+    const hourlyLine = paymentLines.find((l) => l.type === "hourly" && l.rate);
+    const projectLine = paymentLines.find((l) => l.type === "project" && l.rate);
+    const monthlyLine = paymentLines.find((l) => l.type === "monthly" && l.rate);
+    if (hourlyLine?.rate) overrides.hourly_rate = hourlyLine.rate;
+    if (hourlyLine?.hours) overrides.estimated_hours = hourlyLine.hours;
+    if (projectLine?.rate) overrides.project_fee = projectLine.rate;
+    if (monthlyLine?.rate) overrides.retainer_monthly = monthlyLine.rate;
+    if (monthlyLine?.hours) overrides.monthly_cap_hours = monthlyLine.hours;
+    if (outOfScopeRate) overrides.out_of_scope_rate = outOfScopeRate;
+    return overrides;
   }
 
   async function generateContract() {
@@ -324,7 +481,7 @@ export default function CRMPage() {
         body: JSON.stringify({
           contactId: selected.id,
           templateId: selectedTemplate,
-          overrides: contractOverrides,
+          overrides: buildOverrides(),
         }),
       });
       if (res.ok) {
@@ -1012,95 +1169,349 @@ export default function CRMPage() {
       {/* ─── Contract Generator Modal ─── */}
       {showContractGen && selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-background rounded-lg border shadow-lg w-full max-w-md p-5 space-y-4 m-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Generate Contract</h3>
+          <div className="bg-background rounded-lg border shadow-lg w-full max-w-2xl m-4 flex flex-col" style={{ maxHeight: "90vh" }}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b shrink-0">
+              <div>
+                <h3 className="font-semibold">Generate Contract / SOW</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">for {selected.name}{selected.company ? ` — ${selected.company}` : ""}</p>
+              </div>
               <button onClick={() => setShowContractGen(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Select a template and fill in any details. Contact info and linked client
-              rates will be merged automatically.
-            </p>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium">Template</label>
-                <select
-                  value={selectedTemplate}
-                  onChange={(e) => setSelectedTemplate(e.target.value)}
-                  className="w-full h-9 px-3 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+
+            {/* Step tabs */}
+            <div className="flex border-b shrink-0">
+              {(["scope", "payment", "details"] as const).map((step, i) => (
+                <button
+                  key={step}
+                  onClick={() => setGenStep(step)}
+                  className={`flex-1 py-2.5 text-xs font-medium text-center border-b-2 transition-colors ${
+                    genStep === step ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium">Scope of Work</label>
-                <textarea
-                  value={contractOverrides.scope_of_work || ""}
-                  onChange={(e) => setContractOverrides({ ...contractOverrides, scope_of_work: e.target.value })}
-                  placeholder="Describe the work to be performed..."
-                  rows={3}
-                  className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary resize-y"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Start Date</label>
-                  <input
-                    type="date"
-                    value={contractOverrides.start_date || ""}
-                    onChange={(e) => setContractOverrides({ ...contractOverrides, start_date: e.target.value })}
-                    className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">End Date</label>
-                  <input
-                    type="date"
-                    value={contractOverrides.end_date || ""}
-                    onChange={(e) => setContractOverrides({ ...contractOverrides, end_date: e.target.value })}
-                    className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Hourly Rate Override</label>
-                  <input
-                    type="text"
-                    value={contractOverrides.hourly_rate || ""}
-                    onChange={(e) => setContractOverrides({ ...contractOverrides, hourly_rate: e.target.value })}
-                    placeholder="Auto from client"
-                    className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Project Fee</label>
-                  <input
-                    type="text"
-                    value={contractOverrides.project_fee || ""}
-                    onChange={(e) => setContractOverrides({ ...contractOverrides, project_fee: e.target.value })}
-                    placeholder="For fixed-price"
-                    className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-              </div>
+                  {i + 1}. {step === "scope" ? "Scope of Work" : step === "payment" ? "Payment" : "Details"}
+                </button>
+              ))}
             </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowContractGen(false)} className="px-3 py-2 text-sm rounded-md border hover:bg-muted">
-                Cancel
-              </button>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* ── Step 1: Scope of Work ── */}
+              {genStep === "scope" && (
+                <>
+                  <p className="text-xs text-muted-foreground">Select the services included in this engagement, and add any custom items.</p>
+                  {SOW_CATEGORIES.map((cat) => (
+                    <div key={cat.label} className="space-y-1.5">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{cat.label}</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                        {cat.items.map((item) => (
+                          <label key={item} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-sm">
+                            <input
+                              type="checkbox"
+                              checked={sowChecked.has(item)}
+                              onChange={() => {
+                                const next = new Set(sowChecked);
+                                if (next.has(item)) next.delete(item); else next.add(item);
+                                setSowChecked(next);
+                              }}
+                              className="rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            {item}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Custom items */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Custom Items</h4>
+                    {sowCustomItems.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {sowCustomItems.map((item, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded-full">
+                            {item}
+                            <button onClick={() => setSowCustomItems(sowCustomItems.filter((_, j) => j !== i))} className="hover:text-destructive">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={sowCustomInput}
+                        onChange={(e) => setSowCustomInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && sowCustomInput.trim()) {
+                            setSowCustomItems([...sowCustomItems, sowCustomInput.trim()]);
+                            setSowCustomInput("");
+                          }
+                        }}
+                        placeholder="Add custom service or deliverable..."
+                        className="flex-1 h-8 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <button
+                        onClick={() => {
+                          if (sowCustomInput.trim()) {
+                            setSowCustomItems([...sowCustomItems, sowCustomInput.trim()]);
+                            setSowCustomInput("");
+                          }
+                        }}
+                        className="h-8 px-3 text-xs font-medium rounded-md border hover:bg-muted"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Additional description */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Additional Details (optional)</label>
+                    <textarea
+                      value={sowDescription}
+                      onChange={(e) => setSowDescription(e.target.value)}
+                      placeholder="Any additional context about the scope, objectives, or constraints..."
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* ── Step 2: Payment ── */}
+              {genStep === "payment" && (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Add one or more payment types. You can combine them — e.g., a project fee plus an hourly rate for out-of-scope work.
+                  </p>
+
+                  <div className="space-y-3">
+                    {paymentLines.map((line, idx) => (
+                      <div key={idx} className="rounded-lg border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <select
+                            value={line.type}
+                            onChange={(e) => {
+                              const next = [...paymentLines];
+                              next[idx] = { ...next[idx], type: e.target.value as PaymentLine["type"] };
+                              setPaymentLines(next);
+                            }}
+                            className="h-8 px-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            <option value="hourly">Hourly Rate</option>
+                            <option value="monthly">Monthly Retainer</option>
+                            <option value="yearly">Annual Retainer</option>
+                            <option value="project">Fixed Project Fee</option>
+                            <option value="maintenance">Ongoing Maintenance</option>
+                          </select>
+                          {paymentLines.length > 1 && (
+                            <button
+                              onClick={() => setPaymentLines(paymentLines.filter((_, i) => i !== idx))}
+                              className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-muted-foreground">
+                              Amount ($)
+                            </label>
+                            <input
+                              type="text"
+                              value={line.rate}
+                              onChange={(e) => {
+                                const next = [...paymentLines];
+                                next[idx] = { ...next[idx], rate: e.target.value };
+                                setPaymentLines(next);
+                              }}
+                              placeholder={line.type === "project" ? "e.g. 5,000" : line.type === "hourly" ? "e.g. 150" : "e.g. 3,000"}
+                              className="w-full h-8 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-muted-foreground">
+                              {line.type === "project" ? "Included Hours (optional)" : "Hours (optional)"}
+                            </label>
+                            <input
+                              type="text"
+                              value={line.hours || ""}
+                              onChange={(e) => {
+                                const next = [...paymentLines];
+                                next[idx] = { ...next[idx], hours: e.target.value };
+                                setPaymentLines(next);
+                              }}
+                              placeholder={line.type === "monthly" ? "e.g. 40" : line.type === "project" ? "e.g. 80" : "e.g. 20"}
+                              className="w-full h-8 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-muted-foreground">Note (optional)</label>
+                          <input
+                            type="text"
+                            value={line.note || ""}
+                            onChange={(e) => {
+                              const next = [...paymentLines];
+                              next[idx] = { ...next[idx], note: e.target.value };
+                              setPaymentLines(next);
+                            }}
+                            placeholder="e.g. Billed at end of each month, Net 14"
+                            className="w-full h-8 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setPaymentLines([...paymentLines, { type: "hourly", rate: "", hours: "" }])}
+                    className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Payment Type
+                  </button>
+
+                  <div className="space-y-1 pt-2 border-t">
+                    <label className="text-xs font-medium">Out-of-Scope Hourly Rate (optional)</label>
+                    <p className="text-[11px] text-muted-foreground">Applied when work outside the defined scope is requested.</p>
+                    <input
+                      type="text"
+                      value={outOfScopeRate}
+                      onChange={(e) => setOutOfScopeRate(e.target.value)}
+                      placeholder="e.g. 175"
+                      className="w-full sm:w-48 h-8 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Payment Notes (optional)</label>
+                    <textarea
+                      value={paymentNotes}
+                      onChange={(e) => setPaymentNotes(e.target.value)}
+                      placeholder="e.g. Invoices due Net 14. 50% deposit required before work begins."
+                      rows={2}
+                      className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* ── Step 3: Details ── */}
+              {genStep === "details" && (
+                <>
+                  <p className="text-xs text-muted-foreground">Choose a template and fill in remaining details. Contact info and linked client data are merged automatically.</p>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Template</label>
+                      <select
+                        value={selectedTemplate}
+                        onChange={(e) => setSelectedTemplate(e.target.value)}
+                        className="w-full h-9 px-3 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        {templates.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium">Start Date</label>
+                        <input
+                          type="date"
+                          value={contractOverrides.start_date || ""}
+                          onChange={(e) => setContractOverrides({ ...contractOverrides, start_date: e.target.value })}
+                          className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium">End Date</label>
+                        <input
+                          type="date"
+                          value={contractOverrides.end_date || ""}
+                          onChange={(e) => setContractOverrides({ ...contractOverrides, end_date: e.target.value })}
+                          className="w-full h-9 px-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Preview summary */}
+                    <div className="rounded-lg bg-muted/50 border p-3 space-y-2">
+                      <h4 className="text-xs font-semibold">Preview Summary</h4>
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Scope ({[...sowChecked, ...sowCustomItems].length} items)</p>
+                        <div className="text-xs">
+                          {[...sowChecked, ...sowCustomItems].length > 0 ? (
+                            <ul className="list-disc list-inside space-y-0.5">
+                              {[...sowChecked, ...sowCustomItems].map((item, i) => (
+                                <li key={i}>{item}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="text-muted-foreground italic">No scope items selected</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Payment</p>
+                        <div className="text-xs space-y-0.5">
+                          {paymentLines.filter((l) => l.rate).length > 0 ? (
+                            paymentLines.filter((l) => l.rate).map((line, i) => (
+                              <p key={i}>
+                                {PAYMENT_TYPE_LABELS[line.type]}: ${line.rate}
+                                {line.hours ? ` (${line.hours} hrs)` : ""}
+                              </p>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground italic">No payment configured</span>
+                          )}
+                          {outOfScopeRate && <p>Out-of-scope: ${outOfScopeRate}/hr</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-4 border-t shrink-0">
               <button
-                onClick={generateContract}
-                disabled={generatingContract || !selectedTemplate}
-                className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-50"
+                onClick={() => {
+                  if (genStep === "payment") setGenStep("scope");
+                  else if (genStep === "details") setGenStep("payment");
+                  else setShowContractGen(false);
+                }}
+                className="px-3 py-2 text-sm rounded-md border hover:bg-muted"
               >
-                <ScrollText className="h-4 w-4" />
-                {generatingContract ? "Generating..." : "Generate Contract"}
+                {genStep === "scope" ? "Cancel" : "Back"}
               </button>
+              {genStep !== "details" ? (
+                <button
+                  onClick={() => {
+                    if (genStep === "scope") setGenStep("payment");
+                    else setGenStep("details");
+                  }}
+                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-md hover:bg-primary/90"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={generateContract}
+                  disabled={generatingContract || !selectedTemplate}
+                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-md hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <ScrollText className="h-4 w-4" />
+                  {generatingContract ? "Generating..." : "Generate Contract"}
+                </button>
+              )}
             </div>
           </div>
         </div>

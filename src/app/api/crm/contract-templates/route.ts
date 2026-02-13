@@ -21,30 +21,25 @@ const STARTER_TEMPLATES = [
 
 The Contractor agrees to provide professional services to the Client on a monthly retainer basis, as described below.
 
-## 2. Retainer Terms
-
-- **Monthly Retainer:** \${{retainer_monthly}}/month
-- **Included Hours:** {{monthly_cap_hours}} hours/month
-- **Hourly Rate (overage):** \${{hourly_rate}}/hour
-- **Billing Cycle:** Monthly, invoiced on the 1st
-
-## 3. Scope of Work
+## 2. Scope of Work
 
 {{scope_of_work}}
+
+## 3. Compensation
+
+{{payment_terms}}
+
+Invoices are due within 14 days of receipt. Late payments accrue interest at 1.5% per month.
 
 ## 4. Term
 
 This agreement begins on {{start_date}} and continues on a month-to-month basis. Either party may terminate with 30 days written notice.
 
-## 5. Payment Terms
-
-Invoices are due within 14 days of receipt. Late payments accrue interest at 1.5% per month.
-
-## 6. Confidentiality
+## 5. Confidentiality
 
 Both parties agree to keep confidential any proprietary information shared during the engagement.
 
-## 7. Intellectual Property
+## 6. Intellectual Property
 
 All work product created under this agreement becomes the property of the Client upon full payment.
 
@@ -73,36 +68,29 @@ All work product created under this agreement becomes the property of the Client
 
 {{scope_of_work}}
 
-## 2. Deliverables
-
-{{deliverables}}
-
-## 3. Timeline
+## 2. Timeline
 
 - **Start Date:** {{start_date}}
 - **Estimated Completion:** {{end_date}}
 - **Milestones:** As agreed upon separately
 
-## 4. Compensation
+## 3. Compensation
 
-- **Total Project Fee:** \${{project_fee}}
-- **Payment Schedule:**
-  - 50% upon signing (\${{deposit_amount}})
-  - 50% upon completion (\${{deposit_amount}})
+{{payment_terms}}
 
-## 5. Revisions
-
-This project includes up to {{revision_rounds}} rounds of revisions. Additional revisions will be billed at \${{hourly_rate}}/hour.
-
-## 6. Cancellation
+## 4. Cancellation
 
 If the Client cancels the project after work has begun, the Contractor retains all payments for completed milestones plus a pro-rated amount for work in progress.
 
-## 7. Confidentiality
+## 5. Revisions
+
+This project includes up to {{revision_rounds}} rounds of revisions. Additional revisions beyond this will be billed at the out-of-scope rate specified above.
+
+## 6. Confidentiality
 
 Both parties agree to keep confidential any proprietary information shared during the engagement.
 
-## 8. Intellectual Property
+## 7. Intellectual Property
 
 All work product becomes the property of the Client upon full payment.
 
@@ -131,48 +119,29 @@ All work product becomes the property of the Client upon full payment.
 
 This Statement of Work outlines the services, deliverables, and terms for the engagement between {{your_name}} and {{client_name}}.
 
-## 2. Objectives
+## 2. Scope of Work
 
 {{scope_of_work}}
 
-## 3. Scope of Services
-
-### In Scope:
-{{in_scope}}
-
-### Out of Scope:
-{{out_of_scope}}
-
-## 4. Deliverables
-
-| # | Deliverable | Due Date |
-|---|-------------|----------|
-| 1 | {{deliverable_1}} | {{due_date_1}} |
-| 2 | {{deliverable_2}} | {{due_date_2}} |
-| 3 | {{deliverable_3}} | {{due_date_3}} |
-
-## 5. Timeline
+## 3. Timeline
 
 - **Kickoff:** {{start_date}}
 - **Target Completion:** {{end_date}}
 - **Weekly Check-in:** {{check_in_day}} at {{check_in_time}}
 
-## 6. Compensation
+## 4. Compensation
 
-- **Rate:** \${{hourly_rate}}/hour
-- **Estimated Hours:** {{estimated_hours}}
-- **Estimated Total:** \${{estimated_total}}
-- **Monthly Cap:** {{monthly_cap_hours}} hours
+{{payment_terms}}
 
-Hours are tracked and reported weekly. The Client will be notified when usage reaches 80% of the monthly cap.
+Hours are tracked and reported weekly. The Client will be notified when usage approaches any defined caps.
 
-## 7. Assumptions
+## 5. Assumptions
 
 - Client will provide timely feedback (within 2 business days)
 - Client will designate a single point of contact
 - Access to required tools and systems will be provided
 
-## 8. Acceptance
+## 6. Acceptance
 
 By signing below, both parties agree to the terms outlined in this Statement of Work.
 
