@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAuthUser } from "@/lib/auth-utils";
+import { getAuthUser, checkClientLimit } from "@/lib/auth-utils";
 
 export async function GET() {
   const { user, res } = await getAuthUser();
@@ -17,6 +17,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const { user, res } = await getAuthUser();
   if (!user) return res;
+
+  // Enforce plan client limit
+  const limitDenied = await checkClientLimit(user.id, user.plan);
+  if (limitDenied) return limitDenied;
 
   const body = await req.json();
   const client = await prisma.client.create({

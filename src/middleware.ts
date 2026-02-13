@@ -4,11 +4,14 @@ import { NextResponse } from "next/server";
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const { pathname } = req.nextUrl;
-  const isPublicPage = pathname === "/" || pathname === "/login" || pathname === "/signup";
+  const isPublicPage = pathname === "/" || pathname === "/login" || pathname === "/signup"
+    || pathname === "/forgot-password" || pathname === "/reset-password"
+    || pathname === "/privacy" || pathname === "/terms";
   const isAuthApi = pathname.startsWith("/api/auth");
-  const isStripeWebhook = pathname === "/api/stripe/webhook";
+  const isPublicApi = pathname === "/api/stripe/webhook" || pathname === "/api/landing"
+    || pathname === "/api/kb";
 
-  if (isAuthApi || isStripeWebhook) {
+  if (isAuthApi || isPublicApi) {
     return NextResponse.next();
   }
 

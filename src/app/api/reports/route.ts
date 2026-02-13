@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAuthUser } from "@/lib/auth-utils";
+import { getAuthUser, requirePlan } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
   const { user, res } = await getAuthUser();
   if (!user) return res;
+  const planDenied = requirePlan(user, "pro");
+  if (planDenied) return planDenied;
 
   const period = req.nextUrl.searchParams.get("period") || "weekly"; // daily|weekly|monthly
   const startDate = req.nextUrl.searchParams.get("startDate");

@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { ADMIN_EMAIL } from "@/lib/auth-utils";
+import { rateLimit } from "@/lib/rate-limit";
+import { sendEmail, welcomeEmailHtml, verificationEmailHtml } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: 5 signups per IP per 15 minutes
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const limited = rateLimit(`signup:${ip}`, 5, 15 * 60 * 1000);
+    if (limited) {
+      return NextResponse.json(
+        { error: "Too many signup attempts. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } }
+      );
+    }
+
     const { name, email, password } = await req.json();
 
     if (!email || !password) {
@@ -64,6 +77,34 @@ export async function POST(req: Request) {
         passwordHash,
         role,
       },
+    });
+
+    // Send verification email
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await prisma.verificationToken.create({
+      data: {
+        identifier: `verify:${normalizedEmail}`,
+        token: verifyToken,
+        expires: verifyExpires,
+      },
+    });
+
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${verifyToken}&email=${encodeURIComponent(normalizedEmail)}`;
+
+    await sendEmail({
+      to: normalizedEmail,
+      subject: "Verify your MyTime email address",
+      html: verificationEmailHtml(verifyUrl),
+    });
+
+    // Send welcome email
+    await sendEmail({
+      to: normalizedEmail,
+      subject: "Welcome to MyTime!",
+      html: welcomeEmailHtml(name?.trim() || null),
     });
 
     return NextResponse.json(

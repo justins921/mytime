@@ -74,13 +74,13 @@ export async function GET() {
     }),
 
     // User signups by month (last 12 months)
-    prisma.$queryRawUnsafe<{ month: string; count: bigint }[]>(
-      `SELECT TO_CHAR("createdAt", 'YYYY-MM') as month, COUNT(*) as count
-       FROM "User"
-       WHERE "createdAt" > NOW() - INTERVAL '12 months'
-       GROUP BY TO_CHAR("createdAt", 'YYYY-MM')
-       ORDER BY month ASC`
-    ),
+    prisma.$queryRaw<{ month: string; count: bigint }[]>`
+      SELECT TO_CHAR("createdAt", 'YYYY-MM') as month, COUNT(*) as count
+      FROM "User"
+      WHERE "createdAt" > NOW() - INTERVAL '12 months'
+      GROUP BY TO_CHAR("createdAt", 'YYYY-MM')
+      ORDER BY month ASC
+    `,
   ]);
 
   // Build plan breakdown

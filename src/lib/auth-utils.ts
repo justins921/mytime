@@ -48,10 +48,36 @@ export function getPlanLimits(plan: string) {
   return PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] ?? PLAN_LIMITS.free;
 }
 
+/** Require a minimum plan — returns 403 response if plan is insufficient */
+export function requirePlan(user: { plan: string }, requiredPlan: string) {
+  if (!hasPlan(user.plan, requiredPlan)) {
+    return NextResponse.json(
+      { error: `This feature requires the ${requiredPlan} plan or higher. Please upgrade.` },
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
+/** Check client count limit for the user's plan */
+export async function checkClientLimit(userId: string, plan: string) {
+  const limits = getPlanLimits(plan);
+  if (limits.clients === Infinity) return null;
+
+  const count = await prisma.client.count({ where: { userId, archived: false } });
+  if (count >= limits.clients) {
+    return NextResponse.json(
+      { error: `Your plan allows up to ${limits.clients} clients. Please upgrade for unlimited clients.` },
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
 // ─── Role helpers ──────────────────────────────────────
 
 /** The one and only super admin email */
-export const ADMIN_EMAIL = "justin.sobojinski@gmail.com";
+export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "justin.sobojinski@gmail.com";
 
 /** Role hierarchy: admin > manager > user */
 const ROLE_LEVEL: Record<string, number> = {
