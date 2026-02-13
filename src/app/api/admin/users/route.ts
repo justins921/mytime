@@ -45,20 +45,32 @@ export async function PATCH(req: NextRequest) {
   const forbidden = requireAdmin(user);
   if (forbidden) return forbidden;
 
-  const { userId, role } = await req.json();
+  const { userId, role, plan } = await req.json();
 
-  if (!userId || !role) {
-    return NextResponse.json({ error: "userId and role are required" }, { status: 400 });
+  if (!userId || (!role && !plan)) {
+    return NextResponse.json({ error: "userId and role or plan are required" }, { status: 400 });
   }
 
-  const validRoles = ["user", "manager", "admin"];
-  if (!validRoles.includes(role)) {
-    return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(", ")}` }, { status: 400 });
+  const data: Record<string, string> = {};
+
+  if (role) {
+    const validRoles = ["user", "manager", "admin"];
+    if (!validRoles.includes(role)) {
+      return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(", ")}` }, { status: 400 });
+    }
+    // Prevent admin from demoting themselves
+    if (userId === user.id && role !== "admin") {
+      return NextResponse.json({ error: "Cannot change your own admin role" }, { status: 400 });
+    }
+    data.role = role;
   }
 
-  // Prevent admin from demoting themselves
-  if (userId === user.id && role !== "admin") {
-    return NextResponse.json({ error: "Cannot change your own admin role" }, { status: 400 });
+  if (plan) {
+    const validPlans = ["free", "starter", "pro", "business"];
+    if (!validPlans.includes(plan)) {
+      return NextResponse.json({ error: `Invalid plan. Must be: ${validPlans.join(", ")}` }, { status: 400 });
+    }
+    data.plan = plan;
   }
 
   const target = await prisma.user.findUnique({ where: { id: userId } });
@@ -68,7 +80,7 @@ export async function PATCH(req: NextRequest) {
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { role },
+    data,
     select: {
       id: true,
       name: true,

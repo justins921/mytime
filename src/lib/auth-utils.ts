@@ -48,8 +48,9 @@ export function getPlanLimits(plan: string) {
   return PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] ?? PLAN_LIMITS.free;
 }
 
-/** Require a minimum plan — returns 403 response if plan is insufficient */
-export function requirePlan(user: { plan: string }, requiredPlan: string) {
+/** Require a minimum plan — returns 403 response if plan is insufficient. Admins bypass. */
+export function requirePlan(user: { plan: string; role: string }, requiredPlan: string) {
+  if (user.role === "admin") return null;
   if (!hasPlan(user.plan, requiredPlan)) {
     return NextResponse.json(
       { error: `This feature requires the ${requiredPlan} plan or higher. Please upgrade.` },
@@ -59,8 +60,9 @@ export function requirePlan(user: { plan: string }, requiredPlan: string) {
   return null;
 }
 
-/** Check client count limit for the user's plan */
-export async function checkClientLimit(userId: string, plan: string) {
+/** Check client count limit for the user's plan. Admins bypass. */
+export async function checkClientLimit(userId: string, plan: string, role: string) {
+  if (role === "admin") return null;
   const limits = getPlanLimits(plan);
   if (limits.clients === Infinity) return null;
 

@@ -18,8 +18,8 @@ export async function POST(req: NextRequest) {
   const { user, res } = await getAuthUser();
   if (!user) return res;
 
-  // Enforce plan client limit
-  const limitDenied = await checkClientLimit(user.id, user.plan);
+  // Enforce plan client limit (admins bypass)
+  const limitDenied = await checkClientLimit(user.id, user.plan, user.role);
   if (limitDenied) return limitDenied;
 
   const body = await req.json();

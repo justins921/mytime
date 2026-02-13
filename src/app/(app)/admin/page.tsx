@@ -207,6 +207,18 @@ export default function AdminPage() {
     }
   }
 
+  async function changePlan(userId: string, plan: string) {
+    const res = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, plan }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setUsers(users.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)));
+    }
+  }
+
   async function deleteUser(userId: string, email: string) {
     if (!confirm(`Delete user ${email}? This will permanently delete all their data.`)) return;
     const res = await fetch("/api/admin/users", {
@@ -518,9 +530,16 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${PLAN_COLORS[u.plan] || PLAN_COLORS.free}`}>
-                          {u.plan}
-                        </span>
+                        <select
+                          value={u.plan}
+                          onChange={(e) => changePlan(u.id, e.target.value)}
+                          className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer capitalize ${PLAN_COLORS[u.plan] || PLAN_COLORS.free}`}
+                        >
+                          <option value="free">Free</option>
+                          <option value="starter">Starter</option>
+                          <option value="pro">Pro</option>
+                          <option value="business">Business</option>
+                        </select>
                       </td>
                       <td className="px-4 py-3 text-center text-muted-foreground">{u._count.clients}</td>
                       <td className="px-4 py-3 text-center text-muted-foreground">{u._count.timeEntries}</td>

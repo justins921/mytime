@@ -14,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -62,6 +61,8 @@ export default function ClientsPage() {
   const [newDailyTouch, setNewDailyTouch] = useState(false);
   const [newIsPersonal, setNewIsPersonal] = useState(false);
   const [newColor, setNewColor] = useState(COLORS[0]);
+  const [addError, setAddError] = useState("");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/clients")
@@ -71,6 +72,7 @@ export default function ClientsPage() {
 
   async function addClient() {
     if (!newName.trim()) return;
+    setAddError("");
     const retainer = parseFloat(newRetainer) || 2000;
     const rate = parseFloat(newRate) || 50;
     const res = await fetch("/api/clients", {
@@ -92,6 +94,11 @@ export default function ClientsPage() {
       const client = await res.json();
       setClients((prev) => [...prev, { ...client, projects: [] }]);
       setNewName("");
+      setAddError("");
+      setAddDialogOpen(false);
+    } else {
+      const data = await res.json().catch(() => null);
+      setAddError(data?.error || "Failed to add client. Please try again.");
     }
   }
 
@@ -107,7 +114,7 @@ export default function ClientsPage() {
           <Users className="h-5 w-5" />
           <h2 className="text-xl font-semibold">Clients</h2>
         </div>
-        <Dialog>
+        <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) setAddError(""); }}>
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Client</Button>
           </DialogTrigger>
@@ -170,9 +177,12 @@ export default function ClientsPage() {
                   ))}
                 </div>
               </div>
-              <DialogClose asChild>
-                <Button onClick={addClient} className="w-full">Add Client</Button>
-              </DialogClose>
+              {addError && (
+                <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
+                  {addError}
+                </div>
+              )}
+              <Button onClick={addClient} className="w-full">Add Client</Button>
             </div>
           </DialogContent>
         </Dialog>
