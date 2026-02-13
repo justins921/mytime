@@ -443,6 +443,14 @@ model KnowledgeBaseArticle {
   updatedAt         DateTime @updatedAt
 }
 
+// ─── Landing Page CMS ────────────────────────────────
+model LandingPageSection {
+  id        String   @id @default(cuid())
+  section   String   @unique // hero | metrics | problems | beforeAfter | features | howItWorks | integrations | comparison | pricing | calculator | faq | finalCta
+  content   String   @db.Text // JSON blob with section-specific fields
+  updatedAt DateTime @updatedAt
+}
+
 // ─── CRM ─────────────────────────────────────────────
 model CRMContact {
   id              String        @id @default(cuid())

@@ -31,7 +31,9 @@ import {
   Ticket,
   ArrowUpRight,
   Star,
+  Globe,
 } from "lucide-react";
+import { LandingEditor } from "@/components/admin/landing-editor";
 
 // ─── Types ─────────────────────────────────────────
 
@@ -142,7 +144,7 @@ export default function AdminPage() {
   const [articles, setArticles] = useState<KBArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
-  const [tab, setTab] = useState<"dashboard" | "users" | "support" | "kb">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "users" | "support" | "kb" | "landing">("dashboard");
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
 
   // KB editor state
@@ -392,6 +394,15 @@ export default function AdminPage() {
           <BookOpen className="h-4 w-4" />
           Knowledge Base ({articles.length})
         </button>
+        <button
+          onClick={() => setTab("landing")}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            tab === "landing" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Globe className="h-4 w-4" />
+          Landing Page
+        </button>
       </div>
 
       {/* ─── Dashboard Tab ─── */}
@@ -616,6 +627,9 @@ export default function AdminPage() {
           )}
         </div>
       )}
+
+      {/* ─── Landing Page Tab ─── */}
+      {tab === "landing" && <LandingEditor />}
 
       {/* ─── Knowledge Base Tab ─── */}
       {tab === "kb" && (

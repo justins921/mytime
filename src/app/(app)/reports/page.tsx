@@ -183,7 +183,7 @@ export default function ReportsPage() {
                 <CardTitle className="text-base">Chandler: UC30 vs Non-UC30</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="text-center p-3 border rounded">
                     <div className="text-lg font-bold">{(report.uc30Breakdown.uc30 / 60).toFixed(1)}h</div>
                     <p className="text-xs text-muted-foreground">UC30</p>

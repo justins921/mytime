@@ -434,7 +434,7 @@ export default function CRMPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search contacts..."
-              className="h-9 pl-9 pr-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary w-48"
+              className="h-9 pl-9 pr-3 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary w-full sm:w-48"
             />
           </div>
           <div className="flex rounded-md border overflow-hidden">
@@ -471,7 +471,7 @@ export default function CRMPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="col-span-2 space-y-1">
                 <label className="text-xs font-medium">Name *</label>
                 <input
@@ -596,7 +596,7 @@ export default function CRMPage() {
                 const stageContacts = pipeline[stage.value];
                 const stageValue = stageContacts.reduce((sum, c) => sum + c.estimatedValue, 0);
                 return (
-                  <div key={stage.value} className="flex-shrink-0 w-56">
+                  <div key={stage.value} className="flex-shrink-0 w-72 sm:w-56">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-1.5">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${stage.color}`}>
@@ -1046,7 +1046,7 @@ export default function CRMPage() {
                   className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none focus:ring-2 focus:ring-primary resize-y"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Start Date</label>
                   <input
@@ -1066,7 +1066,7 @@ export default function CRMPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">Hourly Rate Override</label>
                   <input

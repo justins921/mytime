@@ -333,7 +333,7 @@ export default function TasksPage() {
                   <Label>Title</Label>
                   <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label>Priority</Label>
                     <Select value={newPriority} onValueChange={setNewPriority}>
@@ -397,7 +397,7 @@ export default function TasksPage() {
         </Tabs>
       ) : (
         /* Board / Kanban view */
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {COLUMNS.map((col) => {
             const columnTasks = clientFilteredTasks.filter((t) => t.status === col.key);
             return (

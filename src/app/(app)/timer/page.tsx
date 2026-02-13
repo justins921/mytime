@@ -640,7 +640,7 @@ export default function TimerPage() {
               <Label className="text-xs">Date</Label>
               <Input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Start Time</Label>
                 <Input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} />

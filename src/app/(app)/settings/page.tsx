@@ -717,7 +717,7 @@ export default function SettingsPage() {
                 value={newTimeOff.title}
                 onChange={(e) => setNewTimeOff({ ...newTimeOff, title: e.target.value })}
                 placeholder="e.g. Spring Break"
-                className="w-36"
+                className="w-full sm:w-36"
               />
             </div>
             <div className="space-y-1">
@@ -726,7 +726,7 @@ export default function SettingsPage() {
                 type="date"
                 value={newTimeOff.startDate}
                 onChange={(e) => setNewTimeOff({ ...newTimeOff, startDate: e.target.value })}
-                className="w-36"
+                className="w-full sm:w-36"
               />
             </div>
             <div className="space-y-1">
@@ -735,7 +735,7 @@ export default function SettingsPage() {
                 type="date"
                 value={newTimeOff.endDate}
                 onChange={(e) => setNewTimeOff({ ...newTimeOff, endDate: e.target.value })}
-                className="w-36"
+                className="w-full sm:w-36"
               />
             </div>
             <div className="space-y-1">
@@ -744,7 +744,7 @@ export default function SettingsPage() {
                 value={newTimeOff.type}
                 onValueChange={(v) => setNewTimeOff({ ...newTimeOff, type: v })}
               >
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-full sm:w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -865,7 +865,7 @@ export default function SettingsPage() {
                 value={newFeed.name}
                 onChange={(e) => setNewFeed({ ...newFeed, name: e.target.value })}
                 placeholder="e.g. Work Calendar"
-                className="w-36"
+                className="w-full sm:w-36"
               />
             </div>
             <div className="space-y-1">
@@ -874,7 +874,7 @@ export default function SettingsPage() {
                 value={newFeed.url}
                 onChange={(e) => setNewFeed({ ...newFeed, url: e.target.value })}
                 placeholder="webcal://... or https://..."
-                className="w-64 font-mono text-xs"
+                className="w-full sm:w-64 font-mono text-xs"
               />
             </div>
             <div className="space-y-1">

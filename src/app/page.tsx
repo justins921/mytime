@@ -4,6 +4,11 @@ import { ProductDemo } from "@/components/product-demo";
 import { StickyCTA } from "@/components/sticky-cta";
 import { ScheduleCalculator } from "@/components/schedule-calculator";
 import { MobileNav } from "@/components/mobile-nav";
+import { prisma } from "@/lib/db";
+import {
+  LANDING_DEFAULTS,
+  type LandingSections,
+} from "@/lib/landing-defaults";
 import {
   Calendar,
   Clock,
@@ -26,6 +31,36 @@ import {
   HelpCircle,
   Layers,
 } from "lucide-react";
+
+/* ─── Load CMS content ─── */
+
+async function loadLandingContent(): Promise<LandingSections> {
+  try {
+    const rows = await prisma.landingPageSection.findMany();
+    const sections: Record<string, unknown> = {};
+    for (const row of rows) {
+      try {
+        sections[row.section] = JSON.parse(row.content);
+      } catch { /* skip */ }
+    }
+    return {
+      hero: (sections.hero as LandingSections["hero"]) ?? LANDING_DEFAULTS.hero,
+      metrics: (sections.metrics as LandingSections["metrics"]) ?? LANDING_DEFAULTS.metrics,
+      problems: (sections.problems as LandingSections["problems"]) ?? LANDING_DEFAULTS.problems,
+      beforeAfter: (sections.beforeAfter as LandingSections["beforeAfter"]) ?? LANDING_DEFAULTS.beforeAfter,
+      features: (sections.features as LandingSections["features"]) ?? LANDING_DEFAULTS.features,
+      howItWorks: (sections.howItWorks as LandingSections["howItWorks"]) ?? LANDING_DEFAULTS.howItWorks,
+      integrations: (sections.integrations as LandingSections["integrations"]) ?? LANDING_DEFAULTS.integrations,
+      comparison: (sections.comparison as LandingSections["comparison"]) ?? LANDING_DEFAULTS.comparison,
+      pricing: (sections.pricing as LandingSections["pricing"]) ?? LANDING_DEFAULTS.pricing,
+      calculator: (sections.calculator as LandingSections["calculator"]) ?? LANDING_DEFAULTS.calculator,
+      faq: (sections.faq as LandingSections["faq"]) ?? LANDING_DEFAULTS.faq,
+      finalCta: (sections.finalCta as LandingSections["finalCta"]) ?? LANDING_DEFAULTS.finalCta,
+    };
+  } catch {
+    return LANDING_DEFAULTS;
+  }
+}
 
 /* ─── Helper components ─── */
 
@@ -112,7 +147,6 @@ function FeatureCard({ icon: Icon, title, description, pro }: {
   );
 }
 
-
 function IntegrationCard({ icon: Icon, name, description, color, pro }: {
   icon: React.ComponentType<{ className?: string }>; name: string; description: string; color: string; pro?: boolean;
 }) {
@@ -151,7 +185,7 @@ function CompetitorRow({ name, has }: { name: string; has: boolean[] }) {
   );
 }
 
-function FAQItem({ q, a }: { q: string; a: string }) {
+function FAQItemEl({ q, a }: { q: string; a: string }) {
   return (
     <details className="group border-b last:border-0">
       <summary className="flex items-center justify-between py-4 cursor-pointer text-sm font-medium text-gray-900 hover:text-gray-700">
@@ -163,11 +197,17 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   );
 }
 
+// Feature icons are mapped by index position (matching the defaults)
+const FEATURE_ICONS = [Zap, Timer, Users, Contact, CalendarClock, BarChart3, Inbox, StickyNote, Lock, Layers, Calendar, HelpCircle];
+const INTEGRATION_ICONS = [MessageSquare, Mail, BookOpen, Calendar, Inbox, CheckCircle2];
+const INTEGRATION_COLORS = ["#E01E5A", "#EA4335", "#000000", "#4285F4", "#7B68EE", "#F06A6A"];
+
 /* ─── Page ─── */
 
 export default async function LandingPage() {
   const session = await auth();
   const isLoggedIn = !!session;
+  const content = await loadLandingContent();
 
   return (
     <div className="min-h-screen bg-white">
@@ -212,49 +252,42 @@ export default async function LandingPage() {
         </div>
       </nav>
 
-      {/* ═══════════════════════════════════════════════════════════
-          HERO — Category creation: "Workday OS"
-          Outcome headline, not feature headline
-          Psychology: Anchoring, Present Bias, Loss Aversion
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ HERO ═══ */}
       <section className="max-w-6xl mx-auto px-6 pt-20 pb-16">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full bg-blue-50 text-blue-700 mb-6">
               <Zap className="h-3 w-3" />
-              The Workday OS for freelancers
+              {content.hero.badge}
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1] mb-6">
-              Run your entire freelance business
+              {content.hero.headline}
               <br />
-              <span className="text-gray-400">from one screen.</span>
+              <span className="text-gray-400">{content.hero.headlineAccent}</span>
             </h1>
-            <p className="text-sm font-medium text-gray-500 mb-4">Built for freelancers, by a freelancer.</p>
+            <p className="text-sm font-medium text-gray-500 mb-4">{content.hero.subtext}</p>
             <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-lg">
-              Schedule, time track, manage clients, close leads, triage your inbox,
-              and run reports — all from one screen. Your existing tools stay.
-              MyTime pulls them together so you can stop tab-switching
-              and start working.
+              {content.hero.body}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a
                 href="/signup"
                 className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-6 py-3 rounded-md hover:bg-gray-800 transition-colors text-sm"
               >
-                Start Free — No Credit Card
+                {content.hero.cta1Label}
                 <ArrowRight className="h-4 w-4" />
               </a>
               <a
                 href="#how"
                 className="inline-flex items-center justify-center gap-2 border font-medium px-6 py-3 rounded-md hover:bg-gray-50 transition-colors text-sm"
               >
-                See how it works
+                {content.hero.cta2Label}
               </a>
             </div>
-            <div className="flex items-center gap-4 mt-5 text-xs text-gray-400">
-              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> 14-day free trial</span>
-              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Focused on the workday</span>
-              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Cancel anytime</span>
+            <div className="flex flex-wrap items-center gap-4 mt-5 text-xs text-gray-400">
+              {content.hero.trustSignals.map((signal, i) => (
+                <span key={i} className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> {signal}</span>
+              ))}
             </div>
           </div>
           <div className="relative">
@@ -266,270 +299,126 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          METRICS BAR
-          Psychology: Bandwagon Effect, Authority through specifics
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ METRICS BAR ═══ */}
       <section className="border-y bg-gray-50/50 py-8">
         <div className="max-w-5xl mx-auto px-6">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 text-center">
-            <div>
-              <p className="text-2xl font-bold">8 sec</p>
-              <p className="text-xs text-gray-500 mt-1">Schedule generation</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold">9</p>
-              <p className="text-xs text-gray-500 mt-1">Tools in one screen</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold">6</p>
-              <p className="text-xs text-gray-500 mt-1">Integrations built in</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold">100+</p>
-              <p className="text-xs text-gray-500 mt-1">Hours saved per year</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold">$0</p>
-              <p className="text-xs text-gray-500 mt-1">Over-servicing with cap alerts</p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 text-center">
+            {content.metrics.items.map((item, i) => (
+              <div key={i}>
+                <p className="text-2xl font-bold">{item.value}</p>
+                <p className="text-xs text-gray-500 mt-1">{item.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          PROBLEM / PAIN POINTS
-          Psychology: Loss Aversion, Framing Effect
-          Corey Haines: Lead with the problem the customer already feels
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ PROBLEM / PAIN POINTS ═══ */}
       <section className="py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">Freelancing shouldn&apos;t require 7 subscriptions.</h2>
-            <p className="text-gray-500 max-w-xl mx-auto">
-              Right now you&apos;re stitching together a calendar, a timer, a CRM,
-              a project manager, a notes app, and a Slack tab — just to do the work
-              you actually get paid for.
-            </p>
+            <h2 className="text-2xl font-bold mb-3">{content.problems.heading}</h2>
+            <p className="text-gray-500 max-w-xl mx-auto">{content.problems.body}</p>
           </div>
-          <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="p-6 rounded-xl bg-white border">
-              <p className="text-3xl font-bold text-gray-900 mb-2">2+ hrs</p>
-              <p className="text-sm font-medium mb-1">Lost every week to planning</p>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                That&apos;s 100+ hours a year you could be billing.
-                At $150/hr, that&apos;s $15,000 in lost revenue — rebuilding
-                the same schedule every Sunday night.
-              </p>
-            </div>
-            <div className="p-6 rounded-xl bg-white border">
-              <p className="text-3xl font-bold text-red-500 mb-2">$3,000+</p>
-              <p className="text-sm font-medium mb-1">Unbilled over-servicing per month</p>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                Without real-time cap tracking, you don&apos;t know you&apos;ve
-                blown past a client&apos;s hours until the invoice.
-                That&apos;s work you&apos;ll never get paid for.
-              </p>
-            </div>
-            <div className="p-6 rounded-xl bg-white border">
-              <p className="text-3xl font-bold text-gray-900 mb-2">$80+/mo</p>
-              <p className="text-sm font-medium mb-1">Spent on tools that don&apos;t talk to each other</p>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                A CRM here, a timer there, a project board somewhere else.
-                None of them know about your schedule, your clients, or
-                your monthly caps. You&apos;re the integration layer.
-              </p>
-            </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {content.problems.cards.map((card, i) => (
+              <div key={i} className="p-6 rounded-xl bg-white border">
+                <p className={`text-3xl font-bold mb-2 ${card.statColor || "text-gray-900"}`}>{card.stat}</p>
+                <p className="text-sm font-medium mb-1">{card.title}</p>
+                <p className="text-xs text-gray-500 leading-relaxed">{card.description}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          BEFORE / AFTER
-          Psychology: Contrast Effect, Framing
-          Corey Haines: Show the transformation, not just features
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ BEFORE / AFTER ═══ */}
       <section className="bg-gray-50 py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">One app. Whole business. Zero tab-switching.</h2>
+            <h2 className="text-2xl font-bold mb-3">{content.beforeAfter.heading}</h2>
           </div>
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="p-6 rounded-xl border border-red-200 bg-red-50/50">
               <p className="text-sm font-semibold text-red-700 mb-4">Without MyTime</p>
               <ul className="space-y-3 text-sm text-gray-600">
-                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Rebuild your schedule from scratch every week</li>
-                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Guess how many hours you&apos;ve given each client</li>
-                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Track leads in a spreadsheet you never update</li>
-                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Bounce between Slack, Gmail, Notion, calendar, timer</li>
-                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> Alt-tab between Toggl, Notion, HubSpot, and Sunsama all day</li>
-                <li className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> End the week busy but behind, unsure where the time went</li>
+                {content.beforeAfter.without.map((item, i) => (
+                  <li key={i} className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> {item}</li>
+                ))}
               </ul>
             </div>
             <div className="p-6 rounded-xl border border-green-200 bg-green-50/50">
               <p className="text-sm font-semibold text-green-700 mb-4">With MyTime</p>
               <ul className="space-y-3 text-sm text-gray-600">
-                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Generate your entire week in under 10 seconds</li>
-                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Live progress bars track hours against monthly caps</li>
-                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Built-in CRM moves leads from first touch to client</li>
-                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Slack, Gmail, Notion, and tasks in one dashboard</li>
-                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Your existing tools, surfaced in one dashboard</li>
-                <li className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> Know exactly where every hour went with one glance</li>
+                {content.beforeAfter.with.map((item, i) => (
+                  <li key={i} className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> {item}</li>
+                ))}
               </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          FEATURES — Full product coverage
-          Corey Haines: Benefit-first headlines, outcome-oriented
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ FEATURES ═══ */}
       <section id="features" className="py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">
-              Everything a freelancer needs. Nothing they don&apos;t.
-            </h2>
-            <p className="text-gray-500 max-w-xl mx-auto">
-              Built by a freelancer who got tired of switching between 5 tabs.
-              Every feature exists because I needed it myself.
-              Focused on the workday, not invoicing — you already have a tool for that.
-            </p>
+            <h2 className="text-2xl font-bold mb-3">{content.features.heading}</h2>
+            <p className="text-gray-500 max-w-xl mx-auto">{content.features.body}</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FeatureCard
-              icon={Zap}
-              title="Get your whole week in seconds"
-              description="Add your clients, availability, and hour targets. Hit one button. Your entire week appears — balanced across every client by priority weight and weekly targets."
-            />
-            <FeatureCard
-              icon={Timer}
-              title="Track time without leaving your flow"
-              description="One-click timer tied to your current client and project. Warns you if you context-switch. Entries appear automatically with copy-to-clipboard for your invoice tool."
-            />
-            <FeatureCard
-              icon={Users}
-              title="Clients and projects, organized"
-              description="Every client has their own profile with retainer, hourly rate, weekly targets, monthly caps, projects, tasks, and notes. Color-coded and sortable by priority."
-            />
-            <FeatureCard
-              icon={Contact}
-              title="Close leads with a built-in CRM"
-              description="Pipeline board tracks leads from first touch to won deal. Log emails, calls, and meetings. Generate contracts from templates with auto-filled client details. When they sign, convert them to a client in one click."
-            />
-            <FeatureCard
-              icon={CalendarClock}
-              title="Tasks that find their own slot"
-              description="Add one-off tasks with time estimates, priorities, and due dates. The generator finds the best open slot and weaves them into your week automatically."
-            />
-            <FeatureCard
-              icon={BarChart3}
-              title="Never over-service a client again"
-              description="Visual progress bars track each client's hours against their monthly cap. They turn yellow at 70%, red at 90% — so you catch it before the invoice."
-              pro
-            />
-            <FeatureCard
-              icon={Inbox}
-              title="Triage inbox for every tool"
-              description="Tasks from ClickUp, Trello, Asana, and Monday.com all land in one triage inbox. Accept, schedule, or dismiss — without switching tabs."
-              pro
-            />
-            <FeatureCard
-              icon={StickyNote}
-              title="Notes tied to every client"
-              description="Quick notes attached to clients, searchable and pinnable. No more hunting through Notion or Apple Notes for that one thing you wrote down."
-            />
-            <FeatureCard
-              icon={Lock}
-              title="Deep work stays deep"
-              description="Protected focus blocks, support windows, admin time, and breaks. Lock what works, regenerate the rest. Context-switching doesn't eat your productive hours."
-            />
-            <FeatureCard
-              icon={Layers}
-              title="Slack, Gmail, Notion — one place"
-              description="All your Slack workspaces, Gmail accounts, Outlook, and Notion pages in one sidebar. Read, respond, and triage without leaving your schedule."
-              pro
-            />
-            <FeatureCard
-              icon={Calendar}
-              title="Calendar feeds built right in"
-              description="Pull in Google Calendar, Apple Calendar, or Outlook via iCal feeds. Events appear alongside your blocks so nothing double-books."
-              pro
-            />
-            <FeatureCard
-              icon={HelpCircle}
-              title="Knowledge base and support"
-              description="A self-service knowledge base so you can find answers fast. And when you can't, submit a ticket and we'll get back to you personally."
-            />
+            {content.features.cards.map((card, i) => (
+              <FeatureCard
+                key={i}
+                icon={FEATURE_ICONS[i] || HelpCircle}
+                title={card.title}
+                description={card.description}
+                pro={card.pro}
+              />
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          HOW IT WORKS — Interactive demo
-          Psychology: Activation Energy, IKEA Effect
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ HOW IT WORKS ═══ */}
       <section id="how" className="bg-gray-50 py-20">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">See the whole product in action.</h2>
-            <p className="text-gray-500 max-w-lg mx-auto">
-              Schedule, timer, integrations, CRM, and reports — all working
-              together. Click any tab or let the demo run.
-            </p>
+            <h2 className="text-2xl font-bold mb-3">{content.howItWorks.heading}</h2>
+            <p className="text-gray-500 max-w-lg mx-auto">{content.howItWorks.body}</p>
           </div>
           <ProductDemo />
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          INTEGRATIONS
-          Psychology: Switching Costs, Status-Quo Bias
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ INTEGRATIONS ═══ */}
       <section id="integrations" className="py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">
-              Stop tab-switching your workday.
-            </h2>
-            <p className="text-gray-500 max-w-lg mx-auto">
-              Your messages, email, docs, calendar, and project tasks —
-              all surfaced inside MyTime. Work from one screen.
-            </p>
+            <h2 className="text-2xl font-bold mb-3">{content.integrations.heading}</h2>
+            <p className="text-gray-500 max-w-lg mx-auto">{content.integrations.body}</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 max-w-4xl mx-auto">
-            <IntegrationCard icon={MessageSquare} name="Slack" description="All workspaces, one inbox" color="#E01E5A" />
-            <IntegrationCard icon={Mail} name="Gmail & Outlook" description="Triage with kanban boards" color="#EA4335" />
-            <IntegrationCard icon={BookOpen} name="Notion" description="Browse and search pages" color="#000000" />
-            <IntegrationCard icon={Calendar} name="Calendar" description="iCal, Google, Outlook" color="#4285F4" />
-            <IntegrationCard icon={Inbox} name="ClickUp & Trello" description="Triage tasks in one inbox" color="#7B68EE" />
-            <IntegrationCard icon={CheckCircle2} name="Asana & Monday" description="Pull tasks for scheduling" color="#F06A6A" />
+            {content.integrations.cards.map((card, i) => (
+              <IntegrationCard
+                key={i}
+                icon={INTEGRATION_ICONS[i] || CheckCircle2}
+                name={card.name}
+                description={card.description}
+                color={INTEGRATION_COLORS[i] || "#666"}
+              />
+            ))}
           </div>
-          <p className="text-center text-xs text-gray-400 mt-6">
-            Integrations are included on the Pro plan and above — no extra fees from MyTime.
-            Each service may require its own account or subscription.
-          </p>
+          <p className="text-center text-xs text-gray-400 mt-6">{content.integrations.note}</p>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          COMPARISON TABLE — Competitive positioning
-          Corey Haines: Own the category, show the gap
-          Psychology: Distinctiveness, Anchoring
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ COMPARISON TABLE ═══ */}
       <section id="compare" className="bg-gray-50 py-20">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">
-              Other tools live in their own tab. MyTime pulls them together.
-            </h2>
-            <p className="text-gray-500 max-w-xl mx-auto">
-              Freelancer tools either focus on invoicing (Bonsai, Plutio, Moxie)
-              or daily planning (Sunsama, Motion). MyTime brings your schedule,
-              clients, and integrations into one screen — so your workday
-              actually flows.
-            </p>
+            <h2 className="text-2xl font-bold mb-3">{content.comparison.heading}</h2>
+            <p className="text-gray-500 max-w-xl mx-auto">{content.comparison.body}</p>
           </div>
           <div className="rounded-xl border bg-white overflow-hidden">
             <div className="overflow-x-auto">
@@ -550,7 +439,6 @@ export default async function LandingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* MyTime row highlighted */}
                   <tr className="border-b bg-blue-50/50 font-semibold">
                     <td className="py-2.5 px-3 text-sm">MyTime</td>
                     {[true, true, true, true, true, true, true, true, true, true].map((v, i) => (
@@ -559,7 +447,6 @@ export default async function LandingPage() {
                       </td>
                     ))}
                   </tr>
-                  {/*                           Sched Timer Client CRM  Tasks Notes Integ Triage Rpts NoInv */}
                   <CompetitorRow name="Bonsai"   has={[false, true,  true,  true,  true,  false, false, false, true,  false]} />
                   <CompetitorRow name="Plutio"   has={[false, true,  true,  true,  true,  false, false, false, true,  false]} />
                   <CompetitorRow name="Moxie"    has={[true,  true,  true,  true,  true,  false, false, false, true,  false]} />
@@ -571,230 +458,128 @@ export default async function LandingPage() {
               </table>
             </div>
           </div>
-          <p className="text-center text-xs text-gray-400 mt-4">
-            Comparison based on out-of-the-box features. Some tools offer partial functionality via add-ons or manual setup.
-          </p>
+          <p className="text-center text-xs text-gray-400 mt-4">{content.comparison.note}</p>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          PRICING — Good-Better-Best
-          Corey Haines: Anchor to value, not cost
-          Psychology: Anchoring, Decoy Effect, charm pricing
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ PRICING ═══ */}
       <section id="pricing" className="border-y py-20">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">
-              Your whole workday for less than one tool costs.
-            </h2>
-            <p className="text-gray-500 max-w-md mx-auto">
-              Start free. Upgrade when it pays for itself — and it will.
-            </p>
+            <h2 className="text-2xl font-bold mb-3">{content.pricing.heading}</h2>
+            <p className="text-gray-500 max-w-md mx-auto">{content.pricing.body}</p>
           </div>
-          <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {/* Starter */}
-            <div className="p-6 rounded-xl border bg-white">
-              <h3 className="font-semibold mb-1">Starter</h3>
-              <p className="text-xs text-gray-500 mb-4">Get started, no credit card</p>
-              <div className="mb-4">
-                <span className="text-3xl font-bold">$0</span>
-                <span className="text-sm text-gray-400">/mo</span>
-              </div>
-              <ul className="space-y-2 mb-6 text-sm text-gray-600">
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Up to 2 clients</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Schedule generation</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Time tracking &amp; timer</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> CRM pipeline</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Notes &amp; tasks</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Knowledge base</li>
-              </ul>
-              <a
-                href="/signup"
-                className="block text-center px-4 py-2.5 rounded-md border font-medium text-sm hover:bg-gray-50 transition-colors"
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {content.pricing.tiers.map((tier, i) => (
+              <div
+                key={i}
+                className={`p-6 rounded-xl bg-white relative ${
+                  tier.highlighted ? "border-2 border-gray-900" : "border"
+                }`}
               >
-                Start Free
-              </a>
-            </div>
-            {/* Pro */}
-            <div className="p-6 rounded-xl border-2 border-gray-900 bg-white relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gray-900 text-white text-[10px] font-semibold rounded-full">
-                Most Popular
+                {tier.badge && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gray-900 text-white text-[10px] font-semibold rounded-full">
+                    {tier.badge}
+                  </div>
+                )}
+                <h3 className="font-semibold mb-1">{tier.name}</h3>
+                <p className="text-xs text-gray-500 mb-4">{tier.subtitle}</p>
+                <div className="mb-1">
+                  <span className="text-3xl font-bold">{tier.price}</span>
+                  <span className="text-sm text-gray-400">{tier.period}</span>
+                </div>
+                {tier.discount && (
+                  <p className="text-[10px] text-gray-400 mb-4">{tier.discount}</p>
+                )}
+                {!tier.discount && <div className="mb-4" />}
+                <ul className="space-y-2 mb-6 text-sm text-gray-600">
+                  {tier.features.map((feature, fi) => (
+                    <li key={fi} className="flex items-start gap-2">
+                      <Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> {feature}
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href="/signup"
+                  className={`block text-center px-4 py-2.5 rounded-md font-medium text-sm transition-colors ${
+                    tier.highlighted
+                      ? "bg-gray-900 text-white hover:bg-gray-800"
+                      : "border hover:bg-gray-50"
+                  }`}
+                >
+                  {tier.ctaLabel}
+                </a>
               </div>
-              <h3 className="font-semibold mb-1">Pro</h3>
-              <p className="text-xs text-gray-500 mb-4">For active freelancers</p>
-              <div className="mb-1">
-                <span className="text-3xl font-bold">$19</span>
-                <span className="text-sm text-gray-400">/mo</span>
-              </div>
-              <p className="text-[10px] text-gray-400 mb-4">
-                or $15/mo billed annually (save 20%)
-              </p>
-              <ul className="space-y-2 mb-6 text-sm text-gray-600">
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Unlimited clients</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> All integrations (Slack, Gmail, Notion, Calendar, ClickUp, Trello, Asana, Monday)</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Monthly cap tracking</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Triage inbox</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Reports &amp; CSV export</li>
-              </ul>
-              <a
-                href="/signup"
-                className="block text-center px-4 py-2.5 rounded-md bg-gray-900 text-white font-medium text-sm hover:bg-gray-800 transition-colors"
-              >
-                Start 14-Day Free Trial
-              </a>
-            </div>
-            {/* Business */}
-            <div className="p-6 rounded-xl border bg-white">
-              <h3 className="font-semibold mb-1">Business</h3>
-              <p className="text-xs text-gray-500 mb-4">For agencies &amp; power users</p>
-              <div className="mb-1">
-                <span className="text-3xl font-bold">$39</span>
-                <span className="text-sm text-gray-400">/mo</span>
-              </div>
-              <p className="text-[10px] text-gray-400 mb-4">
-                or $29/mo billed annually (save 25%)
-              </p>
-              <ul className="space-y-2 mb-6 text-sm text-gray-600">
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Everything in Pro</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Priority support</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Advanced reports &amp; analytics</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> API access</li>
-                <li className="flex items-start gap-2"><Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> Custom integrations</li>
-              </ul>
-              <a
-                href="/signup"
-                className="block text-center px-4 py-2.5 rounded-md border font-medium text-sm hover:bg-gray-50 transition-colors"
-              >
-                Start 14-Day Free Trial
-              </a>
-            </div>
+            ))}
           </div>
-          <p className="text-center text-xs text-gray-400 mt-6">
-            All plans include a 14-day free trial. No credit card required.
-          </p>
+          <p className="text-center text-xs text-gray-400 mt-6">{content.pricing.note}</p>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          FREE TOOL — Schedule Calculator
-          Corey Haines: Give value first, earn the right to sell
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ CALCULATOR ═══ */}
       <section id="calculator" className="py-20">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">
-              How does your week actually stack up?
-            </h2>
-            <p className="text-gray-500 max-w-lg mx-auto">
-              Plug in your clients and see your utilization, revenue, and time
-              breakdown — free, no signup required.
-            </p>
+            <h2 className="text-2xl font-bold mb-3">{content.calculator.heading}</h2>
+            <p className="text-gray-500 max-w-lg mx-auto">{content.calculator.body}</p>
           </div>
           <ScheduleCalculator />
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          FAQ
-          Psychology: Reduce uncertainty, handle objections
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ FAQ ═══ */}
       <section id="faq" className="bg-gray-50 py-20">
         <div className="max-w-2xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">Questions? Answers.</h2>
+            <h2 className="text-2xl font-bold mb-3">{content.faq.heading}</h2>
           </div>
           <div className="rounded-xl border bg-white divide-y">
             <div className="px-6">
-              <FAQItem
-                q="Who is MyTime for?"
-                a="Freelancers, consultants, and independent contractors who juggle multiple clients. If you spend Sunday nights building next week's schedule, track time in one tool and manage leads in another, MyTime brings all of that into one screen."
-              />
-              <FAQItem
-                q="How is this different from Bonsai, Plutio, or Moxie?"
-                a="Those tools are built around invoicing and payments. MyTime is built around your workday — schedule generation, time tracking, CRM, triage inbox, and integrations. We skip invoicing so we can stay focused on the part of your day that actually matters: the work. The result is a faster, more focused tool for the 8 hours you actually work."
-              />
-              <FAQItem
-                q="How is this different from Sunsama or Motion?"
-                a="Sunsama and Motion are daily planners. They're great at calendar + tasks, but they don't know about your clients, retainers, monthly caps, or sales pipeline. MyTime combines the daily planning side with business management — so your schedule, time tracking, CRM, and reports all share the same data."
-              />
-              <FAQItem
-                q="What's the CRM like?"
-                a="It's a lightweight pipeline built for freelancers — not a full-blown Salesforce. You track leads through stages (Lead → Contacted → Meeting → Proposal → Won), log activities like emails and calls, and see deal values. You can also generate contracts from built-in templates — retainer agreements, project contracts, or SOWs — with client details auto-filled. When a lead converts, they become a client with all the scheduling and time tracking built in."
-              />
-              <FAQItem
-                q="What integrations are available?"
-                a="Slack (multiple workspaces), Gmail, Outlook, Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), ClickUp, Trello, Asana, and Monday.com. Integrations are included on the Pro plan — no extra fees from MyTime. Each service requires its own account (some services like Slack, Notion, or ClickUp may require a paid plan on their end). Everything runs natively inside MyTime, so there's no tab switching."
-              />
-              <FAQItem
-                q="Why no invoicing?"
-                a="We want to stay focused on the workday itself. Invoicing touches payments, taxes, and compliance — things that dedicated tools like FreshBooks, Wave, and QuickBooks handle well. That said, you can generate contracts (retainer agreements, project contracts, and SOWs) right from the CRM — so the paperwork that happens before an invoice is covered. We'd rather be the best workday tool than a mediocre everything tool."
-              />
-              <FAQItem
-                q="Is there a free plan?"
-                a="Yes. The Starter plan is free forever with up to 2 clients, schedule generation, time tracking, CRM, notes, and the knowledge base. No credit card needed. Upgrade to Pro when you need unlimited clients and integrations."
-              />
-              <FAQItem
-                q="Is my data secure?"
-                a="Your data is stored on secure, encrypted servers. Integration tokens are encrypted at rest. Only your authenticated account can access your data."
-              />
-              <FAQItem
-                q="Can I cancel anytime?"
-                a="Yes, no contracts or commitments. Cancel from your settings in two clicks. Your data stays accessible on the free Starter plan after cancellation."
-              />
+              {content.faq.items.map((item, i) => (
+                <FAQItemEl key={i} q={item.q} a={item.a} />
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════
-          FINAL CTA
-          Corey Haines: Stack value before the ask
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══ FINAL CTA ═══ */}
       <section id="signup" className="py-24">
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            Your schedule, clients, CRM, and time tracker — finally in one place.
-          </h2>
-          <p className="text-gray-500 mb-8 max-w-md mx-auto">
-            Start your 14-day free trial today. No credit card required.
-            One screen for the tools you&apos;re already using.
-          </p>
+          <h2 className="text-3xl font-bold mb-4">{content.finalCta.heading}</h2>
+          <p className="text-gray-500 mb-8 max-w-md mx-auto">{content.finalCta.body}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
             <a
               href="/signup"
               className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-medium px-8 py-3.5 rounded-md hover:bg-gray-800 transition-colors text-sm"
             >
-              Create Free Account
+              {content.finalCta.cta1Label}
               <ArrowRight className="h-4 w-4" />
             </a>
             <a
               href="/login"
               className="inline-flex items-center justify-center gap-2 border font-medium px-8 py-3.5 rounded-md hover:bg-gray-50 transition-colors text-sm"
             >
-              Sign In
+              {content.finalCta.cta2Label}
             </a>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-400">
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> 14-day free trial</span>
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> No credit card</span>
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Cancel anytime</span>
+            {content.finalCta.trustSignals.map((signal, i) => (
+              <span key={i} className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> {signal}</span>
+            ))}
           </div>
 
           {/* Referral Program */}
           <div className="mt-12 p-6 rounded-xl border bg-gray-50 max-w-md mx-auto text-left">
             <div className="flex items-center gap-2 mb-3">
               <Users className="h-4 w-4 text-blue-600" />
-              <p className="text-sm font-semibold">Refer &amp; earn</p>
+              <p className="text-sm font-semibold">{content.finalCta.referralTitle}</p>
             </div>
-            <p className="text-xs text-gray-500 leading-relaxed mb-3">
-              Refer a freelancer friend and you both get rewarded. For every
-              friend who signs up, you each get an extra free month
-              added to your account.
-            </p>
-            <div className="flex gap-4 text-xs text-gray-400">
-              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> You get 1 month free</span>
-              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> They get 1 month free</span>
+            <p className="text-xs text-gray-500 leading-relaxed mb-3">{content.finalCta.referralBody}</p>
+            <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+              {content.finalCta.referralBenefits.map((benefit, i) => (
+                <span key={i} className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> {benefit}</span>
+              ))}
             </div>
           </div>
         </div>
