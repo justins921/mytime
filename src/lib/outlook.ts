@@ -118,7 +118,9 @@ export async function listMessages(
 ): Promise<OutlookListResult> {
   let path = `/me/mailFolders/inbox/messages?$top=${top}&$skip=${skip}&$orderby=receivedDateTime desc&$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,body,isRead,conversationId,webLink`;
   if (query) {
-    path += `&$filter=contains(subject,'${query}') or contains(from/emailAddress/address,'${query}')`;
+    // Escape single quotes for OData filter string
+    const escaped = query.replace(/'/g, "''");
+    path += `&$filter=contains(subject,'${escaped}') or contains(from/emailAddress/address,'${escaped}')`;
   }
   return graphGet(path, token);
 }

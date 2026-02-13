@@ -153,20 +153,29 @@ export default function TriagePage() {
   }, []);
 
   const loadClients = useCallback(async () => {
-    const data = await fetch("/api/clients").then((r) => r.json());
-    setClients(Array.isArray(data) ? data : []);
+    try {
+      const data = await fetch("/api/clients").then((r) => r.json());
+      setClients(Array.isArray(data) ? data : []);
+    } catch {
+      // ignore
+    }
   }, []);
 
   const loadSettings = useCallback(async () => {
-    const data = await fetch("/api/settings").then((r) => r.json());
-    const sources = new Set<SourceType>();
-    if (data.clickupApiToken) sources.add("clickup");
-    if (data.trelloApiToken) sources.add("trello");
-    if (data.asanaApiToken) sources.add("asana");
-    if (data.mondayApiToken) sources.add("monday");
-    setConfiguredSources(sources);
-    const map = JSON.parse(data.clickupWorkspaceMapJson || "{}");
-    setWorkspaceMap(map);
+    try {
+      const data = await fetch("/api/settings").then((r) => r.json());
+      const sources = new Set<SourceType>();
+      if (data.clickupApiToken) sources.add("clickup");
+      if (data.trelloApiToken) sources.add("trello");
+      if (data.asanaApiToken) sources.add("asana");
+      if (data.mondayApiToken) sources.add("monday");
+      setConfiguredSources(sources);
+      let map: Record<string, string> = {};
+      try { map = JSON.parse(data.clickupWorkspaceMapJson || "{}"); } catch { /* ignore corrupt json */ }
+      setWorkspaceMap(map);
+    } catch {
+      // ignore
+    }
   }, []);
 
   const loadDismissals = useCallback(async () => {

@@ -32,9 +32,12 @@ async function getSettings(userId: string) {
 }
 
 function parseToken(raw: string): { key: string; token: string } | null {
-  const parts = raw.split(":");
-  if (parts.length !== 2) return null;
-  return { key: parts[0].trim(), token: parts[1].trim() };
+  const colonIdx = raw.indexOf(":");
+  if (colonIdx === -1) return null;
+  const key = raw.slice(0, colonIdx).trim();
+  const token = raw.slice(colonIdx + 1).trim();
+  if (!key || !token) return null;
+  return { key, token };
 }
 
 async function trelloFetch(path: string, key: string, token: string) {

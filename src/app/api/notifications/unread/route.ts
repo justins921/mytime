@@ -18,29 +18,30 @@ export async function GET() {
 
   // Slack unread: check workspaces and sum up unreads
   try {
-    const settings = await prisma.settings.findUnique({ where: { userId: user.id } });
-    if (settings) {
-      const workspaces = await prisma.slackWorkspace.findMany({
-        where: { userId: user.id },
-        select: { accessToken: true },
-      });
+    const workspaces = await prisma.slackWorkspace.findMany({
+      where: { userId: user.id },
+      select: { accessToken: true },
+    });
 
-      for (const ws of workspaces) {
-        try {
-          const slackRes = await fetch("https://slack.com/api/conversations.list?types=im,mpim&limit=100&exclude_archived=true", {
-            headers: { Authorization: `Bearer ${ws.accessToken}` },
-          });
-          const data = await slackRes.json();
-          if (data.ok && data.channels) {
-            for (const ch of data.channels) {
-              if (ch.has_unreads || (ch.unread_count_display ?? 0) > 0) {
-                messagesUnread += ch.unread_count_display ?? 1;
-              }
+    for (const ws of workspaces) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const slackRes = await fetch("https://slack.com/api/conversations.list?types=im,mpim&limit=100&exclude_archived=true", {
+          headers: { Authorization: `Bearer ${ws.accessToken}` },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        const data = await slackRes.json();
+        if (data.ok && data.channels) {
+          for (const ch of data.channels) {
+            if (ch.has_unreads || (ch.unread_count_display ?? 0) > 0) {
+              messagesUnread += ch.unread_count_display ?? 1;
             }
           }
-        } catch {
-          // skip this workspace
         }
+      } catch {
+        // skip this workspace
       }
     }
   } catch {

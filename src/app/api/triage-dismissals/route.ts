@@ -37,9 +37,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Infer source from the triageId prefix
+  let source = "clickup";
+  if (clickupTaskId.startsWith("trello_")) source = "trello";
+  else if (clickupTaskId.startsWith("asana_")) source = "asana";
+  else if (clickupTaskId.startsWith("monday_")) source = "monday";
+
   const dismissal = await prisma.triageDismissal.upsert({
     where: { userId_clickupTaskId: { userId: user.id, clickupTaskId } },
-    create: { userId: user.id, clickupTaskId, action, notes: notes || "" },
+    create: { userId: user.id, clickupTaskId, action, source, notes: notes || "" },
     update: { action, notes: notes ?? undefined },
   });
 
@@ -79,9 +85,15 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json(updated);
   }
 
+  // Infer source from the triageId prefix
+  let source = "clickup";
+  if (clickupTaskId.startsWith("trello_")) source = "trello";
+  else if (clickupTaskId.startsWith("asana_")) source = "asana";
+  else if (clickupTaskId.startsWith("monday_")) source = "monday";
+
   // Create a record just for notes (no dismissal action yet)
   const created = await prisma.triageDismissal.create({
-    data: { userId: user.id, clickupTaskId, action: "noted", notes },
+    data: { userId: user.id, clickupTaskId, action: "noted", source, notes },
   });
   return NextResponse.json(created);
 }

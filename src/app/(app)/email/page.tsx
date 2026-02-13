@@ -282,14 +282,35 @@ export default function EmailPage() {
 
     try {
       if (source === "outlook") {
-        // For Outlook, we already have the message data from list
-        // Set a basic detail view using what we have
-        setSelectedEmail({
-          ...email,
-          to: "",
-          body: email.snippet || "",
-          isHtml: false,
-        });
+        // Fetch full message from Outlook API
+        try {
+          const res = await fetch(`/api/outlook/emails?accountId=${acctId}&messageId=${email.id}`);
+          const data = await res.json();
+          if (!data.error && data.id) {
+            // getMessage returns the message object directly
+            setSelectedEmail({
+              ...email,
+              to: data.toRecipients?.map((r: { emailAddress: { address: string } }) => r.emailAddress.address).join(", ") || "",
+              body: data.body?.content || data.bodyPreview || email.snippet || "",
+              isHtml: data.body?.contentType === "html",
+            });
+          } else {
+            // Fallback to snippet from list
+            setSelectedEmail({
+              ...email,
+              to: "",
+              body: email.snippet || "(No content)",
+              isHtml: false,
+            });
+          }
+        } catch {
+          setSelectedEmail({
+            ...email,
+            to: "",
+            body: email.snippet || "(No content)",
+            isHtml: false,
+          });
+        }
       } else {
         const res = await fetch(
           `/api/gmail/emails?accountId=${acctId}&messageId=${email.id}`
