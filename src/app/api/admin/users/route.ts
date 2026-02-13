@@ -54,13 +54,17 @@ export async function PATCH(req: NextRequest) {
   const data: Record<string, string> = {};
 
   if (role) {
-    const validRoles = ["user", "manager", "admin"];
+    const validRoles = ["user", "manager", "admin", "owner"];
     if (!validRoles.includes(role)) {
       return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(", ")}` }, { status: 400 });
     }
-    // Prevent admin from demoting themselves
-    if (userId === user.id && role !== "admin") {
-      return NextResponse.json({ error: "Cannot change your own admin role" }, { status: 400 });
+    // Prevent demoting yourself
+    if (userId === user.id) {
+      return NextResponse.json({ error: "Cannot change your own role" }, { status: 400 });
+    }
+    // Only owner can assign owner role
+    if (role === "owner" && user.role !== "owner") {
+      return NextResponse.json({ error: "Only the owner can assign the owner role" }, { status: 403 });
     }
     data.role = role;
   }

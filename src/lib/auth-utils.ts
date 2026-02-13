@@ -22,8 +22,8 @@ export async function getAuthUser() {
     return { user: null, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }), impersonating: false };
   }
 
-  // Check for admin impersonation
-  if (realUser.role === "admin") {
+  // Check for admin/owner impersonation
+  if (hasRole(realUser.role, "admin")) {
     try {
       const cookieStore = await cookies();
       const targetId = cookieStore.get("impersonate_user_id")?.value;
@@ -66,9 +66,9 @@ export function getPlanLimits(plan: string) {
   return PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] ?? PLAN_LIMITS.free;
 }
 
-/** Require a minimum plan — returns 403 response if plan is insufficient. Admins bypass. */
+/** Require a minimum plan — returns 403 response if plan is insufficient. Admins/owners bypass. */
 export function requirePlan(user: { plan: string; role: string }, requiredPlan: string) {
-  if (user.role === "admin") return null;
+  if (hasRole(user.role, "admin")) return null;
   if (!hasPlan(user.plan, requiredPlan)) {
     return NextResponse.json(
       { error: `This feature requires the ${requiredPlan} plan or higher. Please upgrade.` },
@@ -78,9 +78,9 @@ export function requirePlan(user: { plan: string; role: string }, requiredPlan: 
   return null;
 }
 
-/** Check client count limit for the user's plan. Admins bypass. */
+/** Check client count limit for the user's plan. Admins/owners bypass. */
 export async function checkClientLimit(userId: string, plan: string, role: string) {
-  if (role === "admin") return null;
+  if (hasRole(role, "admin")) return null;
   const limits = getPlanLimits(plan);
   if (limits.clients === Infinity) return null;
 
@@ -96,14 +96,18 @@ export async function checkClientLimit(userId: string, plan: string, role: strin
 
 // ─── Role helpers ──────────────────────────────────────
 
-/** The one and only super admin email */
-export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "justin.sobojinski@gmail.com";
+/** The one and only owner email */
+export const OWNER_EMAIL = process.env.ADMIN_EMAIL || "justin.sobojinski@gmail.com";
 
-/** Role hierarchy: admin > manager > user */
+/** @deprecated Use OWNER_EMAIL instead */
+export const ADMIN_EMAIL = OWNER_EMAIL;
+
+/** Role hierarchy: owner > admin > manager > user */
 const ROLE_LEVEL: Record<string, number> = {
   user: 0,
   manager: 1,
   admin: 2,
+  owner: 3,
 };
 
 /** Check if a user's role meets the minimum required level */
@@ -111,7 +115,20 @@ export function hasRole(userRole: string, requiredRole: string): boolean {
   return (ROLE_LEVEL[userRole] ?? 0) >= (ROLE_LEVEL[requiredRole] ?? 0);
 }
 
-/** Require admin role — returns 403 response if not admin */
+/** Check if user is the owner */
+export function isOwner(user: { role: string }): boolean {
+  return user.role === "owner";
+}
+
+/** Require owner role — returns 403 response if not owner */
+export function requireOwner(user: { role: string }) {
+  if (user.role !== "owner") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}
+
+/** Require admin role — returns 403 response if not admin+ */
 export function requireAdmin(user: { role: string }) {
   if (!hasRole(user.role, "admin")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

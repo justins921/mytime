@@ -28,9 +28,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        // Auto-promote admin email on login if not already admin
-        if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && user.role !== "admin") {
-          await prisma.user.update({ where: { id: user.id }, data: { role: "admin" } });
+        // Auto-promote owner email on login if not already owner
+        if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && user.role !== "owner") {
+          await prisma.user.update({ where: { id: user.id }, data: { role: "owner" } });
         }
 
         return { id: user.id, email: user.email, name: user.name };

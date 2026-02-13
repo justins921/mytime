@@ -22,7 +22,7 @@ model User {
   plan                 String    @default("free") // free | starter | pro | business
   planExpiresAt        DateTime?
 
-  // Role: admin | manager | user
+  // Role: owner | admin | manager | user
   role                 String    @default("user")
 
   accounts      Account[]
@@ -45,6 +45,7 @@ model User {
   crmActivities    CRMActivity[]
   contractTemplates ContractTemplate[]
   contracts         Contract[]
+  devNotes          DevNote[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -526,4 +527,20 @@ model Contract {
 
   @@index([userId])
   @@index([contactId])
+}
+
+// ─── Dev Notes (owner-only quick capture) ───────────────
+model DevNote {
+  id             String   @id @default(cuid())
+  userId         String
+  content        String   @db.Text
+  pageUrl        String?
+  screenshot     String?  @db.Text // base64 data URL
+  status         String   @default("draft") // draft | sent
+  githubIssueUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

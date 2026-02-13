@@ -70,7 +70,7 @@ export function Sidebar() {
     fetch("/api/stripe/plan")
       .then((r) => r.json())
       .then((data) => {
-        if (data.role === "admin" || data.role === "manager") {
+        if (data.role === "admin" || data.role === "manager" || data.role === "owner") {
           setIsAdmin(true);
         }
         if (data.plan) setPlan(data.plan);
