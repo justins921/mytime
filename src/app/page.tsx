@@ -519,15 +519,16 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 max-w-4xl mx-auto">
-            <IntegrationCard icon={MessageSquare} name="Slack" description="All workspaces, one inbox" color="#E01E5A" pro />
-            <IntegrationCard icon={Mail} name="Gmail & Outlook" description="Triage with kanban boards" color="#EA4335" pro />
-            <IntegrationCard icon={BookOpen} name="Notion" description="Browse and search pages" color="#000000" pro />
-            <IntegrationCard icon={Calendar} name="Calendar" description="iCal, Google, Outlook" color="#4285F4" pro />
-            <IntegrationCard icon={Inbox} name="ClickUp & Trello" description="Triage tasks in one inbox" color="#7B68EE" pro />
-            <IntegrationCard icon={CheckCircle2} name="Asana & Monday" description="Pull tasks for scheduling" color="#F06A6A" pro />
+            <IntegrationCard icon={MessageSquare} name="Slack" description="All workspaces, one inbox" color="#E01E5A" />
+            <IntegrationCard icon={Mail} name="Gmail & Outlook" description="Triage with kanban boards" color="#EA4335" />
+            <IntegrationCard icon={BookOpen} name="Notion" description="Browse and search pages" color="#000000" />
+            <IntegrationCard icon={Calendar} name="Calendar" description="iCal, Google, Outlook" color="#4285F4" />
+            <IntegrationCard icon={Inbox} name="ClickUp & Trello" description="Triage tasks in one inbox" color="#7B68EE" />
+            <IntegrationCard icon={CheckCircle2} name="Asana & Monday" description="Pull tasks for scheduling" color="#F06A6A" />
           </div>
           <p className="text-center text-xs text-gray-400 mt-6">
-            All integrations are included on the Pro plan ($19/mo) and above. No extra per-integration fees.
+            Integrations are included on the Pro plan and above — no extra fees from MyTime.
+            Each service may require its own account or subscription.
           </p>
         </div>
       </section>
@@ -777,7 +778,7 @@ export default async function LandingPage() {
               />
               <FAQItem
                 q="What integrations are available?"
-                a="Slack (multiple workspaces), Gmail, Outlook, Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), ClickUp, Trello, Asana, and Monday.com. All integrations are included on the Pro plan and above — no per-integration fees. They run natively inside MyTime, so there's no tab switching."
+                a="Slack (multiple workspaces), Gmail, Outlook, Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), ClickUp, Trello, Asana, and Monday.com. Integrations are included on the Pro plan — no extra fees from MyTime. Each service requires its own account (some services like Slack, Notion, or ClickUp may require a paid plan on their end). Everything runs natively inside MyTime, so there's no tab switching."
               />
               <FAQItem
                 q="Why no invoicing?"
