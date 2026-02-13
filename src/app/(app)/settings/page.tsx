@@ -75,6 +75,13 @@ export default function SettingsPage() {
   const [notionName, setNotionName] = useState("");
   const [notionLoading, setNotionLoading] = useState(false);
   const [notionMessage, setNotionMessage] = useState("");
+  const [outlookAccounts, setOutlookAccounts] = useState<
+    { id: string; email: string; clientId: string | null; client: { id: string; name: string; color: string } | null }[]
+  >([]);
+  const [outlookMessage, setOutlookMessage] = useState("");
+  const [trelloApiToken, setTrelloApiToken] = useState("");
+  const [asanaApiToken, setAsanaApiToken] = useState("");
+  const [mondayApiToken, setMondayApiToken] = useState("");
   const [timeOffs, setTimeOffs] = useState<
     { id: string; startDate: string; endDate: string; title: string; type: string; notes: string }[]
   >([]);
@@ -120,6 +127,9 @@ export default function SettingsPage() {
         setUc30WeeklyHours(data.uc30WeeklyHours);
         setClickupApiToken(data.clickupApiToken || "");
         setClickupWorkspaceMap(safeParse(data.clickupWorkspaceMapJson || "{}", {}));
+        setTrelloApiToken(data.trelloApiToken || "");
+        setAsanaApiToken(data.asanaApiToken || "");
+        setMondayApiToken(data.mondayApiToken || "");
       })
       .catch(() => setSettings({}));
     fetch("/api/clients")
@@ -137,6 +147,10 @@ export default function SettingsPage() {
     fetch("/api/notion/workspaces")
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setNotionWorkspaces(data); })
+      .catch(() => {});
+    fetch("/api/outlook/accounts")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setOutlookAccounts(data); })
       .catch(() => {});
     fetch("/api/timeoff")
       .then((r) => r.json())
@@ -175,6 +189,15 @@ export default function SettingsPage() {
       setGmailMessage(`Gmail error: ${gmailError}`);
       window.history.replaceState({}, "", "/settings");
     }
+    const outlookConnected = params.get("outlook_connected");
+    const outlookError = params.get("outlook_error");
+    if (outlookConnected) {
+      setOutlookMessage(`Connected ${outlookConnected}!`);
+      window.history.replaceState({}, "", "/settings");
+    } else if (outlookError) {
+      setOutlookMessage(`Outlook error: ${outlookError}`);
+      window.history.replaceState({}, "", "/settings");
+    }
   }, []);
 
   async function saveSettings() {
@@ -193,6 +216,9 @@ export default function SettingsPage() {
         uc30WeeklyHours,
         clickupApiToken,
         clickupWorkspaceMapJson: JSON.stringify(clickupWorkspaceMap),
+        trelloApiToken,
+        asanaApiToken,
+        mondayApiToken,
       }),
     });
     setSaving(false);
@@ -769,6 +795,12 @@ export default function SettingsPage() {
             <p className="text-[10px] text-muted-foreground">
               <strong>Apple Calendar:</strong> Open Calendar.app &rarr; right-click a calendar &rarr; &ldquo;Share Calendar&rdquo; &rarr; copy the webcal:// URL.
             </p>
+            <p className="text-[10px] text-muted-foreground">
+              <strong>Google Calendar:</strong> Go to Settings &rarr; click your calendar &rarr; &ldquo;Integrate calendar&rdquo; &rarr; copy the &ldquo;Secret address in iCal format&rdquo; URL.
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              <strong>Outlook:</strong> Go to Settings &rarr; Calendar &rarr; Shared calendars &rarr; &ldquo;Publish a calendar&rdquo; &rarr; copy the ICS link.
+            </p>
           </div>
 
           {calendarFeeds.length > 0 && (
@@ -891,6 +923,10 @@ export default function SettingsPage() {
           </span>
         )}
       </div>
+
+      <p className="text-[10px] text-muted-foreground -mt-1">
+        Some integrations may require a paid plan from the respective service (e.g. Slack, ClickUp, Notion).
+      </p>
 
       {!canUseIntegrations && (
         <Card>
@@ -1222,6 +1258,104 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Outlook integration */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Outlook Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {outlookMessage && (
+            <p className={`text-xs ${outlookMessage.includes("error") ? "text-red-600" : "text-green-600"}`}>
+              {outlookMessage}
+            </p>
+          )}
+
+          <p className="text-[10px] text-muted-foreground">
+            Connect your Outlook / Microsoft 365 email accounts and map them to clients. Emails will appear alongside Gmail in your unified inbox.
+          </p>
+
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
+              <ChevronDown className="h-3 w-3" />
+              How to connect Outlook (step by step)
+            </summary>
+            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
+              <li>Click <strong>&quot;Connect Outlook Account&quot;</strong> below</li>
+              <li>You&apos;ll be redirected to Microsoft&apos;s sign-in page</li>
+              <li>Sign in with the Outlook / Microsoft 365 account you want to connect</li>
+              <li>Review the permissions and click <strong>&quot;Accept&quot;</strong></li>
+              <li>You&apos;ll be redirected back here — your account will appear below</li>
+              <li>Map each account to a client using the dropdown</li>
+              <li>Emails from this account will now appear in the <strong>Email</strong> tab</li>
+            </ol>
+          </details>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { window.location.href = "/api/outlook/oauth"; }}
+          >
+            <ExternalLink className="h-3.5 w-3.5 mr-1" />
+            Connect Outlook Account
+          </Button>
+
+          {outlookAccounts.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-xs">Connected Accounts</Label>
+              {outlookAccounts.map((acct) => (
+                <div key={acct.id} className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium w-48 truncate">{acct.email}</span>
+                  <span className="text-xs text-muted-foreground">&rarr;</span>
+                  <Select
+                    value={acct.clientId || "none"}
+                    onValueChange={async (v) => {
+                      const clientId = v === "none" ? null : v;
+                      const res = await fetch("/api/outlook/accounts", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: acct.id, clientId }),
+                      });
+                      const updated = await res.json();
+                      setOutlookAccounts((prev) =>
+                        prev.map((a) => (a.id === acct.id ? { ...a, clientId: updated.clientId, client: updated.client } : a))
+                      );
+                    }}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Select client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No client</SelectItem>
+                      {allClients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={async () => {
+                      await fetch("/api/outlook/accounts", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: acct.id }),
+                      });
+                      setOutlookAccounts((prev) => prev.filter((a) => a.id !== acct.id));
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Notion integration */}
       <Card>
         <CardHeader className="pb-2">
@@ -1335,6 +1469,130 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Trello integration */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Plug className="h-4 w-4" />
+            Trello Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-[10px] text-muted-foreground">
+            Connect Trello to pull cards into your triage queue. Cards from your boards will appear as tasks you can schedule.
+          </p>
+
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
+              <ChevronDown className="h-3 w-3" />
+              How to get your Trello API key &amp; token
+            </summary>
+            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
+              <li>Go to <strong>trello.com/power-ups/admin</strong></li>
+              <li>Create a new Power-Up (or use an existing one)</li>
+              <li>Copy your <strong>API Key</strong></li>
+              <li>Generate a <strong>Token</strong> by clicking the link on that page</li>
+              <li>Paste your key and token below in the format: <code>key:token</code></li>
+            </ol>
+          </details>
+
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              value={trelloApiToken}
+              onChange={(e) => setTrelloApiToken(e.target.value)}
+              placeholder="key:token"
+              className="font-mono flex-1"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Paste your Trello API key and token separated by a colon. Save settings to apply.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Asana integration */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Plug className="h-4 w-4" />
+            Asana Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-[10px] text-muted-foreground">
+            Connect Asana to pull tasks into your triage queue. Tasks assigned to you will appear as items you can schedule.
+          </p>
+
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
+              <ChevronDown className="h-3 w-3" />
+              How to get your Asana Personal Access Token
+            </summary>
+            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
+              <li>Go to <strong>app.asana.com/-/developer_console</strong></li>
+              <li>Click <strong>Create new token</strong></li>
+              <li>Give it a name and click <strong>Create</strong></li>
+              <li>Copy the token and paste it below</li>
+            </ol>
+          </details>
+
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              value={asanaApiToken}
+              onChange={(e) => setAsanaApiToken(e.target.value)}
+              placeholder="1/1234567890:abcdef..."
+              className="font-mono flex-1"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Paste your Asana Personal Access Token. Save settings to apply.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Monday.com integration */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Plug className="h-4 w-4" />
+            Monday.com Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-[10px] text-muted-foreground">
+            Connect Monday.com to pull items into your triage queue. Items from your boards will appear as tasks you can schedule.
+          </p>
+
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
+              <ChevronDown className="h-3 w-3" />
+              How to get your Monday.com API token
+            </summary>
+            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
+              <li>In Monday.com, click your avatar &rarr; <strong>Administration</strong></li>
+              <li>Go to <strong>API</strong> section</li>
+              <li>Copy your <strong>Personal API Token</strong></li>
+              <li>Paste it below</li>
+            </ol>
+          </details>
+
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              value={mondayApiToken}
+              onChange={(e) => setMondayApiToken(e.target.value)}
+              placeholder="eyJhbGciOi..."
+              className="font-mono flex-1"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Paste your Monday.com API token. Save settings to apply.
+          </p>
         </CardContent>
       </Card>
         </>

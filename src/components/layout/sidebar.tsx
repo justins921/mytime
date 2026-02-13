@@ -62,6 +62,7 @@ export function Sidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [plan, setPlan] = useState("free");
   const [showUpgrade, setShowUpgrade] = useState<string | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetch("/api/stripe/plan")
@@ -73,6 +74,22 @@ export function Sidebar() {
         if (data.plan) setPlan(data.plan);
       })
       .catch(() => {});
+
+    function fetchUnreads() {
+      fetch("/api/notifications/unread")
+        .then((r) => r.json())
+        .then((data) => {
+          const counts: Record<string, number> = {};
+          if (data.messages > 0) counts["/messages"] = data.messages;
+          if (data.support > 0) counts["/support"] = data.support;
+          setUnreadCounts(counts);
+        })
+        .catch(() => {});
+    }
+
+    fetchUnreads();
+    const interval = setInterval(fetchUnreads, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const allItems: NavItem[] = isAdmin
@@ -162,6 +179,8 @@ export function Sidebar() {
               );
             }
 
+            const count = unreadCounts[item.href] || 0;
+
             return (
               <Link
                 key={item.href}
@@ -175,7 +194,17 @@ export function Sidebar() {
                 )}
               >
                 <Icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {count > 0 && (
+                  <span className={cn(
+                    "min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1",
+                    active
+                      ? "bg-primary-foreground text-primary"
+                      : "bg-red-500 text-white"
+                  )}>
+                    {count > 99 ? "99+" : count}
+                  </span>
+                )}
               </Link>
             );
           })}

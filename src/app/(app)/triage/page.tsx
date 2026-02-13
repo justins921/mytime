@@ -33,21 +33,26 @@ import {
   Clock,
 } from "lucide-react";
 
-interface ClickUpTask {
-  id: string;
+// Unified triage item that works across all sources
+interface TriageItem {
+  id: string;        // unique ID within the source
+  triageId: string;  // globally unique: source_id (used for dismissals)
+  source: "clickup" | "trello" | "asana" | "monday";
   name: string;
   description: string;
-  status: { status: string; color: string };
-  priority: { id: number; priority: string; color: string } | null;
   url: string;
-  due_date: string | null;
-  date_updated: string;
-  date_created: string;
-  assignees: { id: number; username: string; profilePicture: string }[];
-  tags: { name: string; tag_fg: string; tag_bg: string }[];
-  list: { name: string };
-  folder: { name: string };
-  space: { id: string };
+  dueDate: Date | null;
+  updatedAt: Date;
+  createdAt: Date;
+  status: string;
+  priority: string | null;
+  priorityLevel: number; // 1=urgent, 2=high, 3=normal, 4=low
+  workspace: string;
+  workspaceId: string;
+  location: string;  // folder/list or project/board
+  assignees: string[];
+  tags: { name: string; color?: string; bgColor?: string }[];
+  rawData: unknown;  // original source data for the add-to-mytime POST
 }
 
 interface Team {
@@ -63,7 +68,7 @@ interface Client {
 }
 
 interface WorkspaceMap {
-  [teamId: string]: string; // teamId -> clientId
+  [teamId: string]: string;
 }
 
 interface TriageDismissal {
@@ -73,45 +78,49 @@ interface TriageDismissal {
   notes: string;
 }
 
-const AUTO_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
+type SourceType = "all" | "clickup" | "trello" | "asana" | "monday";
+
+const SOURCE_LABELS: Record<string, string> = {
+  all: "All Sources",
+  clickup: "ClickUp",
+  trello: "Trello",
+  asana: "Asana",
+  monday: "Monday.com",
+};
+
+const AUTO_REFRESH_MS = 30 * 60 * 1000;
 
 function isWithinWorkHours(): boolean {
-  // Check if current time is 9:00 AM – 3:30 PM Central (America/Chicago)
   const nowCentral = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/Chicago" })
   );
   const hours = nowCentral.getHours();
   const minutes = nowCentral.getMinutes();
   const timeInMinutes = hours * 60 + minutes;
-  // 9:00 AM = 540 min, 3:30 PM = 930 min
   return timeInMinutes >= 540 && timeInMinutes < 930;
 }
 
 export default function TriagePage() {
+  const [triageItems, setTriageItems] = useState<TriageItem[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [tasksByTeam, setTasksByTeam] = useState<Record<string, ClickUpTask[]>>({});
   const [clients, setClients] = useState<Client[]>([]);
   const [workspaceMap, setWorkspaceMap] = useState<WorkspaceMap>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [noToken, setNoToken] = useState(false);
+  const [configuredSources, setConfiguredSources] = useState<Set<SourceType>>(new Set());
 
   // Dismissals
   const [dismissals, setDismissals] = useState<Record<string, TriageDismissal>>({});
 
   // Add-to-tasks dialog
-  const [addingTask, setAddingTask] = useState<ClickUpTask | null>(null);
+  const [addingItem, setAddingItem] = useState<TriageItem | null>(null);
   const [addClientId, setAddClientId] = useState("");
   const [addProjectId, setAddProjectId] = useState("");
   const [addingInProgress, setAddingInProgress] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
   // Task detail dialog
-  const [detailTask, setDetailTask] = useState<{
-    task: ClickUpTask;
-    teamId: string;
-    teamName: string;
-  } | null>(null);
+  const [detailItem, setDetailItem] = useState<TriageItem | null>(null);
   const [detailNotes, setDetailNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
 
@@ -122,6 +131,7 @@ export default function TriagePage() {
   const [newProjectName, setNewProjectName] = useState("");
 
   // Filters
+  const [filterSource, setFilterSource] = useState<SourceType>("all");
   const [filterTeam, setFilterTeam] = useState("all");
   const [filterDue, setFilterDue] = useState("all");
 
@@ -130,7 +140,7 @@ export default function TriagePage() {
   const [nextRefresh, setNextRefresh] = useState<Date | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Imported ClickUp task IDs (already in MyTime)
+  // Imported task IDs (already in MyTime)
   const [importedIds, setImportedIds] = useState<Set<string>>(new Set());
 
   const loadImportedIds = useCallback(async () => {
@@ -149,11 +159,12 @@ export default function TriagePage() {
 
   const loadSettings = useCallback(async () => {
     const data = await fetch("/api/settings").then((r) => r.json());
-    if (!data.clickupApiToken) {
-      setNoToken(true);
-      return;
-    }
-    setNoToken(false);
+    const sources = new Set<SourceType>();
+    if (data.clickupApiToken) sources.add("clickup");
+    if (data.trelloApiToken) sources.add("trello");
+    if (data.asanaApiToken) sources.add("asana");
+    if (data.mondayApiToken) sources.add("monday");
+    setConfiguredSources(sources);
     const map = JSON.parse(data.clickupWorkspaceMapJson || "{}");
     setWorkspaceMap(map);
   }, []);
@@ -171,27 +182,213 @@ export default function TriagePage() {
     }
   }, []);
 
-  const fetchTasks = useCallback(async () => {
+  // Normalize ClickUp tasks into TriageItems
+  function normalizeClickUp(data: { teams: { id: string; name: string }[]; tasksByTeam: Record<string, ClickUpRaw[]> }): TriageItem[] {
+    const items: TriageItem[] = [];
+    for (const team of data.teams || []) {
+      for (const t of data.tasksByTeam[team.id] || []) {
+        items.push({
+          id: t.id,
+          triageId: t.id, // ClickUp uses raw ID for backwards compat
+          source: "clickup",
+          name: t.name,
+          description: t.description || "",
+          url: t.url || "",
+          dueDate: t.due_date ? new Date(parseInt(t.due_date)) : null,
+          updatedAt: new Date(parseInt(t.date_updated)),
+          createdAt: new Date(parseInt(t.date_created)),
+          status: t.status?.status || "",
+          priority: t.priority?.priority || null,
+          priorityLevel: t.priority?.id || 3,
+          workspace: team.name,
+          workspaceId: team.id,
+          location: `${t.folder?.name || ""} / ${t.list?.name || ""}`,
+          assignees: t.assignees?.map((a: { username: string }) => a.username) || [],
+          tags: t.tags?.map((tag: { name: string; tag_fg: string; tag_bg: string }) => ({
+            name: tag.name,
+            color: tag.tag_fg,
+            bgColor: tag.tag_bg,
+          })) || [],
+          rawData: t,
+        });
+      }
+    }
+    return items;
+  }
+
+  // Normalize Trello cards
+  function normalizeTrello(data: { boards: { id: string; name: string }[]; cardsByBoard: Record<string, TrelloRaw[]> }): TriageItem[] {
+    const items: TriageItem[] = [];
+    for (const board of data.boards || []) {
+      for (const card of data.cardsByBoard[board.id] || []) {
+        items.push({
+          id: card.id,
+          triageId: `trello_${card.id}`,
+          source: "trello",
+          name: card.name,
+          description: card.desc || "",
+          url: card.url || "",
+          dueDate: card.due ? new Date(card.due) : null,
+          updatedAt: new Date(card.dateLastActivity),
+          createdAt: new Date(card.dateLastActivity),
+          status: "",
+          priority: null,
+          priorityLevel: 3,
+          workspace: board.name,
+          workspaceId: board.id,
+          location: card.board?.name || board.name,
+          assignees: [],
+          tags: card.labels?.map((l: { name: string; color: string }) => ({
+            name: l.name || l.color,
+            bgColor: labelColorMap[l.color] || "#e2e8f0",
+            color: "#1e293b",
+          })) || [],
+          rawData: card,
+        });
+      }
+    }
+    return items;
+  }
+
+  // Normalize Asana tasks
+  function normalizeAsana(data: { workspaces: { id: string; name: string }[]; tasksByWorkspace: Record<string, AsanaRaw[]> }): TriageItem[] {
+    const items: TriageItem[] = [];
+    for (const ws of data.workspaces || []) {
+      for (const t of data.tasksByWorkspace[ws.id] || []) {
+        items.push({
+          id: t.gid,
+          triageId: `asana_${t.gid}`,
+          source: "asana",
+          name: t.name,
+          description: t.notes || "",
+          url: t.permalink_url || "",
+          dueDate: t.due_on ? new Date(t.due_on) : null,
+          updatedAt: new Date(t.modified_at),
+          createdAt: new Date(t.created_at),
+          status: t.completed ? "Completed" : "Active",
+          priority: null,
+          priorityLevel: 3,
+          workspace: ws.name,
+          workspaceId: ws.id,
+          location: t.projects?.map((p: { name: string }) => p.name).join(", ") || "",
+          assignees: [],
+          tags: t.tags?.map((tag: { name: string }) => ({
+            name: tag.name,
+            bgColor: "#e2e8f0",
+            color: "#1e293b",
+          })) || [],
+          rawData: t,
+        });
+      }
+    }
+    return items;
+  }
+
+  // Normalize Monday.com items
+  function normalizeMonday(data: { boards: { id: string; name: string }[]; itemsByBoard: Record<string, MondayRaw[]> }): TriageItem[] {
+    const items: TriageItem[] = [];
+    for (const board of data.boards || []) {
+      for (const item of data.itemsByBoard[board.id] || []) {
+        let dueDate: Date | null = null;
+        for (const cv of item.column_values || []) {
+          if (cv.title?.toLowerCase().includes("date") && cv.text) {
+            const d = new Date(cv.text);
+            if (!isNaN(d.getTime())) { dueDate = d; break; }
+          }
+        }
+        items.push({
+          id: item.id,
+          triageId: `monday_${item.id}`,
+          source: "monday",
+          name: item.name,
+          description: "",
+          url: item.url || "",
+          dueDate,
+          updatedAt: new Date(item.updated_at),
+          createdAt: new Date(item.created_at),
+          status: item.state || "",
+          priority: null,
+          priorityLevel: 3,
+          workspace: board.name,
+          workspaceId: board.id,
+          location: item.group?.title || "",
+          assignees: [],
+          tags: [],
+          rawData: item,
+        });
+      }
+    }
+    return items;
+  }
+
+  const fetchAllTasks = useCallback(async () => {
     setLoading(true);
     setError("");
-    try {
-      const res = await fetch("/api/clickup?action=tasks");
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Failed to fetch ClickUp tasks");
-        if (data.error?.includes("not configured")) {
-          setNoToken(true);
-        }
-      } else {
-        setTeams(data.teams || []);
-        setTasksByTeam(data.tasksByTeam || {});
-        setLastRefresh(new Date());
-      }
-    } catch {
-      setError("Failed to connect to ClickUp");
+    const allItems: TriageItem[] = [];
+    const allTeams: Team[] = [];
+    const errors: string[] = [];
+
+    // Fetch from all configured sources in parallel
+    const promises: Promise<void>[] = [];
+
+    if (configuredSources.has("clickup")) {
+      promises.push(
+        fetch("/api/clickup?action=tasks")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.error) { errors.push(`ClickUp: ${data.error}`); return; }
+            allItems.push(...normalizeClickUp(data));
+            allTeams.push(...(data.teams || []));
+          })
+          .catch(() => { errors.push("Failed to connect to ClickUp"); })
+      );
     }
+
+    if (configuredSources.has("trello")) {
+      promises.push(
+        fetch("/api/trello?action=tasks")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.error) { errors.push(`Trello: ${data.error}`); return; }
+            allItems.push(...normalizeTrello(data));
+          })
+          .catch(() => { errors.push("Failed to connect to Trello"); })
+      );
+    }
+
+    if (configuredSources.has("asana")) {
+      promises.push(
+        fetch("/api/asana?action=tasks")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.error) { errors.push(`Asana: ${data.error}`); return; }
+            allItems.push(...normalizeAsana(data));
+          })
+          .catch(() => { errors.push("Failed to connect to Asana"); })
+      );
+    }
+
+    if (configuredSources.has("monday")) {
+      promises.push(
+        fetch("/api/monday?action=tasks")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.error) { errors.push(`Monday.com: ${data.error}`); return; }
+            allItems.push(...normalizeMonday(data));
+          })
+          .catch(() => { errors.push("Failed to connect to Monday.com"); })
+      );
+    }
+
+    await Promise.all(promises);
+
+    setTriageItems(allItems);
+    setTeams(allTeams);
+    if (errors.length > 0) setError(errors.join(". "));
+    setLastRefresh(new Date());
     setLoading(false);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configuredSources]);
 
   // Initial load
   useEffect(() => {
@@ -202,16 +399,16 @@ export default function TriagePage() {
   }, [loadClients, loadSettings, loadDismissals, loadImportedIds]);
 
   useEffect(() => {
-    if (!noToken) {
-      fetchTasks();
+    if (configuredSources.size > 0) {
+      fetchAllTasks();
     }
-  }, [noToken, fetchTasks]);
+  }, [configuredSources, fetchAllTasks]);
 
-  // Auto-refresh: every 30 min during 9 AM – 3:30 PM Central
+  // Auto-refresh
   useEffect(() => {
     function scheduleCheck() {
-      if (isWithinWorkHours()) {
-        fetchTasks();
+      if (isWithinWorkHours() && configuredSources.size > 0) {
+        fetchAllTasks();
         loadDismissals();
         setNextRefresh(new Date(Date.now() + AUTO_REFRESH_MS));
       } else {
@@ -220,7 +417,6 @@ export default function TriagePage() {
     }
 
     intervalRef.current = setInterval(scheduleCheck, AUTO_REFRESH_MS);
-    // Set initial next-refresh indicator
     if (isWithinWorkHours()) {
       setNextRefresh(new Date(Date.now() + AUTO_REFRESH_MS));
     }
@@ -228,18 +424,17 @@ export default function TriagePage() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [fetchTasks, loadDismissals]);
+  }, [fetchAllTasks, loadDismissals, configuredSources]);
 
   function handleManualRefresh() {
-    fetchTasks();
+    fetchAllTasks();
     loadDismissals();
     if (isWithinWorkHours()) {
-      // Reset auto-refresh timer on manual refresh
       if (intervalRef.current) clearInterval(intervalRef.current);
       setNextRefresh(new Date(Date.now() + AUTO_REFRESH_MS));
       intervalRef.current = setInterval(() => {
         if (isWithinWorkHours()) {
-          fetchTasks();
+          fetchAllTasks();
           loadDismissals();
           setNextRefresh(new Date(Date.now() + AUTO_REFRESH_MS));
         } else {
@@ -249,35 +444,52 @@ export default function TriagePage() {
     }
   }
 
-  function openAddDialog(task: ClickUpTask, teamId: string) {
-    setAddingTask(task);
-    const mappedClientId = workspaceMap[teamId] || "";
+  function openAddDialog(item: TriageItem) {
+    setAddingItem(item);
+    const mappedClientId = workspaceMap[item.workspaceId] || "";
     setAddClientId(mappedClientId);
     setAddProjectId("");
   }
 
   async function handleAddTask() {
-    if (!addingTask || !addClientId || !addProjectId) return;
+    if (!addingItem || !addClientId || !addProjectId) return;
     setAddingInProgress(true);
     try {
-      const res = await fetch("/api/clickup", {
+      let apiUrl: string;
+      let body: unknown;
+
+      switch (addingItem.source) {
+        case "clickup":
+          apiUrl = "/api/clickup";
+          body = { clickupTask: addingItem.rawData, clientId: addClientId, projectId: addProjectId };
+          break;
+        case "trello":
+          apiUrl = "/api/trello";
+          body = { trelloCard: addingItem.rawData, clientId: addClientId, projectId: addProjectId };
+          break;
+        case "asana":
+          apiUrl = "/api/asana";
+          body = { asanaTask: addingItem.rawData, clientId: addClientId, projectId: addProjectId };
+          break;
+        case "monday":
+          apiUrl = "/api/monday";
+          body = { mondayItem: addingItem.rawData, clientId: addClientId, projectId: addProjectId };
+          break;
+      }
+
+      const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clickupTask: addingTask,
-          clientId: addClientId,
-          projectId: addProjectId,
-        }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
-        setAddedIds((prev) => new Set(prev).add(addingTask.id));
-        setImportedIds((prev) => new Set(prev).add(addingTask.id));
-        // The API auto-creates a dismissal with action="added", update local state
+        setAddedIds((prev) => new Set(prev).add(addingItem.triageId));
+        setImportedIds((prev) => new Set(prev).add(addingItem.triageId));
         setDismissals((prev) => ({
           ...prev,
-          [addingTask.id]: { id: "", clickupTaskId: addingTask.id, action: "added", notes: prev[addingTask.id]?.notes || "" },
+          [addingItem.triageId]: { id: "", clickupTaskId: addingItem.triageId, action: "added", notes: prev[addingItem.triageId]?.notes || "" },
         }));
-        setAddingTask(null);
+        setAddingItem(null);
       }
     } catch {
       // ignore
@@ -285,36 +497,34 @@ export default function TriagePage() {
     setAddingInProgress(false);
   }
 
-  // Dismiss/ignore/delete a task from triage
-  async function handleDismiss(clickupTaskId: string, action: string) {
+  async function handleDismiss(triageId: string, action: string) {
     try {
       await fetch("/api/triage-dismissals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clickupTaskId, action }),
+        body: JSON.stringify({ clickupTaskId: triageId, action }),
       });
       setDismissals((prev) => ({
         ...prev,
-        [clickupTaskId]: { id: "", clickupTaskId, action, notes: prev[clickupTaskId]?.notes || "" },
+        [triageId]: { id: "", clickupTaskId: triageId, action, notes: prev[triageId]?.notes || "" },
       }));
-      setDetailTask(null);
+      setDetailItem(null);
     } catch {
       // ignore
     }
   }
 
-  // Save notes for a task
-  async function handleSaveNotes(clickupTaskId: string, notes: string) {
+  async function handleSaveNotes(triageId: string, notes: string) {
     setSavingNotes(true);
     try {
       await fetch("/api/triage-dismissals", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clickupTaskId, notes }),
+        body: JSON.stringify({ clickupTaskId: triageId, notes }),
       });
       setDismissals((prev) => ({
         ...prev,
-        [clickupTaskId]: { ...(prev[clickupTaskId] || { id: "", clickupTaskId, action: "noted" }), notes },
+        [triageId]: { ...(prev[triageId] || { id: "", clickupTaskId: triageId, action: "noted" }), notes },
       }));
     } catch {
       // ignore
@@ -379,49 +589,68 @@ export default function TriagePage() {
   const selectedClient = clients.find((c) => c.id === addClientId);
   const clientProjects = selectedClient?.projects || [];
 
-  // Flatten, filter, and sort all tasks
+  // Filter and sort items
   const now = new Date();
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const weekEnd = new Date(todayEnd);
-  weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay())); // end of Sunday
+  weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-  const allFilteredTasks: { task: ClickUpTask; teamId: string; teamName: string }[] = [];
-  for (const team of teams) {
-    if (filterTeam !== "all" && filterTeam !== team.id) continue;
-    const tasks = tasksByTeam[team.id] || [];
-    for (const task of tasks) {
-      // Skip dismissed/ignored/deleted/added tasks
-      const d = dismissals[task.id];
-      if (d && d.action !== "noted") continue;
-      // Also skip tasks already imported to MyTime (even without a dismissal record)
-      if (importedIds.has(task.id)) continue;
+  const allFilteredItems: TriageItem[] = [];
+  for (const item of triageItems) {
+    // Source filter
+    if (filterSource !== "all" && filterSource !== item.source) continue;
+    // Workspace filter
+    if (filterTeam !== "all" && filterTeam !== item.workspaceId) continue;
+    // Skip dismissed/ignored/deleted/added
+    const d = dismissals[item.triageId];
+    if (d && d.action !== "noted") continue;
+    // Skip already imported
+    if (importedIds.has(item.triageId)) continue;
 
-      if (filterDue !== "all") {
-        if (!task.due_date) continue;
-        const due = new Date(parseInt(task.due_date));
-        if (filterDue === "today" && due > todayEnd) continue;
-        if (filterDue === "week" && due > weekEnd) continue;
-        if (filterDue === "month" && due > monthEnd) continue;
-      }
-      allFilteredTasks.push({ task, teamId: team.id, teamName: team.name });
+    if (filterDue !== "all") {
+      if (!item.dueDate) continue;
+      const due = item.dueDate;
+      if (filterDue === "today" && due > todayEnd) continue;
+      if (filterDue === "week" && due > weekEnd) continue;
+      if (filterDue === "month" && due > monthEnd) continue;
     }
+    allFilteredItems.push(item);
   }
-  // Sort by due date first (overdue/soonest first), then by date_updated
-  allFilteredTasks.sort((a, b) => {
-    const aDue = a.task.due_date ? parseInt(a.task.due_date) : Infinity;
-    const bDue = b.task.due_date ? parseInt(b.task.due_date) : Infinity;
+
+  // Sort: due date first (overdue/soonest), then updated
+  allFilteredItems.sort((a, b) => {
+    const aDue = a.dueDate?.getTime() ?? Infinity;
+    const bDue = b.dueDate?.getTime() ?? Infinity;
     if (aDue !== bDue) return aDue - bDue;
-    return parseInt(b.task.date_updated) - parseInt(a.task.date_updated);
+    return b.updatedAt.getTime() - a.updatedAt.getTime();
   });
 
-  // Count hidden (dismissed + imported)
   const dismissedCount = Object.values(dismissals).filter(
     (d) => d.action !== "noted"
   ).length + [...importedIds].filter((id) => !dismissals[id]).length;
 
-  function priorityBadge(priority: ClickUpTask["priority"]) {
-    if (!priority) return null;
+  // Get unique workspaces across all current items for the filter
+  const allWorkspaces = Array.from(
+    new Map(triageItems.map((item) => [item.workspaceId, { id: item.workspaceId, name: item.workspace }])).values()
+  );
+
+  function sourceBadge(source: TriageItem["source"]) {
+    const colors: Record<string, string> = {
+      clickup: "bg-purple-100 text-purple-800",
+      trello: "bg-blue-100 text-blue-800",
+      asana: "bg-orange-100 text-orange-800",
+      monday: "bg-red-100 text-red-800",
+    };
+    return (
+      <Badge className={`text-[10px] ${colors[source] || ""}`}>
+        {SOURCE_LABELS[source]}
+      </Badge>
+    );
+  }
+
+  function priorityBadge(item: TriageItem) {
+    if (!item.priority) return null;
     const colors: Record<number, string> = {
       1: "bg-red-100 text-red-800",
       2: "bg-orange-100 text-orange-800",
@@ -429,20 +658,19 @@ export default function TriagePage() {
       4: "bg-blue-100 text-blue-800",
     };
     return (
-      <Badge className={`text-[10px] ${colors[priority.id] || ""}`}>
-        {priority.priority}
+      <Badge className={`text-[10px] ${colors[item.priorityLevel] || ""}`}>
+        {item.priority}
       </Badge>
     );
   }
 
-  function dueDateBadge(due_date: string | null) {
-    if (!due_date) return null;
-    const due = new Date(parseInt(due_date));
+  function dueDateBadge(dueDate: Date | null) {
+    if (!dueDate) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const dueDay = new Date(due);
+    const dueDay = new Date(dueDate);
     dueDay.setHours(0, 0, 0, 0);
 
     const isOverdue = dueDay < today;
@@ -456,7 +684,7 @@ export default function TriagePage() {
       const daysAgo = Math.floor((today.getTime() - dueDay.getTime()) / 86400000);
       label = `Overdue ${daysAgo}d`;
     } else {
-      label = `Due ${due.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+      label = `Due ${dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
     }
 
     const colorClass = isOverdue
@@ -475,10 +703,8 @@ export default function TriagePage() {
     );
   }
 
-  function formatUpdated(timestamp: string) {
-    const date = new Date(parseInt(timestamp));
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+  function formatUpdated(date: Date) {
+    const diffMs = Date.now() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     if (diffMins < 60) return `${diffMins}m ago`;
     const diffHours = Math.floor(diffMins / 60);
@@ -487,8 +713,8 @@ export default function TriagePage() {
     return `${diffDays}d ago`;
   }
 
-  function formatDate(timestamp: string) {
-    return new Date(parseInt(timestamp)).toLocaleDateString("en-US", {
+  function formatDate(date: Date) {
+    return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -506,21 +732,21 @@ export default function TriagePage() {
     });
   }
 
-  if (noToken) {
+  if (configuredSources.size === 0) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Inbox className="h-5 w-5" />
-          <h2 className="text-xl font-semibold">ClickUp Triage</h2>
+          <h2 className="text-xl font-semibold">Triage</h2>
         </div>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center space-y-3">
               <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto" />
-              <h3 className="font-medium">ClickUp API Token Required</h3>
+              <h3 className="font-medium">No Integrations Configured</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                To pull tasks from your ClickUp workspaces, add your Personal API Token
-                in Settings. You can find it in ClickUp under Settings &rarr; Apps.
+                To pull tasks into your triage queue, connect at least one integration
+                (ClickUp, Trello, Asana, or Monday.com) in Settings.
               </p>
               <Button variant="outline" onClick={() => window.location.href = "/settings"}>
                 Go to Settings
@@ -537,9 +763,9 @@ export default function TriagePage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Inbox className="h-5 w-5" />
-          <h2 className="text-xl font-semibold">ClickUp Triage</h2>
+          <h2 className="text-xl font-semibold">Triage</h2>
           <Badge variant="secondary" className="ml-2">
-            {allFilteredTasks.length} tasks
+            {allFilteredItems.length} tasks
           </Badge>
           {dismissedCount > 0 && (
             <span className="text-xs text-muted-foreground">
@@ -548,6 +774,19 @@ export default function TriagePage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {configuredSources.size > 1 && (
+            <Select value={filterSource} onValueChange={(v) => setFilterSource(v as SourceType)}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="All Sources" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                {[...configuredSources].map((s) => (
+                  <SelectItem key={s} value={s}>{SOURCE_LABELS[s]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={filterDue} onValueChange={setFilterDue}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="All tasks" />
@@ -559,15 +798,15 @@ export default function TriagePage() {
               <SelectItem value="month">Due this month</SelectItem>
             </SelectContent>
           </Select>
-          {teams.length > 1 && (
+          {allWorkspaces.length > 1 && (
             <Select value={filterTeam} onValueChange={setFilterTeam}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="All workspaces" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All workspaces</SelectItem>
-                {teams.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                {allWorkspaces.map((w) => (
+                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -579,6 +818,32 @@ export default function TriagePage() {
         </div>
       </div>
 
+      {/* Source badges */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {[...configuredSources].map((s) => {
+          const count = triageItems.filter((i) => i.source === s).length;
+          return (
+            <button
+              key={s}
+              onClick={() => setFilterSource(filterSource === s ? "all" : s)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                filterSource === s
+                  ? "ring-2 ring-primary ring-offset-1"
+                  : "hover:opacity-80"
+              } ${
+                s === "clickup" ? "bg-purple-100 text-purple-800" :
+                s === "trello" ? "bg-blue-100 text-blue-800" :
+                s === "asana" ? "bg-orange-100 text-orange-800" :
+                "bg-red-100 text-red-800"
+              }`}
+            >
+              {SOURCE_LABELS[s]}
+              <span className="opacity-70">({count})</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Auto-refresh status */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />
@@ -586,7 +851,7 @@ export default function TriagePage() {
         {nextRefresh ? (
           <span>&middot; Next auto-refresh ~{formatRefreshTime(nextRefresh)}</span>
         ) : (
-          <span>&middot; Auto-refresh active 9 AM – 3:30 PM CT</span>
+          <span>&middot; Auto-refresh active 9 AM &ndash; 3:30 PM CT</span>
         )}
       </div>
 
@@ -598,74 +863,79 @@ export default function TriagePage() {
         </Card>
       )}
 
-      {loading && allFilteredTasks.length === 0 ? (
+      {loading && allFilteredItems.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-          Fetching tasks from ClickUp...
+          Fetching tasks...
         </div>
-      ) : allFilteredTasks.length === 0 ? (
+      ) : allFilteredItems.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
-            No tasks found. Tasks assigned to you or that you&apos;re watching will appear here.
+            No tasks found. Tasks assigned to you will appear here.
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          {allFilteredTasks.map(({ task, teamId, teamName }) => {
-            const isAdded = addedIds.has(task.id);
-            const hasNotes = !!dismissals[task.id]?.notes;
+          {allFilteredItems.map((item) => {
+            const isAdded = addedIds.has(item.triageId);
+            const hasNotes = !!dismissals[item.triageId]?.notes;
             return (
               <Card
-                key={`${teamId}-${task.id}`}
+                key={item.triageId}
                 className={`${isAdded ? "opacity-50" : "hover:border-primary/40 cursor-pointer"} transition-colors`}
                 onClick={() => {
-                  setDetailTask({ task, teamId, teamName });
-                  setDetailNotes(dismissals[task.id]?.notes || "");
+                  setDetailItem(item);
+                  setDetailNotes(dismissals[item.triageId]?.notes || "");
                 }}
               >
                 <CardContent className="py-3 px-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium">{task.name}</span>
-                        {priorityBadge(task.priority)}
-                        <Badge variant="outline" className="text-[10px]">
-                          {task.status.status}
-                        </Badge>
-                        {dueDateBadge(task.due_date)}
+                        <span className="text-sm font-medium">{item.name}</span>
+                        {sourceBadge(item.source)}
+                        {priorityBadge(item)}
+                        {item.status && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {item.status}
+                          </Badge>
+                        )}
+                        {dueDateBadge(item.dueDate)}
                         {hasNotes && (
                           <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
                             Has notes
                           </Badge>
                         )}
                       </div>
-                      {task.description && (
+                      {item.description && (
                         <p className="text-xs text-muted-foreground line-clamp-2">
-                          {task.description}
+                          {item.description}
                         </p>
                       )}
                       <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                        <span className="font-medium">{teamName}</span>
-                        <span>&middot;</span>
-                        <span>{task.folder?.name}</span>
-                        <span>/</span>
-                        <span>{task.list?.name}</span>
-                        {task.assignees.length > 0 && (
+                        <span className="font-medium">{item.workspace}</span>
+                        {item.location && (
                           <>
                             <span>&middot;</span>
-                            <span>{task.assignees.map((a) => a.username).join(", ")}</span>
+                            <span>{item.location}</span>
+                          </>
+                        )}
+                        {item.assignees.length > 0 && (
+                          <>
+                            <span>&middot;</span>
+                            <span>{item.assignees.join(", ")}</span>
                           </>
                         )}
                         <span>&middot;</span>
-                        <span>Updated {formatUpdated(task.date_updated)}</span>
+                        <span>Updated {formatUpdated(item.updatedAt)}</span>
                       </div>
-                      {task.tags.length > 0 && (
+                      {item.tags.length > 0 && (
                         <div className="flex gap-1 flex-wrap">
-                          {task.tags.map((tag) => (
+                          {item.tags.map((tag) => (
                             <Badge
                               key={tag.name}
                               className="text-[10px] px-1 py-0"
-                              style={{ backgroundColor: tag.tag_bg, color: tag.tag_fg }}
+                              style={{ backgroundColor: tag.bgColor, color: tag.color }}
                             >
                               {tag.name}
                             </Badge>
@@ -674,13 +944,13 @@ export default function TriagePage() {
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      {task.url && (
+                      {item.url && (
                         <a
-                          href={task.url}
+                          href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 hover:bg-muted rounded"
-                          title="Open in ClickUp"
+                          title={`Open in ${SOURCE_LABELS[item.source]}`}
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
@@ -688,7 +958,7 @@ export default function TriagePage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => openAddDialog(task, teamId)}
+                        onClick={() => openAddDialog(item)}
                         disabled={isAdded}
                         className="text-xs"
                       >
@@ -705,33 +975,36 @@ export default function TriagePage() {
       )}
 
       {/* Task detail dialog */}
-      <Dialog open={!!detailTask} onOpenChange={(open) => !open && setDetailTask(null)}>
+      <Dialog open={!!detailItem} onOpenChange={(open) => !open && setDetailItem(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-base leading-snug pr-6">
-              {detailTask?.task.name}
+              {detailItem?.name}
             </DialogTitle>
             <DialogDescription className="sr-only">
               Task details and actions
             </DialogDescription>
           </DialogHeader>
-          {detailTask && (
+          {detailItem && (
             <div className="space-y-4">
               {/* Meta badges */}
               <div className="flex items-center gap-2 flex-wrap">
-                {priorityBadge(detailTask.task.priority)}
-                <Badge variant="outline" className="text-[10px]">
-                  {detailTask.task.status.status}
-                </Badge>
-                {dueDateBadge(detailTask.task.due_date)}
+                {sourceBadge(detailItem.source)}
+                {priorityBadge(detailItem)}
+                {detailItem.status && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {detailItem.status}
+                  </Badge>
+                )}
+                {dueDateBadge(detailItem.dueDate)}
               </div>
 
               {/* Description */}
-              {detailTask.task.description && (
+              {detailItem.description && (
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Description</label>
                   <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-3 max-h-40 overflow-auto">
-                    {detailTask.task.description}
+                    {detailItem.description}
                   </p>
                 </div>
               )}
@@ -740,42 +1013,44 @@ export default function TriagePage() {
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
                   <span className="text-muted-foreground">Workspace</span>
-                  <p className="font-medium">{detailTask.teamName}</p>
+                  <p className="font-medium">{detailItem.workspace}</p>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Location</span>
-                  <p className="font-medium">{detailTask.task.folder?.name} / {detailTask.task.list?.name}</p>
-                </div>
-                {detailTask.task.assignees.length > 0 && (
+                {detailItem.location && (
+                  <div>
+                    <span className="text-muted-foreground">Location</span>
+                    <p className="font-medium">{detailItem.location}</p>
+                  </div>
+                )}
+                {detailItem.assignees.length > 0 && (
                   <div>
                     <span className="text-muted-foreground">Assignees</span>
-                    <p className="font-medium">{detailTask.task.assignees.map((a) => a.username).join(", ")}</p>
+                    <p className="font-medium">{detailItem.assignees.join(", ")}</p>
                   </div>
                 )}
                 <div>
                   <span className="text-muted-foreground">Created</span>
-                  <p className="font-medium">{formatDate(detailTask.task.date_created)}</p>
+                  <p className="font-medium">{formatDate(detailItem.createdAt)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Updated</span>
-                  <p className="font-medium">{formatDate(detailTask.task.date_updated)}</p>
+                  <p className="font-medium">{formatDate(detailItem.updatedAt)}</p>
                 </div>
-                {detailTask.task.due_date && (
+                {detailItem.dueDate && (
                   <div>
                     <span className="text-muted-foreground">Due date</span>
-                    <p className="font-medium">{formatDate(detailTask.task.due_date)}</p>
+                    <p className="font-medium">{formatDate(detailItem.dueDate)}</p>
                   </div>
                 )}
               </div>
 
               {/* Tags */}
-              {detailTask.task.tags.length > 0 && (
+              {detailItem.tags.length > 0 && (
                 <div className="flex gap-1 flex-wrap">
-                  {detailTask.task.tags.map((tag) => (
+                  {detailItem.tags.map((tag) => (
                     <Badge
                       key={tag.name}
                       className="text-[10px] px-1.5 py-0.5"
-                      style={{ backgroundColor: tag.tag_bg, color: tag.tag_fg }}
+                      style={{ backgroundColor: tag.bgColor, color: tag.color }}
                     >
                       {tag.name}
                     </Badge>
@@ -797,8 +1072,8 @@ export default function TriagePage() {
                     variant="outline"
                     size="sm"
                     className="text-xs"
-                    disabled={savingNotes || detailNotes === (dismissals[detailTask.task.id]?.notes || "")}
-                    onClick={() => handleSaveNotes(detailTask.task.id, detailNotes)}
+                    disabled={savingNotes || detailNotes === (dismissals[detailItem.triageId]?.notes || "")}
+                    onClick={() => handleSaveNotes(detailItem.triageId, detailNotes)}
                   >
                     {savingNotes ? "Saving..." : "Save Notes"}
                   </Button>
@@ -808,15 +1083,15 @@ export default function TriagePage() {
               {/* Action buttons */}
               <div className="border-t pt-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  {detailTask.task.url && (
+                  {detailItem.url && (
                     <a
-                      href={detailTask.task.url}
+                      href={detailItem.url}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       <Button variant="outline" size="sm" className="text-xs">
                         <ExternalLink className="h-3 w-3 mr-1" />
-                        Open in ClickUp
+                        Open in {SOURCE_LABELS[detailItem.source]}
                       </Button>
                     </a>
                   )}
@@ -824,14 +1099,14 @@ export default function TriagePage() {
                     variant="outline"
                     size="sm"
                     className="text-xs"
-                    disabled={addedIds.has(detailTask.task.id)}
+                    disabled={addedIds.has(detailItem.triageId)}
                     onClick={() => {
-                      openAddDialog(detailTask.task, detailTask.teamId);
-                      setDetailTask(null);
+                      openAddDialog(detailItem);
+                      setDetailItem(null);
                     }}
                   >
                     <Plus className="h-3 w-3 mr-1" />
-                    {addedIds.has(detailTask.task.id) ? "Already Added" : "Add to MyTime"}
+                    {addedIds.has(detailItem.triageId) ? "Already Added" : "Add to MyTime"}
                   </Button>
                 </div>
                 <div className="flex items-center gap-2">
@@ -839,7 +1114,7 @@ export default function TriagePage() {
                     variant="outline"
                     size="sm"
                     className="text-xs text-muted-foreground"
-                    onClick={() => handleDismiss(detailTask.task.id, "dismissed")}
+                    onClick={() => handleDismiss(detailItem.triageId, "dismissed")}
                   >
                     <X className="h-3 w-3 mr-1" />
                     Dismiss
@@ -848,7 +1123,7 @@ export default function TriagePage() {
                     variant="outline"
                     size="sm"
                     className="text-xs text-muted-foreground"
-                    onClick={() => handleDismiss(detailTask.task.id, "ignored")}
+                    onClick={() => handleDismiss(detailItem.triageId, "ignored")}
                   >
                     <EyeOff className="h-3 w-3 mr-1" />
                     Ignore
@@ -857,7 +1132,7 @@ export default function TriagePage() {
                     variant="outline"
                     size="sm"
                     className="text-xs text-red-600 hover:text-red-700"
-                    onClick={() => handleDismiss(detailTask.task.id, "deleted")}
+                    onClick={() => handleDismiss(detailItem.triageId, "deleted")}
                   >
                     <Trash2 className="h-3 w-3 mr-1" />
                     Delete from Triage
@@ -870,12 +1145,12 @@ export default function TriagePage() {
       </Dialog>
 
       {/* Add task dialog */}
-      <Dialog open={!!addingTask} onOpenChange={(open) => !open && setAddingTask(null)}>
+      <Dialog open={!!addingItem} onOpenChange={(open) => !open && setAddingItem(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add to MyTime Tasks</DialogTitle>
             <DialogDescription>
-              Create a task from &ldquo;{addingTask?.name}&rdquo; — choose which client and project it belongs to.
+              Create a task from &ldquo;{addingItem?.name}&rdquo; &mdash; choose which client and project it belongs to.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -903,17 +1178,18 @@ export default function TriagePage() {
                 </SelectContent>
               </Select>
             </div>
-            {addingTask && (
+            {addingItem && (
               <div className="text-xs text-muted-foreground p-2 bg-muted rounded space-y-1">
-                <div><strong>Priority:</strong> {addingTask.priority?.priority || "None"} → {mapPriorityLabel(addingTask.priority?.id)}</div>
-                <div><strong>Status:</strong> {addingTask.status.status} → Backlog</div>
-                {addingTask.url && (
-                  <div><strong>URL:</strong> <a href={addingTask.url} target="_blank" rel="noopener noreferrer" className="underline">ClickUp link</a></div>
+                <div><strong>Source:</strong> {SOURCE_LABELS[addingItem.source]}</div>
+                {addingItem.priority && <div><strong>Priority:</strong> {addingItem.priority} &rarr; P2</div>}
+                <div><strong>Status:</strong> {addingItem.status || "N/A"} &rarr; Backlog</div>
+                {addingItem.url && (
+                  <div><strong>URL:</strong> <a href={addingItem.url} target="_blank" rel="noopener noreferrer" className="underline">{SOURCE_LABELS[addingItem.source]} link</a></div>
                 )}
               </div>
             )}
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setAddingTask(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setAddingItem(null)}>Cancel</Button>
               <Button onClick={handleAddTask} disabled={!addClientId || !addProjectId || addingInProgress}>
                 <Plus className="h-4 w-4 mr-1" />
                 {addingInProgress ? "Adding..." : "Create Task"}
@@ -978,16 +1254,71 @@ export default function TriagePage() {
   );
 }
 
-function mapPriorityLabel(clickupPriorityId: number | undefined): string {
-  switch (clickupPriorityId) {
-    case 1:
-    case 2:
-      return "P1 (High)";
-    case 3:
-      return "P2 (Medium)";
-    case 4:
-      return "P3 (Low)";
-    default:
-      return "P2 (Medium)";
-  }
+// Raw source types for normalization
+interface ClickUpRaw {
+  id: string;
+  name: string;
+  description?: string;
+  status: { status: string; color: string };
+  priority: { id: number; priority: string; color: string } | null;
+  url: string;
+  due_date: string | null;
+  date_updated: string;
+  date_created: string;
+  assignees: { id: number; username: string; profilePicture: string }[];
+  tags: { name: string; tag_fg: string; tag_bg: string }[];
+  list: { name: string };
+  folder: { name: string };
+  space: { id: string };
 }
+
+interface TrelloRaw {
+  id: string;
+  name: string;
+  desc: string;
+  url: string;
+  due: string | null;
+  dateLastActivity: string;
+  labels: { id: string; name: string; color: string }[];
+  idBoard: string;
+  board?: { name: string };
+}
+
+interface AsanaRaw {
+  gid: string;
+  name: string;
+  notes: string;
+  permalink_url: string;
+  due_on: string | null;
+  modified_at: string;
+  created_at: string;
+  completed: boolean;
+  projects: { gid: string; name: string }[];
+  tags: { gid: string; name: string }[];
+}
+
+interface MondayRaw {
+  id: string;
+  name: string;
+  state: string;
+  url: string;
+  updated_at: string;
+  created_at: string;
+  column_values: { id: string; title: string; text: string; value: string | null }[];
+  board: { id: string; name: string };
+  group: { id: string; title: string };
+}
+
+// Trello label colors to hex
+const labelColorMap: Record<string, string> = {
+  green: "#61bd4f",
+  yellow: "#f2d600",
+  orange: "#ff9f1a",
+  red: "#eb5a46",
+  purple: "#c377e0",
+  blue: "#0079bf",
+  sky: "#00c2e0",
+  lime: "#51e898",
+  pink: "#ff78cb",
+  black: "#344563",
+};

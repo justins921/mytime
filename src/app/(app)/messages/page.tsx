@@ -266,12 +266,20 @@ export default function MessagesPage() {
     return userMap[userId] || userId;
   }
 
-  // Group conversations (unreads sorted to top)
-  const sortByUnread = (a: Conversation, b: Conversation) =>
-    (b.has_unreads ? 1 : 0) - (a.has_unreads ? 1 : 0);
+  // Group conversations: unreads first, then alphabetical
+  const sortByUnread = (a: Conversation, b: Conversation) => {
+    const aUnread = a.has_unreads ? 1 : 0;
+    const bUnread = b.has_unreads ? 1 : 0;
+    if (bUnread !== aUnread) return bUnread - aUnread;
+    return a.name.localeCompare(b.name);
+  };
   const channels = conversations.filter((c) => c.is_channel).sort(sortByUnread);
   const dms = conversations.filter((c) => c.is_im).sort(sortByUnread);
   const groupDms = conversations.filter((c) => c.is_mpim).sort(sortByUnread);
+
+  // Collect all conversations with unreads for the prominent "Unread" section
+  const unreadConversations = conversations.filter((c) => c.has_unreads || c.unread_count > 0);
+  const totalUnread = unreadConversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
 
   const showWorkspaceBadge = activeWorkspaceId === ALL_WORKSPACES && visibleWorkspaces.length > 1;
 
@@ -295,9 +303,9 @@ export default function MessagesPage() {
   }
 
   // ─── Conversation list item renderer ────────────────────
-  function renderConversation(conv: Conversation) {
+  function renderConversation(conv: Conversation, compact?: boolean) {
     const isActive = activeConversation?.id === conv.id && activeConversation?.workspaceId === conv.workspaceId;
-    const hasUnread = conv.has_unreads && !isActive;
+    const hasUnread = (conv.has_unreads || conv.unread_count > 0) && !isActive;
     return (
       <button
         key={`${conv.workspaceId}-${conv.id}`}
@@ -306,24 +314,24 @@ export default function MessagesPage() {
           isActive
             ? "bg-primary text-primary-foreground"
             : hasUnread
-            ? "text-foreground hover:bg-accent hover:text-accent-foreground"
+            ? "bg-red-50 dark:bg-red-950/30 text-foreground border-l-2 border-l-red-500 hover:bg-red-100 dark:hover:bg-red-950/50"
             : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         }`}
       >
         {conv.is_channel ? (
-          <Hash className={`h-3.5 w-3.5 shrink-0 ${hasUnread ? "text-foreground" : ""}`} />
+          <Hash className={`h-3.5 w-3.5 shrink-0 ${hasUnread ? "text-red-600" : ""}`} />
         ) : conv.is_mpim ? (
-          <Users className={`h-3.5 w-3.5 shrink-0 ${hasUnread ? "text-foreground" : ""}`} />
+          <Users className={`h-3.5 w-3.5 shrink-0 ${hasUnread ? "text-red-600" : ""}`} />
         ) : (
-          <User className={`h-3.5 w-3.5 shrink-0 ${hasUnread ? "text-foreground" : ""}`} />
+          <User className={`h-3.5 w-3.5 shrink-0 ${hasUnread ? "text-red-600" : ""}`} />
         )}
-        <span className={`truncate flex-1 ${hasUnread ? "font-bold" : ""}`}>{conv.name}</span>
+        <span className={`truncate flex-1 ${hasUnread ? "font-bold text-foreground" : ""}`}>{conv.name}</span>
         {hasUnread && conv.unread_count > 0 && (
-          <Badge variant="default" className="text-[10px] px-1.5 py-0 min-w-[1.25rem] text-center shrink-0">
+          <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center shrink-0">
             {conv.unread_count}
-          </Badge>
+          </span>
         )}
-        {showWorkspaceBadge && (
+        {!compact && showWorkspaceBadge && (
           <span className="text-[9px] opacity-60 shrink-0">{conv.workspaceName}</span>
         )}
       </button>
@@ -339,6 +347,11 @@ export default function MessagesPage() {
         <div className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5" />
           <h2 className="text-xl font-semibold">Messages</h2>
+          {totalUnread > 0 && (
+            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+              {totalUnread} unread
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 md:gap-4 flex-wrap">
           {/* Context indicator */}
@@ -435,13 +448,28 @@ export default function MessagesPage() {
                 <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
               )}
 
+              {/* Unread section - prominent at top */}
+              {unreadConversations.length > 0 && (
+                <div className="bg-red-50 dark:bg-red-950/20 rounded-md p-2 border border-red-200 dark:border-red-900">
+                  <div className="flex items-center gap-2 px-1 mb-1.5">
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      {totalUnread}
+                    </span>
+                    <p className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider">
+                      Unread Messages
+                    </p>
+                  </div>
+                  {unreadConversations.map((c) => renderConversation(c, true))}
+                </div>
+              )}
+
               {/* Channels */}
               {channels.length > 0 && (
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">
                     Channels
                   </p>
-                  {channels.map(renderConversation)}
+                  {channels.map((c) => renderConversation(c))}
                 </div>
               )}
 
@@ -451,7 +479,7 @@ export default function MessagesPage() {
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">
                     Direct Messages
                   </p>
-                  {dms.map(renderConversation)}
+                  {dms.map((c) => renderConversation(c))}
                 </div>
               )}
 
@@ -461,7 +489,7 @@ export default function MessagesPage() {
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">
                     Group Messages
                   </p>
-                  {groupDms.map(renderConversation)}
+                  {groupDms.map((c) => renderConversation(c))}
                 </div>
               )}
 

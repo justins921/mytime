@@ -38,6 +38,7 @@ model User {
   slackWorkspaces  SlackWorkspace[]
   gmailAccounts    GmailAccount[]
   notionWorkspaces NotionWorkspace[]
+  outlookAccounts  OutlookAccount[]
   triageDismissals TriageDismissal[]
   supportTickets   SupportTicket[]
   createdAt     DateTime  @default(now())
@@ -103,6 +104,7 @@ model Client {
   timeEntries           TimeEntry[]
   slackWorkspaces       SlackWorkspace[]
   gmailAccounts         GmailAccount[]
+  outlookAccounts       OutlookAccount[]
   floatingTasks         FloatingTask[]
   notes                 Note[]
 
@@ -192,8 +194,9 @@ model TimeEntry {
 model TriageDismissal {
   id            String   @id @default(cuid())
   userId        String
-  clickupTaskId String
-  action        String   // "dismissed" | "ignored" | "deleted"
+  clickupTaskId String   // also used for trello/asana/monday task IDs
+  source        String   @default("clickup") // clickup | trello | asana | monday
+  action        String   // "dismissed" | "ignored" | "deleted" | "added"
   notes         String   @default("")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -251,6 +254,23 @@ model EmailCard {
   account        GmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([gmailMessageId, accountId])
+}
+
+model OutlookAccount {
+  id           String   @id @default(cuid())
+  userId       String
+  email        String
+  accessToken  String
+  refreshToken String
+  expiresAt    Int?     // Unix timestamp (seconds)
+  scope        String   @default("")
+  clientId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client       Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, email])
 }
 
 model TimeOff {
@@ -375,6 +395,15 @@ model Settings {
   clickupApiToken       String   @default("")
   // Maps ClickUp workspace (team) IDs to MyTime client IDs: {"teamId":"clientId",...}
   clickupWorkspaceMapJson String  @default("{}")
+  // Trello integration
+  trelloApiToken        String   @default("")
+  trelloWorkspaceMapJson String  @default("{}")
+  // Asana integration
+  asanaApiToken         String   @default("")
+  asanaWorkspaceMapJson String   @default("{}")
+  // Monday.com integration
+  mondayApiToken        String   @default("")
+  mondayWorkspaceMapJson String  @default("{}")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)

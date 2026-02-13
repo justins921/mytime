@@ -37,6 +37,7 @@ interface GmailAccount {
   email: string;
   clientId: string | null;
   client: { id: string; name: string; color: string } | null;
+  source: "gmail" | "outlook";
 }
 
 interface Email {
@@ -119,11 +120,15 @@ export default function EmailPage() {
       .then((r) => r.json())
       .then(setContext)
       .catch(() => {});
-    fetch("/api/gmail/accounts")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setAccounts(data);
-      });
+    // Fetch both Gmail and Outlook accounts
+    Promise.all([
+      fetch("/api/gmail/accounts").then((r) => r.json()).catch(() => []),
+      fetch("/api/outlook/accounts").then((r) => r.json()).catch(() => []),
+    ]).then(([gmail, outlook]) => {
+      const gmailAccts = (Array.isArray(gmail) ? gmail : []).map((a: GmailAccount) => ({ ...a, source: "gmail" as const }));
+      const outlookAccts = (Array.isArray(outlook) ? outlook : []).map((a: GmailAccount) => ({ ...a, source: "outlook" as const }));
+      setAccounts([...gmailAccts, ...outlookAccts]);
+    });
   }, []);
 
   // Auto-select account based on focus mode
@@ -153,6 +158,12 @@ export default function EmailPage() {
     return activeAccountId;
   }, [activeAccountId, accounts]);
 
+  // Helper: get account source by ID
+  function getAccountSource(accountId: string): "gmail" | "outlook" {
+    const acct = accounts.find((a) => a.id === accountId);
+    return acct?.source || "gmail";
+  }
+
   // Fetch emails when account changes
   const fetchEmails = useCallback(async () => {
     const acctIds = getAccountIdsToFetch();
@@ -161,19 +172,80 @@ export default function EmailPage() {
     setError("");
     setEmails([]);
     setSelectedEmail(null);
-    try {
-      const res = await fetch(`/api/gmail/emails?accountId=${encodeURIComponent(acctIds)}`);
-      const data = await res.json();
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setEmails(data.emails || []);
-      }
-    } catch {
-      setError("Failed to load emails");
+
+    // Split account IDs by source
+    const ids = acctIds.split(",");
+    const gmailIds = ids.filter((id) => {
+      const acct = accounts.find((a) => a.id === id);
+      return !acct || acct.source === "gmail";
+    });
+    const outlookIds = ids.filter((id) => {
+      const acct = accounts.find((a) => a.id === id);
+      return acct?.source === "outlook";
+    });
+
+    const allEmails: Email[] = [];
+    const errors: string[] = [];
+
+    const promises: Promise<void>[] = [];
+
+    if (gmailIds.length > 0) {
+      promises.push(
+        fetch(`/api/gmail/emails?accountId=${encodeURIComponent(gmailIds.join(","))}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.error) { errors.push(data.error); }
+            else { allEmails.push(...(data.emails || [])); }
+          })
+          .catch(() => { errors.push("Failed to load Gmail"); })
+      );
     }
+
+    if (outlookIds.length > 0) {
+      for (const oid of outlookIds) {
+        promises.push(
+          fetch(`/api/outlook/emails?accountId=${encodeURIComponent(oid)}`)
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.error) { errors.push(data.error); return; }
+              // Normalize Outlook messages to Email interface
+              const msgs = data.value || data || [];
+              if (Array.isArray(msgs)) {
+                for (const msg of msgs) {
+                  allEmails.push({
+                    id: msg.id,
+                    threadId: msg.conversationId || msg.id,
+                    labelIds: msg.isRead ? [] : ["UNREAD"],
+                    from: msg.from?.emailAddress?.address || msg.sender?.emailAddress?.address || "",
+                    subject: msg.subject || "(no subject)",
+                    date: msg.receivedDateTime || "",
+                    snippet: msg.bodyPreview || "",
+                    internalDate: msg.receivedDateTime ? String(new Date(msg.receivedDateTime).getTime()) : "",
+                    accountEmail: accounts.find((a) => a.id === oid)?.email || "",
+                    accountId: oid,
+                  });
+                }
+              }
+            })
+            .catch(() => { errors.push("Failed to load Outlook"); })
+        );
+      }
+    }
+
+    await Promise.all(promises);
+
+    // Sort all emails by date (newest first)
+    allEmails.sort((a, b) => {
+      const aTime = a.internalDate ? parseInt(a.internalDate) : 0;
+      const bTime = b.internalDate ? parseInt(b.internalDate) : 0;
+      return bTime - aTime;
+    });
+
+    setEmails(allEmails);
+    if (errors.length > 0) setError(errors.join(". "));
     setLoadingEmails(false);
-  }, [getAccountIdsToFetch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getAccountIdsToFetch, accounts]);
 
   useEffect(() => {
     if (accounts.length > 0) {
@@ -206,15 +278,28 @@ export default function EmailPage() {
     if (!acctId) return;
     setLoadingDetail(true);
     setReplyTo(null);
+    const source = getAccountSource(acctId);
+
     try {
-      const res = await fetch(
-        `/api/gmail/emails?accountId=${acctId}&messageId=${email.id}`
-      );
-      const data = await res.json();
-      if (data.error) {
-        setError(data.error);
+      if (source === "outlook") {
+        // For Outlook, we already have the message data from list
+        // Set a basic detail view using what we have
+        setSelectedEmail({
+          ...email,
+          to: "",
+          body: email.snippet || "",
+          isHtml: false,
+        });
       } else {
-        setSelectedEmail(data);
+        const res = await fetch(
+          `/api/gmail/emails?accountId=${acctId}&messageId=${email.id}`
+        );
+        const data = await res.json();
+        if (data.error) {
+          setError(data.error);
+        } else {
+          setSelectedEmail(data);
+        }
       }
     } catch {
       setError("Failed to load email");
@@ -228,17 +313,19 @@ export default function EmailPage() {
     const acctId = selectedEmail.accountId;
     if (!acctId) return;
     setSending(true);
+    const source = getAccountSource(acctId);
+    const subject = selectedEmail.subject.startsWith("Re:") ? selectedEmail.subject : `Re: ${selectedEmail.subject}`;
+
     try {
-      const res = await fetch("/api/gmail/send", {
+      const endpoint = source === "outlook" ? "/api/outlook/send" : "/api/gmail/send";
+      const payload = source === "outlook"
+        ? { accountId: acctId, to: selectedEmail.from, subject, body: replyBody.trim(), replyToMessageId: selectedEmail.id }
+        : { accountId: acctId, to: selectedEmail.from, subject, body: replyBody.trim(), threadId: selectedEmail.threadId };
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId: acctId,
-          to: selectedEmail.from,
-          subject: selectedEmail.subject.startsWith("Re:") ? selectedEmail.subject : `Re: ${selectedEmail.subject}`,
-          body: replyBody.trim(),
-          threadId: selectedEmail.threadId,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.ok) {
@@ -323,14 +410,31 @@ export default function EmailPage() {
   async function archiveEmail(email: Email) {
     const acctId = email.accountId;
     if (!acctId) return;
+    const source = getAccountSource(acctId);
+
     try {
-      const res = await fetch("/api/gmail/archive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId: acctId, messageId: email.id }),
-      });
-      const data = await res.json();
-      if (data.ok) {
+      let ok = false;
+      if (source === "outlook") {
+        // Outlook archive: move message to archive folder
+        const res = await fetch("/api/outlook/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: acctId, messageId: email.id, action: "archive" }),
+        });
+        const data = await res.json();
+        ok = data.ok || res.ok;
+      } else {
+        const res = await fetch("/api/gmail/archive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: acctId, messageId: email.id }),
+        });
+        const data = await res.json();
+        ok = data.ok;
+        if (!ok) setError(data.error || "Failed to archive");
+      }
+
+      if (ok) {
         // Find next email to select before removing from list
         if (selectedEmail?.id === email.id) {
           const currentIndex = emails.findIndex((e) => e.id === email.id && e.accountId === acctId);
@@ -344,8 +448,6 @@ export default function EmailPage() {
         }
         // Remove from list
         setEmails((prev) => prev.filter((e) => !(e.id === email.id && e.accountId === acctId)));
-      } else {
-        setError(data.error || "Failed to archive");
       }
     } catch {
       setError("Failed to archive email");
@@ -419,9 +521,9 @@ export default function EmailPage() {
       <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
         <Mail className="h-12 w-12 text-muted-foreground" />
         <div>
-          <h2 className="text-lg font-semibold">No Gmail accounts connected</h2>
+          <h2 className="text-lg font-semibold">No email accounts connected</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Go to Settings to connect your Gmail accounts and map them to clients.
+            Go to Settings to connect your Gmail or Outlook accounts and map them to clients.
           </p>
         </div>
         <Button variant="outline" onClick={() => (window.location.href = "/settings")}>
@@ -535,6 +637,7 @@ export default function EmailPage() {
                   )}
                   {visibleAccounts.map((acct) => (
                     <SelectItem key={acct.id} value={acct.id} className="text-xs">
+                      {acct.source === "outlook" ? "[Outlook] " : "[Gmail] "}
                       {acct.email}
                       {acct.client ? ` (${acct.client.name})` : ""}
                     </SelectItem>
