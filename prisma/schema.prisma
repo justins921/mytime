@@ -394,6 +394,7 @@ model Settings {
   deepWorkSplitJson     String   @default("{\"splits\":[]}")
   supportSweepMinutes   Int      @default(30)
   generateFromNow       Boolean  @default(false)
+  weekStartDay          String   @default("monday") // "monday" or "sunday"
   uc30WeeklyHours       Float    @default(0)
   // ClickUp integration
   clickupApiToken       String   @default("")

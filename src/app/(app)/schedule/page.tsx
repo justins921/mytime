@@ -92,8 +92,10 @@ interface ScheduleBlock {
   project?: { name: string } | null;
 }
 
-const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const DAY_NAMES_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_NAMES_MON = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAY_NAMES_SHORT_MON = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_NAMES_SUN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_NAMES_SHORT_SUN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function SchedulePage() {
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([]);
@@ -117,12 +119,14 @@ export default function SchedulePage() {
   const [newTask, setNewTask] = useState({ title: "", estimateMinutes: 60, clientId: "", projectId: "", dueDate: "", priority: "P2", mustSchedule: true });
   const [viewMode, setViewMode] = useState<ViewMode>("work");
   const [availabilityWindows, setAvailabilityWindows] = useState<Record<string, AvailabilityWindow>>({});
+  const [weekStartDay, setWeekStartDay] = useState<"monday" | "sunday">("monday");
   const [autoDetect, setAutoDetect] = useState(true);
   const activeBlockRef = useRef<HTMLDivElement>(null);
   const hasScrolled = useRef(false);
 
   const weekDates = getWeekDates(
-    new Date(Date.now() + weekOffset * 7 * 24 * 60 * 60 * 1000)
+    new Date(Date.now() + weekOffset * 7 * 24 * 60 * 60 * 1000),
+    weekStartDay
   );
   const weekStart = formatDate(weekDates[0]);
   const weekEnd = formatDate(weekDates[6]);
@@ -152,6 +156,9 @@ export default function SchedulePage() {
       const data = await res.json();
       if (data.availabilityJson) {
         setAvailabilityWindows(JSON.parse(data.availabilityJson));
+      }
+      if (data.weekStartDay === "sunday" || data.weekStartDay === "monday") {
+        setWeekStartDay(data.weekStartDay);
       }
     } catch { /* ignore */ }
   }, []);
@@ -771,11 +778,16 @@ export default function SchedulePage() {
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading schedule...</div>
       ) : (() => {
-        const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+        const dayNames = weekStartDay === "sunday" ? DAY_NAMES_SUN : DAY_NAMES_MON;
+        const dayNamesShort = weekStartDay === "sunday" ? DAY_NAMES_SHORT_SUN : DAY_NAMES_SHORT_MON;
         // Show weekdays always, weekends only if enabled in availability or have blocks
-        const visibleDays = weekDates.filter((date, i) => {
-          if (i < 5) return true; // Mon-Fri always shown
-          const dk = dayKeys[i];
+        const visibleDays = weekDates.filter((date) => {
+          const dateObj = new Date(formatDate(date) + "T12:00:00");
+          const jsDay = dateObj.getDay(); // 0=Sun, 6=Sat
+          const isWeekend = jsDay === 0 || jsDay === 6;
+          if (!isWeekend) return true; // weekdays always shown
+          const dkMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+          const dk = dkMap[jsDay];
           const avail = availabilityWindows[dk];
           const dateStr = formatDate(date);
           const hasBlocks = blocks.some((b) => b.date === dateStr);
@@ -786,7 +798,7 @@ export default function SchedulePage() {
         return (
         <div className={gridClass} style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
           {visibleDays.map((date) => {
-            const i = weekDates.indexOf(date);
+            const weekIdx = weekDates.indexOf(date);
             const dateStr = formatDate(date);
             const dayBlocks = blocksByDate(dateStr);
             const isToday = dateStr === today;
@@ -800,13 +812,13 @@ export default function SchedulePage() {
                   <CardTitle className="text-sm flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       {isTimeOff && <Palmtree className="h-3.5 w-3.5 text-purple-500" />}
-                      <span className="hidden md:inline">{DAY_NAMES[i]}</span>
-                      <span className="md:hidden">{DAY_NAMES_SHORT[i]}</span>
+                      <span className="hidden md:inline">{dayNames[weekIdx]}</span>
+                      <span className="md:hidden">{dayNamesShort[weekIdx]}</span>
                       <span className="text-xs font-normal text-muted-foreground ml-2">
                         {new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </span>
                     </div>
-                    {!isPastDay && !isTimeOff && (
+                    {!isPastDay && !isTimeOff && dayBlocks.length > 0 && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -815,7 +827,7 @@ export default function SchedulePage() {
                         disabled={generatingDay === dateStr}
                       >
                         <RefreshCw className={`h-3 w-3 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
-                        {generatingDay === dateStr ? "..." : "Generate"}
+                        {generatingDay === dateStr ? "..." : "Regenerate"}
                       </Button>
                     )}
                   </CardTitle>
@@ -857,10 +869,11 @@ export default function SchedulePage() {
                         <button
                           onClick={() => handleGenerateDay(dateStr)}
                           disabled={generatingDay === dateStr}
-                          className="w-full flex flex-col items-center gap-1.5 py-6 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-md transition-colors"
+                          className="w-full flex flex-col items-center gap-2 py-8 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-lg border-2 border-dashed border-muted-foreground/20 hover:border-primary/30 transition-colors"
                         >
-                          <RefreshCw className={`h-5 w-5 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
-                          <span className="text-xs font-medium">{generatingDay === dateStr ? "Generating..." : "Generate this day"}</span>
+                          <RefreshCw className={`h-6 w-6 ${generatingDay === dateStr ? "animate-spin" : ""}`} />
+                          <span className="text-sm font-medium">{generatingDay === dateStr ? "Generating..." : "Generate today's schedule"}</span>
+                          <span className="text-[10px] text-muted-foreground">Click to auto-fill this day</span>
                         </button>
                       ) : (
                         <p className="text-xs text-muted-foreground text-center py-4">No blocks</p>

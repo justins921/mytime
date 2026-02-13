@@ -52,7 +52,6 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
 
   // Compute deep work total hours available per week
   // We'll compute per-day then allocate (dynamically from availability, supports weekends)
-  const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
   // Calculate effective weekly target capped by remaining monthly capacity (work clients only)
   const effectiveWeeklyTarget: Record<string, number> = {};
@@ -74,7 +73,7 @@ export function generateSchedule(input: SchedulerInput): GeneratedBlock[] {
 
   for (let dayIdx = 0; dayIdx < weekDates.length; dayIdx++) {
     const dateStr = weekDates[dayIdx];
-    const dayKey = dayKeys[dayIdx];
+    const dayKey = getDayKeyFromDate(dateStr);
     const avail = availability[dayKey];
 
     if (!avail || !avail.enabled) continue;
@@ -631,6 +630,17 @@ function splitByProject(
 
 function roundTo15(minutes: number): number {
   return Math.round(minutes / 15) * 15;
+}
+
+/**
+ * Derive the day key (mon, tue, ..., sun) from a YYYY-MM-DD date string.
+ * This avoids the bug where array index was used as day-of-week.
+ */
+function getDayKeyFromDate(dateStr: string): string {
+  const date = new Date(dateStr + "T12:00:00");
+  const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const keys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  return keys[dayOfWeek];
 }
 
 /**

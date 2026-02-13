@@ -51,6 +51,7 @@ export default function SettingsPage() {
   const [fixedBreaks, setFixedBreaks] = useState<BreakConfig[]>([]);
   const [lunchReserve, setLunchReserve] = useState<BreakConfig>({ start: "12:45", end: "13:15", title: "Lunch", locked: false });
   const [timezone, setTimezone] = useState("America/Chicago");
+  const [weekStartDay, setWeekStartDay] = useState<"monday" | "sunday">("monday");
   const [supportSweepMinutes, setSupportSweepMinutes] = useState(30);
   const [generateFromNow, setGenerateFromNow] = useState(false);
   const [uc30WeeklyHours, setUc30WeeklyHours] = useState(0);
@@ -122,6 +123,9 @@ export default function SettingsPage() {
         setFixedBreaks(safeParse(data.fixedBreaksJson, []));
         setLunchReserve(safeParse(data.lunchReserveJson, { start: "12:45", end: "13:15", title: "Lunch", locked: false }));
         setTimezone(data.timezone);
+        if (data.weekStartDay === "sunday" || data.weekStartDay === "monday") {
+          setWeekStartDay(data.weekStartDay);
+        }
         setSupportSweepMinutes(data.supportSweepMinutes);
         setGenerateFromNow(data.generateFromNow);
         setUc30WeeklyHours(data.uc30WeeklyHours);
@@ -207,6 +211,7 @@ export default function SettingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         timezone,
+        weekStartDay,
         availabilityJson: JSON.stringify(availability),
         nightWorkJson: JSON.stringify(nightWork),
         fixedBreaksJson: JSON.stringify(fixedBreaks),
@@ -447,6 +452,18 @@ export default function SettingsPage() {
             <div className="space-y-1">
               <Label className="text-xs">Timezone</Label>
               <Input value={timezone} onChange={(e) => setTimezone(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Week Starts On</Label>
+              <Select value={weekStartDay} onValueChange={(v) => setWeekStartDay(v as "monday" | "sunday")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monday">Monday (Mon - Sun)</SelectItem>
+                  <SelectItem value="sunday">Sunday (Sun - Sat)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Support Sweep Duration (min)</Label>

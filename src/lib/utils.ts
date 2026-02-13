@@ -35,16 +35,21 @@ export function formatDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Returns Mon–Sun (7 days) for the week containing refDate */
-export function getWeekDates(refDate: Date): Date[] {
+/** Returns 7 days for the week containing refDate.
+ *  startDay: "monday" (Mon–Sun) or "sunday" (Sun–Sat). Defaults to "monday". */
+export function getWeekDates(refDate: Date, startDay: "monday" | "sunday" = "monday"): Date[] {
   const d = new Date(refDate);
-  const day = d.getDay();
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - ((day + 6) % 7));
+  const day = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const weekStart = new Date(d);
+  if (startDay === "sunday") {
+    weekStart.setDate(d.getDate() - day);
+  } else {
+    weekStart.setDate(d.getDate() - ((day + 6) % 7));
+  }
   const dates: Date[] = [];
   for (let i = 0; i < 7; i++) {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + i);
     dates.push(date);
   }
   return dates;
