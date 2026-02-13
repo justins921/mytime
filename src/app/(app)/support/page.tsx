@@ -14,6 +14,7 @@ import {
   BookOpen,
   Search,
   ArrowLeft,
+  Star,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────
@@ -23,6 +24,7 @@ const TICKET_TYPES = [
   { value: "feature", label: "Feature Request", icon: Lightbulb, description: "Suggest a new feature or improvement" },
   { value: "integration", label: "Integration Request", icon: Plug, description: "Request a new integration (e.g., Asana, Trello)" },
   { value: "feedback", label: "General Feedback", icon: MessageSquare, description: "Share your thoughts on the product" },
+  { value: "testimonial", label: "Testimonial", icon: Star, description: "Share how MyTime has helped your business" },
   { value: "support", label: "Help / Support", icon: HelpCircle, description: "I need help with something" },
 ];
 

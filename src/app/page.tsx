@@ -15,7 +15,6 @@ import {
   CalendarClock,
   CheckCircle2,
   Check,
-  Star,
   MessageSquare,
   Mail,
   BookOpen,
@@ -113,25 +112,6 @@ function FeatureCard({ icon: Icon, title, description, pro }: {
   );
 }
 
-function TestimonialCard({ quote, name, role, metric }: {
-  quote: string; name: string; role: string; metric: string;
-}) {
-  return (
-    <div className="p-6 rounded-xl border bg-white">
-      <div className="flex gap-0.5 mb-3">
-        {[...Array(5)].map((_, i) => (
-          <Star key={i} className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-        ))}
-      </div>
-      <p className="text-sm text-gray-600 leading-relaxed mb-3">&ldquo;{quote}&rdquo;</p>
-      <p className="text-xs font-semibold text-blue-600 mb-3">{metric}</p>
-      <div>
-        <p className="text-sm font-semibold">{name}</p>
-        <p className="text-xs text-gray-400">{role}</p>
-      </div>
-    </div>
-  );
-}
 
 function IntegrationCard({ icon: Icon, name, description, color, pro }: {
   icon: React.ComponentType<{ className?: string }>; name: string; description: string; color: string; pro?: boolean;
@@ -594,41 +574,6 @@ export default async function LandingPage() {
           <p className="text-center text-xs text-gray-400 mt-4">
             Comparison based on out-of-the-box features. Some tools offer partial functionality via add-ons or manual setup.
           </p>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════
-          SOCIAL PROOF
-          Psychology: Bandwagon Effect, Authority Bias
-          Corey Haines: Specific metrics > vague praise
-          ═══════════════════════════════════════════════════════════ */}
-      <section className="py-20">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-3">
-              Freelancers are getting their Sundays back.
-            </h2>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <TestimonialCard
-              quote="I used to spend an hour every Sunday night in Notion. Now I hit generate and my entire week is done in 8 seconds. I actually look forward to Monday."
-              name="Sarah K."
-              role="Freelance Brand Strategist, 4 clients"
-              metric="Saved 52+ hours/year on planning"
-            />
-            <TestimonialCard
-              quote="I was over-servicing my biggest client by 15 hours a month and had zero idea. The cap tracking paid for itself the first week. The CRM is a bonus I didn't expect."
-              name="Marcus T."
-              role="Independent Software Consultant, 6 clients"
-              metric="Recovered $2,250/mo in unbilled work"
-            />
-            <TestimonialCard
-              quote="Having Slack, email, and my schedule in one place means I don't lose 20 minutes every time I check a message. I finally have one screen for my entire workday."
-              name="Priya R."
-              role="UX Design Consultant, 5 clients"
-              metric="Cut tab-switching by 80%"
-            />
-          </div>
         </div>
       </section>
 

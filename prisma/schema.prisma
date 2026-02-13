@@ -417,7 +417,7 @@ model Settings {
 model SupportTicket {
   id          String   @id @default(cuid())
   userId      String
-  type        String   // "bug" | "feature" | "integration" | "feedback" | "support"
+  type        String   // "bug" | "feature" | "integration" | "feedback" | "testimonial" | "support"
   subject     String
   message     String
   status      String   @default("open") // open | in_progress | resolved | closed

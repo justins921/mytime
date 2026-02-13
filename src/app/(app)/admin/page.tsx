@@ -30,6 +30,7 @@ import {
   CalendarCheck,
   Ticket,
   ArrowUpRight,
+  Star,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────
@@ -111,6 +112,7 @@ const TICKET_ICONS: Record<string, typeof Bug> = {
   feature: Lightbulb,
   integration: Plug,
   feedback: MessageSquare,
+  testimonial: Star,
   support: HelpCircle,
 };
 
@@ -129,7 +131,7 @@ const KB_CATEGORIES = [
   { value: "troubleshooting", label: "Troubleshooting" },
 ];
 
-const KB_TICKET_TYPES = ["bug", "feature", "integration", "feedback", "support"];
+const KB_TICKET_TYPES = ["bug", "feature", "integration", "feedback", "testimonial", "support"];
 
 // ─── Component ─────────────────────────────────────
 
@@ -257,7 +259,8 @@ export default function AdminPage() {
     setEditingArticle(null);
     const category = ticket.type === "bug" ? "troubleshooting" :
       ticket.type === "integration" ? "integrations" :
-      ticket.type === "feature" ? "features" : "getting-started";
+      ticket.type === "feature" ? "features" :
+      ticket.type === "testimonial" ? "getting-started" : "getting-started";
     setKbForm({
       title: ticket.subject,
       content: `## ${ticket.subject}\n\n${ticket.message}\n\n---\n*Generated from support ticket*`,
