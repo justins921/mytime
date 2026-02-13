@@ -68,6 +68,13 @@ export default function SettingsPage() {
     { id: string; email: string; clientId: string | null; client: { id: string; name: string; color: string } | null }[]
   >([]);
   const [gmailMessage, setGmailMessage] = useState("");
+  const [notionWorkspaces, setNotionWorkspaces] = useState<
+    { id: string; workspaceId: string; workspaceName: string; botId: string }[]
+  >([]);
+  const [notionToken, setNotionToken] = useState("");
+  const [notionName, setNotionName] = useState("");
+  const [notionLoading, setNotionLoading] = useState(false);
+  const [notionMessage, setNotionMessage] = useState("");
   const [timeOffs, setTimeOffs] = useState<
     { id: string; startDate: string; endDate: string; title: string; type: string; notes: string }[]
   >([]);
@@ -95,45 +102,49 @@ export default function SettingsPage() {
   const isAdmin = role === "admin";
 
   useEffect(() => {
+    const safeParse = (json: string, fallback: unknown) => {
+      try { return JSON.parse(json); } catch { return fallback; }
+    };
+
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => {
         setSettings(data);
-        setAvailability(JSON.parse(data.availabilityJson));
-        setNightWork(JSON.parse(data.nightWorkJson));
-        setFixedBreaks(JSON.parse(data.fixedBreaksJson));
-        setLunchReserve(JSON.parse(data.lunchReserveJson));
+        setAvailability(safeParse(data.availabilityJson, {}));
+        setNightWork(safeParse(data.nightWorkJson, {}));
+        setFixedBreaks(safeParse(data.fixedBreaksJson, []));
+        setLunchReserve(safeParse(data.lunchReserveJson, { start: "12:45", end: "13:15", title: "Lunch", locked: false }));
         setTimezone(data.timezone);
         setSupportSweepMinutes(data.supportSweepMinutes);
         setGenerateFromNow(data.generateFromNow);
         setUc30WeeklyHours(data.uc30WeeklyHours);
         setClickupApiToken(data.clickupApiToken || "");
-        setClickupWorkspaceMap(JSON.parse(data.clickupWorkspaceMapJson || "{}"));
-      });
+        setClickupWorkspaceMap(safeParse(data.clickupWorkspaceMapJson || "{}", {}));
+      })
+      .catch(() => setSettings({}));
     fetch("/api/clients")
       .then((r) => r.json())
-      .then((data) => setAllClients(Array.isArray(data) ? data : []));
+      .then((data) => setAllClients(Array.isArray(data) ? data : []))
+      .catch(() => {});
     fetch("/api/slack/workspaces")
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setSlackWorkspaces(data); });
+      .then((data) => { if (Array.isArray(data)) setSlackWorkspaces(data); })
+      .catch(() => {});
     fetch("/api/gmail/accounts")
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setGmailAccounts(data); });
+      .then((data) => { if (Array.isArray(data)) setGmailAccounts(data); })
+      .catch(() => {});
+    fetch("/api/notion/workspaces")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setNotionWorkspaces(data); })
+      .catch(() => {});
     fetch("/api/timeoff")
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setTimeOffs(data); });
+      .then((data) => { if (Array.isArray(data)) setTimeOffs(data); })
+      .catch(() => {});
     fetch("/api/calendar-feeds")
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setCalendarFeeds(data); });
-    // Fetch plan from session
-    fetch("/api/auth/session")
-      .then((r) => r.json())
-      .then(() => {
-        // Plan comes from user record; fetch via a lightweight endpoint
-        fetch("/api/settings")
-          .then((r) => r.json())
-          .then(() => {}); // plan is loaded separately below
-      })
+      .then((data) => { if (Array.isArray(data)) setCalendarFeeds(data); })
       .catch(() => {});
     fetch("/api/stripe/plan")
       .then((r) => r.json())
@@ -1200,6 +1211,122 @@ export default function SettingsPage() {
                         body: JSON.stringify({ id: acct.id }),
                       });
                       setGmailAccounts((prev) => prev.filter((a) => a.id !== acct.id));
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Notion integration */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Notion Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {notionMessage && (
+            <p className={`text-xs ${notionMessage.includes("error") || notionMessage.includes("Error") ? "text-red-600" : "text-green-600"}`}>
+              {notionMessage}
+            </p>
+          )}
+
+          <p className="text-[10px] text-muted-foreground">
+            Connect Notion to browse and search your pages directly from MyTime.
+          </p>
+
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium flex items-center gap-1">
+              <ChevronDown className="h-3 w-3" />
+              How to connect Notion (step by step)
+            </summary>
+            <ol className="mt-2 ml-4 space-y-1 list-decimal text-muted-foreground">
+              <li>In Notion, go to <strong>Settings &amp; members</strong> &rarr; <strong>Connections</strong> &rarr; <strong>Develop or manage integrations</strong></li>
+              <li>Click <strong>New integration</strong>, give it a name, and select your workspace</li>
+              <li>Copy the <strong>Internal Integration Token</strong></li>
+              <li>Paste it below and click <strong>Connect</strong></li>
+              <li>In Notion, share the pages you want accessible with your integration</li>
+            </ol>
+          </details>
+
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={notionToken}
+                onChange={(e) => setNotionToken(e.target.value)}
+                placeholder="ntn_..."
+                className="font-mono flex-1"
+              />
+              <Input
+                value={notionName}
+                onChange={(e) => setNotionName(e.target.value)}
+                placeholder="Workspace name (optional)"
+                className="w-48"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!notionToken || notionLoading}
+                onClick={async () => {
+                  setNotionLoading(true);
+                  setNotionMessage("");
+                  try {
+                    const res = await fetch("/api/notion/workspaces", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ token: notionToken, name: notionName || undefined }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      setNotionMessage(data.error || "Failed to connect");
+                    } else {
+                      setNotionWorkspaces((prev) => {
+                        const exists = prev.find((w) => w.id === data.id);
+                        return exists ? prev.map((w) => (w.id === data.id ? data : w)) : [...prev, data];
+                      });
+                      setNotionToken("");
+                      setNotionName("");
+                      setNotionMessage(`Connected to ${data.workspaceName}!`);
+                    }
+                  } catch {
+                    setNotionMessage("Error: failed to connect. Check your token and try again.");
+                  }
+                  setNotionLoading(false);
+                }}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${notionLoading ? "animate-spin" : ""}`} />
+                Connect
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Find this in Notion &rarr; Settings &rarr; Connections &rarr; Develop or manage integrations.
+            </p>
+          </div>
+
+          {notionWorkspaces.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs">Connected Workspaces</Label>
+              {notionWorkspaces.map((ws) => (
+                <div key={ws.id} className="flex items-center gap-2">
+                  <span className="text-sm font-medium truncate flex-1">{ws.workspaceName}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={async () => {
+                      await fetch("/api/notion/workspaces", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: ws.id }),
+                      });
+                      setNotionWorkspaces((prev) => prev.filter((w) => w.id !== ws.id));
                     }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />

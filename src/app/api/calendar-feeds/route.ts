@@ -18,11 +18,19 @@ export async function POST(req: NextRequest) {
   if (!user) return res;
 
   const body = await req.json();
+
+  if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
+    return NextResponse.json({ error: "Feed name is required" }, { status: 400 });
+  }
+  if (!body.url || typeof body.url !== "string" || !body.url.trim()) {
+    return NextResponse.json({ error: "Feed URL is required" }, { status: 400 });
+  }
+
   const feed = await prisma.calendarFeed.create({
     data: {
       userId: user.id,
-      name: body.name,
-      url: body.url,
+      name: body.name.trim(),
+      url: body.url.trim(),
       color: body.color || "#8b5cf6",
       enabled: body.enabled ?? true,
     },
