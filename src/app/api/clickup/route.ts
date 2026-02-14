@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/clickup — Create a MyTime task from a ClickUp task
+ * POST /api/clickup — Create a Work OS task from a ClickUp task
  * Body: { clickupTask, clientId, projectId }
  */
 export async function POST(req: NextRequest) {
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // Create a MyTime task from the ClickUp task
+  // Create a Work OS task from the ClickUp task
   const task = await prisma.task.create({
     data: {
       projectId,
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
     include: { project: { include: { client: true } } },
   });
 
-  // Auto-dismiss the task from triage after adding to MyTime
+  // Auto-dismiss the task from triage after adding to Work OS
   if (clickupTask.id) {
     await prisma.triageDismissal.upsert({
       where: { userId_clickupTaskId: { userId: user.id, clickupTaskId: clickupTask.id } },

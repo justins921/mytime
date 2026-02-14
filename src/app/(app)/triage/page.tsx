@@ -140,7 +140,7 @@ export default function TriagePage() {
   const [nextRefresh, setNextRefresh] = useState<Date | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Imported task IDs (already in MyTime)
+  // Imported task IDs (already in Work OS)
   const [importedIds, setImportedIds] = useState<Set<string>>(new Set());
 
   const loadImportedIds = useCallback(async () => {
@@ -1132,7 +1132,7 @@ export default function TriagePage() {
                     }}
                   >
                     <Plus className="h-3 w-3 mr-1" />
-                    {addedIds.has(detailItem.triageId) ? "Already Added" : "Add to MyTime"}
+                    {addedIds.has(detailItem.triageId) ? "Already Added" : "Add to Work OS"}
                   </Button>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1174,7 +1174,7 @@ export default function TriagePage() {
       <Dialog open={!!addingItem} onOpenChange={(open) => !open && setAddingItem(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add to MyTime Tasks</DialogTitle>
+            <DialogTitle>Add to Work OS Tasks</DialogTitle>
             <DialogDescription>
               Create a task from &ldquo;{addingItem?.name}&rdquo; &mdash; choose which client and project it belongs to.
             </DialogDescription>

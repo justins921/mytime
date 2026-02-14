@@ -96,14 +96,14 @@ export async function POST(req: Request) {
 
     await sendEmail({
       to: normalizedEmail,
-      subject: "Verify your MyTime email address",
+      subject: "Verify your Work OS email address",
       html: verificationEmailHtml(verifyUrl),
     });
 
     // Send welcome email
     await sendEmail({
       to: normalizedEmail,
-      subject: "Welcome to MyTime!",
+      subject: "Welcome to Work OS!",
       html: welcomeEmailHtml(name?.trim() || null),
     });
 

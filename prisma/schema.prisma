@@ -399,7 +399,7 @@ model Settings {
   uc30WeeklyHours       Float    @default(0)
   // ClickUp integration
   clickupApiToken       String   @default("")
-  // Maps ClickUp workspace (team) IDs to MyTime client IDs: {"teamId":"clientId",...}
+  // Maps ClickUp workspace (team) IDs to Work OS client IDs: {"teamId":"clientId",...}
   clickupWorkspaceMapJson String  @default("{}")
   // Trello integration
   trelloApiToken        String   @default("")

@@ -302,8 +302,8 @@ function BeforeAfterEditor({ data, onChange }: { data: LandingSections["beforeAf
     <div className="space-y-3">
       <Field label="Heading" value={data.heading} onChange={(v) => onChange({ ...data, heading: v })} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ListEditor label="Without MyTime (pain points)" items={data.without} onChange={(v) => onChange({ ...data, without: v })} />
-        <ListEditor label="With MyTime (benefits)" items={data.with} onChange={(v) => onChange({ ...data, with: v })} />
+        <ListEditor label="Without Work OS (pain points)" items={data.without} onChange={(v) => onChange({ ...data, without: v })} />
+        <ListEditor label="With Work OS (benefits)" items={data.with} onChange={(v) => onChange({ ...data, with: v })} />
       </div>
     </div>
   );

@@ -81,7 +81,7 @@ export const LANDING_DEFAULTS: LandingSections = {
     headline: "Run your entire freelance business",
     headlineAccent: "from one screen.",
     subtext: "Built for freelancers, by a freelancer.",
-    body: "Schedule, time track, manage clients, close leads, triage your inbox, and run reports — all from one screen. Your existing tools stay. MyTime pulls them together so you can stop tab-switching and start working.",
+    body: "Schedule, time track, manage clients, close leads, triage your inbox, and run reports — all from one screen. Your existing tools stay. Work OS pulls them together so you can stop tab-switching and start working.",
     cta1Label: "Start Free — No Credit Card",
     cta2Label: "See how it works",
     trustSignals: ["14-day free trial", "Focused on the workday", "Cancel anytime"],
@@ -168,8 +168,8 @@ export const LANDING_DEFAULTS: LandingSections = {
 
   integrations: {
     heading: "Stop tab-switching your workday.",
-    body: "Your messages, email, docs, calendar, and project tasks — all surfaced inside MyTime. Work from one screen.",
-    note: "Integrations are included on the Pro plan and above — no extra fees from MyTime. Each service may require its own account or subscription.",
+    body: "Your messages, email, docs, calendar, and project tasks — all surfaced inside Work OS. Work from one screen.",
+    note: "Integrations are included on the Pro plan and above — no extra fees from Work OS. Each service may require its own account or subscription.",
     cards: [
       { name: "Slack", description: "All workspaces, one inbox" },
       { name: "Gmail & Outlook", description: "Triage with kanban boards" },
@@ -181,8 +181,8 @@ export const LANDING_DEFAULTS: LandingSections = {
   },
 
   comparison: {
-    heading: "Other tools live in their own tab. MyTime pulls them together.",
-    body: "Freelancer tools either focus on invoicing (Bonsai, Plutio, Moxie) or daily planning (Sunsama, Motion). MyTime brings your schedule, clients, and integrations into one screen — so your workday actually flows.",
+    heading: "Other tools live in their own tab. Work OS pulls them together.",
+    body: "Freelancer tools either focus on invoicing (Bonsai, Plutio, Moxie) or daily planning (Sunsama, Motion). Work OS brings your schedule, clients, and integrations into one screen — so your workday actually flows.",
     note: "Comparison based on out-of-the-box features. Some tools offer partial functionality via add-ons or manual setup.",
   },
 
@@ -250,16 +250,16 @@ export const LANDING_DEFAULTS: LandingSections = {
     heading: "Questions? Answers.",
     items: [
       {
-        q: "Who is MyTime for?",
-        a: "Freelancers, consultants, and independent contractors who juggle multiple clients. If you spend Sunday nights building next week's schedule, track time in one tool and manage leads in another, MyTime brings all of that into one screen.",
+        q: "Who is Work OS for?",
+        a: "Freelancers, consultants, and independent contractors who juggle multiple clients. If you spend Sunday nights building next week's schedule, track time in one tool and manage leads in another, Work OS brings all of that into one screen.",
       },
       {
         q: "How is this different from Bonsai, Plutio, or Moxie?",
-        a: "Those tools are built around invoicing and payments. MyTime is built around your workday — schedule generation, time tracking, CRM, triage inbox, and integrations. We skip invoicing so we can stay focused on the part of your day that actually matters: the work. The result is a faster, more focused tool for the 8 hours you actually work.",
+        a: "Those tools are built around invoicing and payments. Work OS is built around your workday — schedule generation, time tracking, CRM, triage inbox, and integrations. We skip invoicing so we can stay focused on the part of your day that actually matters: the work. The result is a faster, more focused tool for the 8 hours you actually work.",
       },
       {
         q: "How is this different from Sunsama or Motion?",
-        a: "Sunsama and Motion are daily planners. They're great at calendar + tasks, but they don't know about your clients, retainers, monthly caps, or sales pipeline. MyTime combines the daily planning side with business management — so your schedule, time tracking, CRM, and reports all share the same data.",
+        a: "Sunsama and Motion are daily planners. They're great at calendar + tasks, but they don't know about your clients, retainers, monthly caps, or sales pipeline. Work OS combines the daily planning side with business management — so your schedule, time tracking, CRM, and reports all share the same data.",
       },
       {
         q: "What's the CRM like?",
@@ -267,7 +267,7 @@ export const LANDING_DEFAULTS: LandingSections = {
       },
       {
         q: "What integrations are available?",
-        a: "Slack (multiple workspaces), Gmail, Outlook, Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), ClickUp, Trello, Asana, and Monday.com. Integrations are included on the Pro plan — no extra fees from MyTime. Each service requires its own account (some services like Slack, Notion, or ClickUp may require a paid plan on their end). Everything runs natively inside MyTime, so there's no tab switching.",
+        a: "Slack (multiple workspaces), Gmail, Outlook, Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), ClickUp, Trello, Asana, and Monday.com. Integrations are included on the Pro plan — no extra fees from Work OS. Each service requires its own account (some services like Slack, Notion, or ClickUp may require a paid plan on their end). Everything runs natively inside Work OS, so there's no tab switching.",
       },
       {
         q: "Why no invoicing?",

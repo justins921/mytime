@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/monday — Create a MyTime task from a Monday.com item
+ * POST /api/monday — Create a Work OS task from a Monday.com item
  */
 export async function POST(req: NextRequest) {
   const { user, res } = await getAuthUser();

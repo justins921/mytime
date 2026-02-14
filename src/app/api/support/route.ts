@@ -70,9 +70,9 @@ async function sendAdminNotification(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "MyTime Support <notifications@updates.mytime.day>",
+      from: "Work OS Support <notifications@updates.mytime.day>",
       to: ADMIN_EMAIL,
-      subject: `[MyTime Support] ${typeLabels[type] || type}: ${subject}`,
+      subject: `[Work OS Support] ${typeLabels[type] || type}: ${subject}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px;">
           <h2 style="color: #1a1a1a;">New Support Ticket</h2>

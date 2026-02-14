@@ -86,7 +86,7 @@ export default function SignupPage() {
         <div className="hidden lg:block flex-1">
           <div className="flex items-center gap-2 mb-6">
             <Clock className="h-6 w-6" />
-            <span className="text-xl font-bold">MyTime</span>
+            <span className="text-xl font-bold">Work OS</span>
           </div>
           <h2 className="text-2xl font-bold mb-2">
             The workday manager for freelancers with multiple clients
@@ -109,7 +109,7 @@ export default function SignupPage() {
           <CardHeader className="text-center">
             <div className="flex items-center justify-center gap-2 mb-2 lg:hidden">
               <Clock className="h-5 w-5" />
-              <span className="font-bold text-lg">MyTime</span>
+              <span className="font-bold text-lg">Work OS</span>
             </div>
             <CardTitle className="text-2xl">Create your account</CardTitle>
             <CardDescription>Start your 14-day free trial</CardDescription>

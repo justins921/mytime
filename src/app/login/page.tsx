@@ -43,7 +43,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Clock className="h-5 w-5" />
-            <span className="font-bold text-lg">MyTime</span>
+            <span className="font-bold text-lg">Work OS</span>
           </div>
           <CardTitle className="text-2xl">Welcome back</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>

@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/asana — Create a MyTime task from an Asana task
+ * POST /api/asana — Create a Work OS task from an Asana task
  */
 export async function POST(req: NextRequest) {
   const { user, res } = await getAuthUser();

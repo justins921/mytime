@@ -3,9 +3,9 @@ import { Analytics } from "@/components/analytics";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MyTime — The Workday Manager for Freelancers",
+  title: "Work OS — The Workday Manager for Freelancers",
   description:
-    "Generate your perfect week in one click. MyTime auto-schedules clients, tracks hours against monthly caps, and puts Slack, Gmail, and Notion in one dashboard. Built for freelancers juggling multiple clients.",
+    "Generate your perfect week in one click. Work OS auto-schedules clients, tracks hours against monthly caps, and puts Slack, Gmail, and Notion in one dashboard. Built for freelancers juggling multiple clients.",
   keywords: [
     "freelance schedule",
     "client workday manager",
@@ -16,16 +16,16 @@ export const metadata: Metadata = {
     "multi-client scheduling",
   ],
   openGraph: {
-    title: "MyTime — Your Perfect Week in One Click",
+    title: "Work OS — Your Perfect Week in One Click",
     description:
       "Auto-generate weekly schedules across every client. Track hours against monthly caps. Slack, Gmail, Notion — all in one dashboard. Built for freelancers.",
     type: "website",
-    siteName: "MyTime",
+    siteName: "Work OS",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "MyTime — The Workday Manager for Freelancers",
+    title: "Work OS — The Workday Manager for Freelancers",
     description:
       "Generate your perfect week in one click. Track hours, manage clients, and stop tab-switching. Built for freelancers.",
   },
@@ -46,13 +46,13 @@ const jsonLd = {
       description: "The workday manager for freelancers who juggle multiple clients.",
       brand: {
         "@type": "Brand",
-        name: "MyTime",
+        name: "Work OS",
       },
       sameAs: [],
     },
     {
       "@type": "SoftwareApplication",
-      name: "MyTime",
+      name: "Work OS",
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       description:
@@ -82,10 +82,10 @@ const jsonLd = {
       mainEntity: [
         {
           "@type": "Question",
-          name: "Who is MyTime for?",
+          name: "Who is Work OS for?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Freelancers, consultants, and independent contractors who juggle multiple clients. If you spend Sunday nights building next week's schedule in a spreadsheet or Notion, MyTime is for you.",
+            text: "Freelancers, consultants, and independent contractors who juggle multiple clients. If you spend Sunday nights building next week's schedule in a spreadsheet or Notion, Work OS is for you.",
           },
         },
         {
@@ -101,7 +101,7 @@ const jsonLd = {
           name: "What integrations are available?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Slack (multiple workspaces), Gmail (multiple accounts), Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), and ClickUp (task triage). All integrations run inside MyTime — no tab switching.",
+            text: "Slack (multiple workspaces), Gmail (multiple accounts), Notion (browse and search), Google/Apple/Outlook Calendar (via iCal feeds), and ClickUp (task triage). All integrations run inside Work OS — no tab switching.",
           },
         },
         {

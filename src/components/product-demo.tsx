@@ -308,7 +308,7 @@ export function ProductDemo() {
               <div className="w-3 h-3 rounded-full bg-yellow-400" />
               <div className="w-3 h-3 rounded-full bg-green-400" />
             </div>
-            <span className="text-xs text-gray-400 ml-2">MyTime — Workday Manager</span>
+            <span className="text-xs text-gray-400 ml-2">Work OS — Workday Manager</span>
           </div>
           <div className="text-[10px] text-gray-400 font-mono">11:40 AM</div>
         </div>

@@ -176,13 +176,13 @@ async function main() {
     // Getting Started
     {
       id: "kb-what-is-mytime",
-      title: "What is MyTime?",
+      title: "What is Work OS?",
       slug: "what-is-mytime",
       category: "getting-started",
       tags: "overview,intro,about",
       relatedTicketTypes: "support",
       sortOrder: 0,
-      content: `MyTime is a workday management tool built for freelancers, consultants, and independent contractors who juggle multiple clients.
+      content: `Work OS is a workday management tool built for freelancers, consultants, and independent contractors who juggle multiple clients.
 
 ## What it does
 
@@ -190,13 +190,13 @@ async function main() {
 - **Time tracking** — One-click timer tied to your current client and project. Warns you if you context-switch.
 - **Client management** — Every client has their own profile with retainer, hourly rate, weekly targets, monthly caps, projects, tasks, and notes.
 - **CRM pipeline** — Track leads from first touch to won deal. Log activities. Generate contracts from templates.
-- **Integrations** — Slack, Gmail, Outlook, Notion, Calendar, ClickUp, Trello, Asana, and Monday.com all surface inside MyTime.
+- **Integrations** — Slack, Gmail, Outlook, Notion, Calendar, ClickUp, Trello, Asana, and Monday.com all surface inside Work OS.
 - **Triage inbox** — Tasks from your project tools land in one inbox. Accept, schedule, or dismiss.
 - **Reports** — See where every hour went, export to CSV, track monthly caps.
 
 ## What it doesn't do
 
-MyTime intentionally skips invoicing. Invoicing touches payments, taxes, and compliance — things that dedicated tools like FreshBooks, Wave, and QuickBooks handle well. We focus on the workday itself.`,
+Work OS intentionally skips invoicing. Invoicing touches payments, taxes, and compliance — things that dedicated tools like FreshBooks, Wave, and QuickBooks handle well. We focus on the workday itself.`,
     },
     {
       id: "kb-getting-started-guide",
@@ -238,7 +238,7 @@ Click on any schedule block and hit the timer button. The timer ties to that cli
 
 ## Step 5: Connect your tools (Pro)
 
-Go to **Settings → Integrations** to connect Slack, Gmail, Notion, Calendar feeds, and project management tools. Everything surfaces inside MyTime so you can stop tab-switching.`,
+Go to **Settings → Integrations** to connect Slack, Gmail, Notion, Calendar feeds, and project management tools. Everything surfaces inside Work OS so you can stop tab-switching.`,
     },
     {
       id: "kb-adding-clients",
@@ -248,7 +248,7 @@ Go to **Settings → Integrations** to connect Slack, Gmail, Notion, Calendar fe
       tags: "clients,retainer,hourly rate,monthly cap",
       relatedTicketTypes: "support",
       sortOrder: 10,
-      content: `Clients are the core of MyTime. Every schedule block, time entry, and report ties back to a client.
+      content: `Clients are the core of Work OS. Every schedule block, time entry, and report ties back to a client.
 
 ## Creating a client
 
@@ -284,7 +284,7 @@ Archive a client to hide them from the schedule generator while keeping all thei
       tags: "schedule,generator,blocks,availability",
       relatedTicketTypes: "support,feature",
       sortOrder: 11,
-      content: `The schedule generator is the core feature of MyTime. It creates your entire week in seconds.
+      content: `The schedule generator is the core feature of Work OS. It creates your entire week in seconds.
 
 ## How it works
 
@@ -321,7 +321,7 @@ After generation, you can:
       tags: "timer,time tracking,entries,stopwatch",
       relatedTicketTypes: "support,bug",
       sortOrder: 12,
-      content: `MyTime includes a built-in timer that ties directly to your clients and projects.
+      content: `Work OS includes a built-in timer that ties directly to your clients and projects.
 
 ## Starting the timer
 
@@ -332,7 +332,7 @@ There are two ways to start tracking time:
 
 ## Context-switch warnings
 
-If you start a timer for a different client while one is already running, MyTime will warn you. This helps catch accidental context switches that eat into productive time.
+If you start a timer for a different client while one is already running, Work OS will warn you. This helps catch accidental context switches that eat into productive time.
 
 ## Time entries
 
@@ -404,7 +404,7 @@ When a deal is won, you can link the contact to a new client record. All their C
       tags: "contracts,templates,retainer,sow,proposal",
       relatedTicketTypes: "support,feature",
       sortOrder: 14,
-      content: `MyTime includes contract generation built into the CRM. Generate retainer agreements, project contracts, and SOWs with auto-filled client details.
+      content: `Work OS includes contract generation built into the CRM. Generate retainer agreements, project contracts, and SOWs with auto-filled client details.
 
 ## How to generate a contract
 
@@ -451,11 +451,11 @@ Generated contracts are a starting point and do not constitute legal advice. We 
       tags: "slack,gmail,notion,calendar,clickup,trello,asana,monday",
       relatedTicketTypes: "integration,support",
       sortOrder: 20,
-      content: `MyTime integrates with the tools you already use, surfacing them inside one screen so you stop tab-switching.
+      content: `Work OS integrates with the tools you already use, surfacing them inside one screen so you stop tab-switching.
 
 ## Available integrations (Pro plan)
 
-- **Slack** — All your workspaces in one inbox. Read and respond without leaving MyTime.
+- **Slack** — All your workspaces in one inbox. Read and respond without leaving Work OS.
 - **Gmail & Outlook** — Triage email with kanban-style boards.
 - **Notion** — Browse and search your Notion pages.
 - **Calendar** — Pull in Google Calendar, Apple Calendar, or Outlook via iCal feeds. Events appear alongside your schedule blocks.
@@ -464,9 +464,9 @@ Generated contracts are a starting point and do not constitute legal advice. We 
 
 ## Important: external accounts required
 
-MyTime doesn't replace these tools — it surfaces them in one place. Each service requires its own account. Some services (like Slack, Notion, or ClickUp) may require a paid plan on their end.
+Work OS doesn't replace these tools — it surfaces them in one place. Each service requires its own account. Some services (like Slack, Notion, or ClickUp) may require a paid plan on their end.
 
-## No extra fees from MyTime
+## No extra fees from Work OS
 
 All integrations are included on the Pro plan and above. There are no per-integration fees.
 
@@ -482,7 +482,7 @@ Go to **Settings → Integrations** and follow the connection flow for each serv
       tags: "calendar,ical,google calendar,apple calendar,outlook",
       relatedTicketTypes: "integration,support",
       sortOrder: 21,
-      content: `Calendar feeds let you see your existing calendar events alongside your MyTime schedule blocks.
+      content: `Calendar feeds let you see your existing calendar events alongside your Work OS schedule blocks.
 
 ## Supported calendars
 
@@ -518,7 +518,7 @@ Calendar events appear as read-only blocks on your schedule. The schedule genera
       tags: "pricing,plans,starter,pro,business,free",
       relatedTicketTypes: "support",
       sortOrder: 30,
-      content: `MyTime offers three plans to fit different stages of your freelance business.
+      content: `Work OS offers three plans to fit different stages of your freelance business.
 
 ## Starter — Free forever
 
@@ -549,7 +549,7 @@ Everything in Pro, plus:
 
 ## Free trial
 
-All paid plans include a 14-day free trial. No credit card required. You can start using MyTime immediately after signing up.
+All paid plans include a 14-day free trial. No credit card required. You can start using Work OS immediately after signing up.
 
 ## Cancellation
 

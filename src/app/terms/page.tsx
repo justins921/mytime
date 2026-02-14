@@ -8,7 +8,7 @@ export default function TermsOfServicePage() {
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            <span className="font-bold text-lg">MyTime</span>
+            <span className="font-bold text-lg">Work OS</span>
           </Link>
           <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
             Back to home
@@ -24,7 +24,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-lg font-semibold mb-3">1. Acceptance of Terms</h2>
             <p className="text-sm text-gray-600 leading-relaxed">
-              By accessing or using MyTime (the &quot;Service&quot;), operated by Sobojinski Solutions LLC
+              By accessing or using Work OS (the &quot;Service&quot;), operated by Sobojinski Solutions LLC
               (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), you agree to be bound by these Terms of Service.
               If you do not agree to these terms, do not use the Service.
             </p>
@@ -33,7 +33,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-lg font-semibold mb-3">2. Description of Service</h2>
             <p className="text-sm text-gray-600 leading-relaxed">
-              MyTime is a workday management platform for freelancers and independent contractors.
+              Work OS is a workday management platform for freelancers and independent contractors.
               The Service provides schedule generation, time tracking, client management, and
               integrations with third-party tools. Features vary by subscription plan.
             </p>

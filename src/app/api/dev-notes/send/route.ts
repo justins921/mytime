@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   if (note.screenshot) {
     bodyParts.push(`\n**Screenshot attached in dev notes dashboard.**`);
   }
-  bodyParts.push(`\n*Sent from MyTime dev notes on ${new Date().toISOString()}*`);
+  bodyParts.push(`\n*Sent from Work OS dev notes on ${new Date().toISOString()}*`);
 
   const body = bodyParts.join("\n");
 

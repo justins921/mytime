@@ -140,7 +140,7 @@ export function ScheduleDemo() {
             <div className="w-3 h-3 rounded-full bg-yellow-400" />
             <div className="w-3 h-3 rounded-full bg-green-400" />
           </div>
-          <span className="text-xs text-gray-400 ml-2">MyTime — Schedule</span>
+          <span className="text-xs text-gray-400 ml-2">Work OS — Schedule</span>
         </div>
 
         <div className="flex min-h-[380px]">

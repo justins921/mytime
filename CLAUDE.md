@@ -1,4 +1,4 @@
-# MyTime — Workday Manager
+# Work OS — Workday Manager
 
 ## Overview
 Next.js 14 (App Router) time-tracking and workday management SaaS. PostgreSQL + Prisma ORM. Tailwind CSS + shadcn/ui components.

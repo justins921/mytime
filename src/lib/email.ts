@@ -3,7 +3,7 @@
  * Falls back to console logging in development.
  */
 
-const FROM = "MyTime <notifications@updates.mytime.day>";
+const FROM = "Work OS <notifications@updates.mytime.day>";
 
 export async function sendEmail({
   to,
@@ -42,7 +42,7 @@ export function welcomeEmailHtml(name: string | null): string {
   const displayName = name || "there";
   return `
     <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #1a1a1a;">Welcome to MyTime!</h2>
+      <h2 style="color: #1a1a1a;">Welcome to Work OS!</h2>
       <p style="color: #666; line-height: 1.6;">
         Hey ${displayName}, thanks for signing up. You're all set to start managing your workday.
       </p>
@@ -56,7 +56,7 @@ export function welcomeEmailHtml(name: string | null): string {
         If you need help, check the <strong>Knowledge Base</strong> in your sidebar or submit a support request.
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-      <p style="color: #bbb; font-size: 11px;">MyTime &mdash; The workday manager for freelancers</p>
+      <p style="color: #bbb; font-size: 11px;">Work OS &mdash; The workday manager for freelancers &mdash; A product of Sobojinski Solutions LLC</p>
     </div>
   `;
 }
@@ -67,7 +67,7 @@ export function verificationEmailHtml(verifyUrl: string): string {
     <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
       <h2 style="color: #1a1a1a;">Verify your email address</h2>
       <p style="color: #666; line-height: 1.6;">
-        Thanks for signing up for MyTime! Click the button below to verify your email address.
+        Thanks for signing up for Work OS! Click the button below to verify your email address.
       </p>
       <a href="${verifyUrl}" style="display: inline-block; background: #1a1a1a; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500; margin: 16px 0;">
         Verify Email
@@ -76,7 +76,7 @@ export function verificationEmailHtml(verifyUrl: string): string {
         This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
       </p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-      <p style="color: #bbb; font-size: 11px;">MyTime &mdash; The workday manager for freelancers</p>
+      <p style="color: #bbb; font-size: 11px;">Work OS &mdash; The workday manager for freelancers &mdash; A product of Sobojinski Solutions LLC</p>
     </div>
   `;
 }

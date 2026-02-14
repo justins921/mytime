@@ -153,7 +153,7 @@ export default function ResetPasswordPage() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Clock className="h-5 w-5" />
-            <span className="font-bold text-lg">MyTime</span>
+            <span className="font-bold text-lg">Work OS</span>
           </div>
           <CardTitle className="text-2xl">Set new password</CardTitle>
           <CardDescription>Choose a new password for your account</CardDescription>

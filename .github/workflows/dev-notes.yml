@@ -46,7 +46,7 @@ jobs:
           script: |
             const issue = context.payload.issue;
             const prompt = [
-              `You are working on the MyTime codebase — a Next.js 14 time-tracking & workday management app.`,
+              `You are working on the Work OS codebase — a Next.js 14 time-tracking & workday management app.`,
               `The project owner submitted this change request via a dev note in the app.`,
               ``,
               `## Title`,

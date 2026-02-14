@@ -8,7 +8,7 @@ export default function PrivacyPolicyPage() {
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            <span className="font-bold text-lg">MyTime</span>
+            <span className="font-bold text-lg">Work OS</span>
           </Link>
           <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
             Back to home
@@ -25,7 +25,7 @@ export default function PrivacyPolicyPage() {
             <h2 className="text-lg font-semibold mb-3">1. Introduction</h2>
             <p className="text-sm text-gray-600 leading-relaxed">
               Sobojinski Solutions LLC (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates
-              MyTime (the &quot;Service&quot;). This Privacy Policy explains how we collect, use,
+              Work OS (the &quot;Service&quot;). This Privacy Policy explains how we collect, use,
               disclose, and safeguard your information when you use our Service.
             </p>
           </section>

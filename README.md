@@ -1,4 +1,4 @@
-# MyTime - Client Workday Manager
+# Work OS - Client Workday Manager
 
 A web app that automatically generates your weekly work schedule based on availability, clients, targets, and rules. Includes a task manager and time tracker. Deployable on Vercel, responsive across phone, tablet, and desktop.
 

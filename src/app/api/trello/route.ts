@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/trello — Create a MyTime task from a Trello card
+ * POST /api/trello — Create a Work OS task from a Trello card
  */
 export async function POST(req: NextRequest) {
   const { user, res } = await getAuthUser();

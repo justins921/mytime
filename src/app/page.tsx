@@ -216,7 +216,7 @@ export default async function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            <span className="font-bold text-lg">MyTime</span>
+            <span className="font-bold text-lg">Work OS</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-gray-500">
             <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
@@ -340,7 +340,7 @@ export default async function LandingPage() {
           </div>
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="p-6 rounded-xl border border-red-200 bg-red-50/50">
-              <p className="text-sm font-semibold text-red-700 mb-4">Without MyTime</p>
+              <p className="text-sm font-semibold text-red-700 mb-4">Without Work OS</p>
               <ul className="space-y-3 text-sm text-gray-600">
                 {content.beforeAfter.without.map((item, i) => (
                   <li key={i} className="flex gap-2"><span className="text-red-400 shrink-0">&#10005;</span> {item}</li>
@@ -348,7 +348,7 @@ export default async function LandingPage() {
               </ul>
             </div>
             <div className="p-6 rounded-xl border border-green-200 bg-green-50/50">
-              <p className="text-sm font-semibold text-green-700 mb-4">With MyTime</p>
+              <p className="text-sm font-semibold text-green-700 mb-4">With Work OS</p>
               <ul className="space-y-3 text-sm text-gray-600">
                 {content.beforeAfter.with.map((item, i) => (
                   <li key={i} className="flex gap-2"><span className="text-green-500 shrink-0">&#10003;</span> {item}</li>
@@ -440,7 +440,7 @@ export default async function LandingPage() {
                 </thead>
                 <tbody>
                   <tr className="border-b bg-blue-50/50 font-semibold">
-                    <td className="py-2.5 px-3 text-sm">MyTime</td>
+                    <td className="py-2.5 px-3 text-sm">Work OS</td>
                     {[true, true, true, true, true, true, true, true, true, true].map((v, i) => (
                       <td key={i} className="py-2.5 px-2 text-center">
                         <Check className="h-4 w-4 text-green-600 mx-auto" />
@@ -591,7 +591,7 @@ export default async function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <Clock className="h-4 w-4" />
-              <span>MyTime</span>
+              <span>Work OS</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400">
               <a href="#features" className="hover:text-gray-600 transition-colors">Features</a>

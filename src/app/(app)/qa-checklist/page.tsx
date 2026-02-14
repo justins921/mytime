@@ -222,7 +222,7 @@ const sections: ChecklistSection[] = [
       { id: "triage-asana", label: "Asana tasks import and display" },
       { id: "triage-monday", label: "Monday tasks import and display" },
       { id: "triage-dismiss", label: "Dismiss a triaged task" },
-      { id: "triage-import", label: "Import a triaged task into MyTime tasks" },
+      { id: "triage-import", label: "Import a triaged task into Work OS tasks" },
     ],
   },
   {
@@ -516,7 +516,7 @@ export default function QAChecklistPage() {
           <div>
             <h1 className="text-2xl font-bold print-title">QA Checklist</h1>
             <p className="text-sm text-muted-foreground mt-1 print-subtitle">
-              Quality control checklist for testing all MyTime features. Progress saves automatically.
+              Quality control checklist for testing all Work OS features. Progress saves automatically.
             </p>
           </div>
           <div className="flex items-center gap-2" data-print-hide>

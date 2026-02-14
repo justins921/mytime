@@ -246,7 +246,7 @@ export function ScheduleCalculator() {
                   Want this schedule built for you — automatically?
                 </p>
                 <p className="text-xs text-gray-500 mb-3">
-                  MyTime generates your entire week across every client in seconds, tracks hours
+                  Work OS generates your entire week across every client in seconds, tracks hours
                   against monthly caps, and integrates Slack, Gmail, and Notion.
                 </p>
                 <a

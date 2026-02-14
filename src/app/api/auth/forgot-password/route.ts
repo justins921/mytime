@@ -63,14 +63,14 @@ export async function POST(req: Request) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "MyTime <notifications@updates.mytime.day>",
+          from: "Work OS <notifications@updates.mytime.day>",
           to: normalizedEmail,
-          subject: "Reset your MyTime password",
+          subject: "Reset your Work OS password",
           html: `
             <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
               <h2 style="color: #1a1a1a;">Reset your password</h2>
               <p style="color: #666; line-height: 1.6;">
-                We received a request to reset the password for your MyTime account.
+                We received a request to reset the password for your Work OS account.
                 Click the button below to choose a new password.
               </p>
               <a href="${resetUrl}" style="display: inline-block; background: #1a1a1a; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500; margin: 16px 0;">
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
                 you can safely ignore this email.
               </p>
               <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-              <p style="color: #bbb; font-size: 11px;">MyTime &mdash; The workday manager for freelancers</p>
+              <p style="color: #bbb; font-size: 11px;">Work OS &mdash; The workday manager for freelancers &mdash; A product of Sobojinski Solutions LLC</p>
             </div>
           `,
         }),
