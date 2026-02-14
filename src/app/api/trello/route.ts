@@ -32,12 +32,17 @@ async function getSettings(userId: string) {
 }
 
 function parseToken(raw: string): { key: string; token: string } | null {
+  // Support legacy key:token format
   const colonIdx = raw.indexOf(":");
-  if (colonIdx === -1) return null;
-  const key = raw.slice(0, colonIdx).trim();
-  const token = raw.slice(colonIdx + 1).trim();
-  if (!key || !token) return null;
-  return { key, token };
+  if (colonIdx !== -1) {
+    const key = raw.slice(0, colonIdx).trim();
+    const token = raw.slice(colonIdx + 1).trim();
+    if (key && token) return { key, token };
+  }
+  // OAuth flow stores just the token — use env var for the key
+  const envKey = process.env.TRELLO_API_KEY || "";
+  if (envKey && raw.trim()) return { key: envKey, token: raw.trim() };
+  return null;
 }
 
 async function trelloFetch(path: string, key: string, token: string) {

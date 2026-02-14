@@ -98,7 +98,7 @@ export default function SettingsPage() {
   >([]);
   const [newFeed, setNewFeed] = useState({ name: "", url: "", color: "#8b5cf6" });
   const [showAddIntegration, setShowAddIntegration] = useState(false);
-  const [addIntegrationStep, setAddIntegrationStep] = useState<"pick" | "clickup" | "notion" | "trello" | "asana" | "monday">("pick");
+  const [addIntegrationStep, setAddIntegrationStep] = useState<"pick">("pick");
   const [managingIntegration, setManagingIntegration] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -209,6 +209,54 @@ export default function SettingsPage() {
       window.history.replaceState({}, "", "/settings");
     } else if (outlookError) {
       setOutlookMessage(`Outlook error: ${outlookError}`);
+      window.history.replaceState({}, "", "/settings");
+    }
+    const notionConnected = params.get("notion_connected");
+    const notionError = params.get("notion_error");
+    if (notionConnected) {
+      setNotionMessage(`Connected to ${notionConnected}!`);
+      fetch("/api/notion/workspaces").then((r) => r.json()).then((data) => { if (Array.isArray(data)) setNotionWorkspaces(data); });
+      window.history.replaceState({}, "", "/settings");
+    } else if (notionError) {
+      setNotionMessage(`Notion error: ${notionError}`);
+      window.history.replaceState({}, "", "/settings");
+    }
+    const clickupConnected = params.get("clickup_connected");
+    const clickupError = params.get("clickup_error");
+    if (clickupConnected) {
+      setClickupTestError("");
+      fetch("/api/settings").then((r) => r.json()).then((data) => { if (data.clickupApiToken) setClickupApiToken(data.clickupApiToken); });
+      fetch("/api/clickup?action=workspaces").then((r) => r.json()).then((data) => { if (Array.isArray(data)) setClickupWorkspaces(data.map((t: { id: string | number; name: string }) => ({ id: String(t.id), name: t.name }))); }).catch(() => {});
+      window.history.replaceState({}, "", "/settings");
+    } else if (clickupError) {
+      setClickupTestError(`ClickUp error: ${clickupError}`);
+      window.history.replaceState({}, "", "/settings");
+    }
+    const trelloConnected = params.get("trello_connected");
+    const trelloError = params.get("trello_error");
+    if (trelloConnected) {
+      fetch("/api/settings").then((r) => r.json()).then((data) => { if (data.trelloApiToken) setTrelloApiToken(data.trelloApiToken); });
+      window.history.replaceState({}, "", "/settings");
+    } else if (trelloError) {
+      setClickupTestError(`Trello error: ${trelloError}`);
+      window.history.replaceState({}, "", "/settings");
+    }
+    const asanaConnected = params.get("asana_connected");
+    const asanaError = params.get("asana_error");
+    if (asanaConnected) {
+      fetch("/api/settings").then((r) => r.json()).then((data) => { if (data.asanaApiToken) setAsanaApiToken(data.asanaApiToken); });
+      window.history.replaceState({}, "", "/settings");
+    } else if (asanaError) {
+      setClickupTestError(`Asana error: ${asanaError}`);
+      window.history.replaceState({}, "", "/settings");
+    }
+    const mondayConnected = params.get("monday_connected");
+    const mondayError = params.get("monday_error");
+    if (mondayConnected) {
+      fetch("/api/settings").then((r) => r.json()).then((data) => { if (data.mondayApiToken) setMondayApiToken(data.mondayApiToken); });
+      window.history.replaceState({}, "", "/settings");
+    } else if (mondayError) {
+      setClickupTestError(`Monday error: ${mondayError}`);
       window.history.replaceState({}, "", "/settings");
     }
   }, []);
@@ -1130,42 +1178,14 @@ export default function SettingsPage() {
                                 }}><Trash2 className="h-3.5 w-3.5" /></Button>
                               </div>
                             ))}
-                            <div className="flex gap-2">
-                              <Input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="ntn_..." className="font-mono h-8 text-xs flex-1" />
-                              <Input value={notionName} onChange={(e) => setNotionName(e.target.value)} placeholder="Name (optional)" className="w-32 h-8 text-xs" />
-                              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!notionToken || notionLoading} onClick={async () => {
-                                setNotionLoading(true); setNotionMessage("");
-                                try {
-                                  const res = await fetch("/api/notion/workspaces", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: notionToken, name: notionName || undefined }) });
-                                  const data = await res.json();
-                                  if (!res.ok) { setNotionMessage(data.error || "Failed to connect"); }
-                                  else { setNotionWorkspaces((prev) => { const exists = prev.find((w) => w.id === data.id); return exists ? prev.map((w) => (w.id === data.id ? data : w)) : [...prev, data]; }); setNotionToken(""); setNotionName(""); setNotionMessage(`Connected to ${data.workspaceName}!`); }
-                                } catch { setNotionMessage("Error: failed to connect."); }
-                                setNotionLoading(false);
-                              }}>
-                                <Plus className="h-3 w-3 mr-1" />{notionLoading ? "..." : "Add"}
-                              </Button>
-                            </div>
+                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.href = "/api/notion/oauth"; }}>
+                              <Plus className="h-3 w-3 mr-1" />Add Another Workspace
+                            </Button>
                           </div>
                         )}
 
                         {managingIntegration === "clickup" && item.key === "clickup" && (
                           <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-3">
-                            <div className="flex gap-2">
-                              <Input type="password" value={clickupApiToken} onChange={(e) => setClickupApiToken(e.target.value)} placeholder="pk_..." className="font-mono h-8 text-xs flex-1" />
-                              <Button variant="outline" size="sm" className="h-8 text-xs" disabled={!clickupApiToken || clickupLoading} onClick={async () => {
-                                setClickupLoading(true); setClickupTestError("");
-                                try {
-                                  await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clickupApiToken }) });
-                                  const res = await fetch("/api/clickup?action=workspaces"); const data = await res.json();
-                                  if (Array.isArray(data)) { setClickupWorkspaces(data.map((t: { id: string | number; name: string }) => ({ id: String(t.id), name: t.name }))); }
-                                  else { setClickupTestError(data.error || "Invalid response"); }
-                                } catch { setClickupTestError("Failed to connect"); }
-                                setClickupLoading(false);
-                              }}>
-                                <RefreshCw className={`h-3 w-3 mr-1 ${clickupLoading ? "animate-spin" : ""}`} />Test
-                              </Button>
-                            </div>
                             {clickupWorkspaces.length > 0 && clickupWorkspaces.map((ws) => (
                               <div key={ws.id} className="flex items-center gap-2">
                                 <span className="text-sm w-36 truncate">{ws.name}</span>
@@ -1179,45 +1199,65 @@ export default function SettingsPage() {
                                 </Select>
                               </div>
                             ))}
-                            <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => { setClickupApiToken(""); setClickupWorkspaces([]); }}>
-                              <Trash2 className="h-3 w-3 mr-1" />Disconnect ClickUp
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.href = "/api/clickup/oauth"; }}>
+                                <RefreshCw className="h-3 w-3 mr-1" />Reconnect
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={async () => {
+                                setClickupApiToken(""); setClickupWorkspaces([]);
+                                await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clickupApiToken: "" }) });
+                              }}>
+                                <Trash2 className="h-3 w-3 mr-1" />Disconnect
+                              </Button>
+                            </div>
                           </div>
                         )}
 
                         {managingIntegration === "trello" && item.key === "trello" && (
                           <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-2">
                             <div className="flex gap-2">
-                              <Input type="password" value={trelloApiToken} onChange={(e) => setTrelloApiToken(e.target.value)} placeholder="key:token" className="font-mono h-8 text-xs flex-1" />
+                              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.href = "/api/trello/oauth"; }}>
+                                <RefreshCw className="h-3 w-3 mr-1" />Reconnect
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={async () => {
+                                setTrelloApiToken("");
+                                await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trelloApiToken: "" }) });
+                              }}>
+                                <Trash2 className="h-3 w-3 mr-1" />Disconnect
+                              </Button>
                             </div>
-                            <p className="text-[10px] text-muted-foreground">API key and token separated by colon. Save settings to apply.</p>
-                            <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => setTrelloApiToken("")}>
-                              <Trash2 className="h-3 w-3 mr-1" />Disconnect Trello
-                            </Button>
                           </div>
                         )}
 
                         {managingIntegration === "asana" && item.key === "asana" && (
                           <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-2">
                             <div className="flex gap-2">
-                              <Input type="password" value={asanaApiToken} onChange={(e) => setAsanaApiToken(e.target.value)} placeholder="1/1234567890:abcdef..." className="font-mono h-8 text-xs flex-1" />
+                              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.href = "/api/asana/oauth"; }}>
+                                <RefreshCw className="h-3 w-3 mr-1" />Reconnect
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={async () => {
+                                setAsanaApiToken("");
+                                await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asanaApiToken: "", asanaRefreshToken: "", asanaTokenExpiresAt: 0 }) });
+                              }}>
+                                <Trash2 className="h-3 w-3 mr-1" />Disconnect
+                              </Button>
                             </div>
-                            <p className="text-[10px] text-muted-foreground">Personal Access Token. Save settings to apply.</p>
-                            <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => setAsanaApiToken("")}>
-                              <Trash2 className="h-3 w-3 mr-1" />Disconnect Asana
-                            </Button>
                           </div>
                         )}
 
                         {managingIntegration === "monday" && item.key === "monday" && (
                           <div className="mt-1 ml-9 p-3 rounded-md border bg-muted/30 space-y-2">
                             <div className="flex gap-2">
-                              <Input type="password" value={mondayApiToken} onChange={(e) => setMondayApiToken(e.target.value)} placeholder="eyJhbGciOi..." className="font-mono h-8 text-xs flex-1" />
+                              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { window.location.href = "/api/monday/oauth"; }}>
+                                <RefreshCw className="h-3 w-3 mr-1" />Reconnect
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={async () => {
+                                setMondayApiToken("");
+                                await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mondayApiToken: "" }) });
+                              }}>
+                                <Trash2 className="h-3 w-3 mr-1" />Disconnect
+                              </Button>
                             </div>
-                            <p className="text-[10px] text-muted-foreground">API token. Save settings to apply.</p>
-                            <Button variant="ghost" size="sm" className="text-destructive h-7 text-xs" onClick={() => setMondayApiToken("")}>
-                              <Trash2 className="h-3 w-3 mr-1" />Disconnect Monday.com
-                            </Button>
                           </div>
                         )}
                       </div>
@@ -1252,23 +1292,18 @@ export default function SettingsPage() {
           {addIntegrationStep === "pick" && (
             <div className="grid grid-cols-2 gap-3">
               {[
-                { key: "slack" as const, icon: <MessageSquare className="h-5 w-5" />, label: "Slack", desc: "Messages & channels", action: "oauth" },
-                { key: "gmail" as const, icon: <Mail className="h-5 w-5" />, label: "Gmail", desc: "Email inbox & kanban", action: "oauth" },
-                { key: "outlook" as const, icon: <Mail className="h-5 w-5" />, label: "Outlook", desc: "Microsoft 365 email", action: "oauth" },
-                { key: "notion" as const, icon: <BookOpen className="h-5 w-5" />, label: "Notion", desc: "Pages & docs", action: "token" },
-                { key: "clickup" as const, icon: <Inbox className="h-5 w-5" />, label: "ClickUp", desc: "Task triage", action: "token" },
-                { key: "trello" as const, icon: <Plug className="h-5 w-5" />, label: "Trello", desc: "Card triage", action: "token" },
-                { key: "asana" as const, icon: <Plug className="h-5 w-5" />, label: "Asana", desc: "Task triage", action: "token" },
-                { key: "monday" as const, icon: <Plug className="h-5 w-5" />, label: "Monday.com", desc: "Item triage", action: "token" },
+                { key: "slack", icon: <MessageSquare className="h-5 w-5" />, label: "Slack", desc: "Messages & channels", href: "/api/slack/oauth" },
+                { key: "gmail", icon: <Mail className="h-5 w-5" />, label: "Gmail", desc: "Email inbox & kanban", href: "/api/gmail/oauth" },
+                { key: "outlook", icon: <Mail className="h-5 w-5" />, label: "Outlook", desc: "Microsoft 365 email", href: "/api/outlook/oauth" },
+                { key: "notion", icon: <BookOpen className="h-5 w-5" />, label: "Notion", desc: "Pages & docs", href: "/api/notion/oauth" },
+                { key: "clickup", icon: <Inbox className="h-5 w-5" />, label: "ClickUp", desc: "Task triage", href: "/api/clickup/oauth" },
+                { key: "trello", icon: <Plug className="h-5 w-5" />, label: "Trello", desc: "Card triage", href: "/api/trello/oauth" },
+                { key: "asana", icon: <Plug className="h-5 w-5" />, label: "Asana", desc: "Task triage", href: "/api/asana/oauth" },
+                { key: "monday", icon: <Plug className="h-5 w-5" />, label: "Monday.com", desc: "Item triage", href: "/api/monday/oauth" },
               ].map((item) => (
                 <button
                   key={item.key}
-                  onClick={() => {
-                    if (item.key === "slack") { window.location.href = "/api/slack/oauth"; }
-                    else if (item.key === "gmail") { window.location.href = "/api/gmail/oauth"; }
-                    else if (item.key === "outlook") { window.location.href = "/api/outlook/oauth"; }
-                    else { setAddIntegrationStep(item.key); }
-                  }}
+                  onClick={() => { window.location.href = item.href; }}
                   className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 hover:border-primary/30 transition-colors text-left"
                 >
                   <div className="text-muted-foreground">{item.icon}</div>
@@ -1276,83 +1311,9 @@ export default function SettingsPage() {
                     <div className="text-sm font-medium">{item.label}</div>
                     <div className="text-[10px] text-muted-foreground">{item.desc}</div>
                   </div>
-                  {item.action === "oauth" && <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />}
+                  <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
                 </button>
               ))}
-            </div>
-          )}
-
-          {addIntegrationStep === "clickup" && (
-            <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Find your API token in ClickUp &rarr; Settings &rarr; Apps.</p>
-              <div className="flex gap-2">
-                <Input type="password" value={clickupApiToken} onChange={(e) => setClickupApiToken(e.target.value)} placeholder="pk_..." className="font-mono" />
-                <Button variant="outline" disabled={!clickupApiToken || clickupLoading} onClick={async () => {
-                  setClickupLoading(true); setClickupTestError("");
-                  try {
-                    await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clickupApiToken }) });
-                    const res = await fetch("/api/clickup?action=workspaces"); const data = await res.json();
-                    if (Array.isArray(data)) { setClickupWorkspaces(data.map((t: { id: string | number; name: string }) => ({ id: String(t.id), name: t.name }))); setShowAddIntegration(false); }
-                    else { setClickupTestError(data.error || "Invalid response"); }
-                  } catch { setClickupTestError("Failed to connect"); }
-                  setClickupLoading(false);
-                }}>
-                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${clickupLoading ? "animate-spin" : ""}`} />Connect
-                </Button>
-              </div>
-              {clickupTestError && <p className="text-xs text-red-600">{clickupTestError}</p>}
-            </div>
-          )}
-
-          {addIntegrationStep === "notion" && (
-            <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Create an integration in Notion &rarr; Settings &rarr; Connections &rarr; Develop or manage integrations, then paste the token.</p>
-              <div className="flex gap-2">
-                <Input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="ntn_..." className="font-mono flex-1" />
-                <Input value={notionName} onChange={(e) => setNotionName(e.target.value)} placeholder="Name (optional)" className="w-40" />
-                <Button variant="outline" disabled={!notionToken || notionLoading} onClick={async () => {
-                  setNotionLoading(true); setNotionMessage("");
-                  try {
-                    const res = await fetch("/api/notion/workspaces", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: notionToken, name: notionName || undefined }) });
-                    const data = await res.json();
-                    if (!res.ok) { setNotionMessage(data.error || "Failed to connect"); }
-                    else { setNotionWorkspaces((prev) => { const exists = prev.find((w) => w.id === data.id); return exists ? prev.map((w) => (w.id === data.id ? data : w)) : [...prev, data]; }); setNotionToken(""); setNotionName(""); setShowAddIntegration(false); setNotionMessage(`Connected to ${data.workspaceName}!`); }
-                  } catch { setNotionMessage("Error: failed to connect."); }
-                  setNotionLoading(false);
-                }}>
-                  <RefreshCw className={`h-3.5 w-3.5 mr-1 ${notionLoading ? "animate-spin" : ""}`} />Connect
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {addIntegrationStep === "trello" && (
-            <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Get your API key and token from trello.com/power-ups/admin. Paste them as <code className="bg-muted px-1 rounded">key:token</code>.</p>
-              <div className="flex gap-2">
-                <Input type="password" value={trelloApiToken} onChange={(e) => setTrelloApiToken(e.target.value)} placeholder="key:token" className="font-mono flex-1" />
-                <Button onClick={() => { if (trelloApiToken) { saveSettings(); setShowAddIntegration(false); } }} disabled={!trelloApiToken}>Save & Connect</Button>
-              </div>
-            </div>
-          )}
-
-          {addIntegrationStep === "asana" && (
-            <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Get your Personal Access Token from app.asana.com/-/developer_console.</p>
-              <div className="flex gap-2">
-                <Input type="password" value={asanaApiToken} onChange={(e) => setAsanaApiToken(e.target.value)} placeholder="1/1234567890:abcdef..." className="font-mono flex-1" />
-                <Button onClick={() => { if (asanaApiToken) { saveSettings(); setShowAddIntegration(false); } }} disabled={!asanaApiToken}>Save & Connect</Button>
-              </div>
-            </div>
-          )}
-
-          {addIntegrationStep === "monday" && (
-            <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Get your API token from Monday.com &rarr; avatar &rarr; Administration &rarr; API.</p>
-              <div className="flex gap-2">
-                <Input type="password" value={mondayApiToken} onChange={(e) => setMondayApiToken(e.target.value)} placeholder="eyJhbGciOi..." className="font-mono flex-1" />
-                <Button onClick={() => { if (mondayApiToken) { saveSettings(); setShowAddIntegration(false); } }} disabled={!mondayApiToken}>Save & Connect</Button>
-              </div>
             </div>
           )}
         </DialogContent>

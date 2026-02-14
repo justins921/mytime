@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUser } from "@/lib/auth-utils";
+import { getValidAsanaToken } from "@/lib/asana-oauth";
 
 const ASANA_API = "https://app.asana.com/api/1.0";
 
@@ -51,10 +52,11 @@ export async function GET(req: NextRequest) {
   const { user, res } = await getAuthUser();
   if (!user) return res;
 
-  const settings = await getSettings(user.id);
-  const token = settings.asanaApiToken;
-  if (!token) {
-    return NextResponse.json({ error: "Asana API token not configured. Add it in Settings." }, { status: 400 });
+  let token: string;
+  try {
+    token = await getValidAsanaToken(user.id);
+  } catch {
+    return NextResponse.json({ error: "Asana not connected. Add it in Settings." }, { status: 400 });
   }
 
   const action = req.nextUrl.searchParams.get("action");

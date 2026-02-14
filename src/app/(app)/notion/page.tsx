@@ -233,65 +233,9 @@ export default function NotionPage() {
           <BookOpen className="h-5 w-5" />
           <h2 className="text-xl font-semibold">Notion</h2>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Connect Workspace
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Connect Notion Workspace</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1.5">
-                <p className="font-medium text-foreground">How to connect:</p>
-                <ol className="list-decimal list-inside space-y-1">
-                  <li>Go to <strong>notion.so/my-integrations</strong></li>
-                  <li>Click <strong>New integration</strong></li>
-                  <li>Select the workspace, give it a name (e.g. "MyTime")</li>
-                  <li>Choose <strong>Internal</strong> type and submit</li>
-                  <li>Copy the <strong>Internal Integration Secret</strong></li>
-                  <li>In Notion, open each page you want to access, click <strong>...</strong> &rarr; <strong>Connect to</strong> &rarr; select your integration</li>
-                </ol>
-              </div>
-              <div className="space-y-2">
-                <Label>Workspace Name</Label>
-                <Input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Work, Personal"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Integration Token</Label>
-                <div className="relative">
-                  <Key className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    type="password"
-                    value={newToken}
-                    onChange={(e) => { setNewToken(e.target.value); setConnectError(""); }}
-                    placeholder="ntn_..."
-                    className="pl-8"
-                  />
-                </div>
-              </div>
-              {connectError && (
-                <p className="text-xs text-destructive">{connectError}</p>
-              )}
-              <DialogClose asChild>
-                <Button
-                  onClick={connectWorkspace}
-                  disabled={connecting || !newToken.trim()}
-                  className="w-full"
-                >
-                  {connecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                  {connecting ? "Connecting..." : "Connect"}
-                </Button>
-              </DialogClose>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" onClick={() => { window.location.href = "/api/notion/oauth"; }}>
+          <Plus className="h-4 w-4 mr-1" /> Connect Workspace
+        </Button>
       </div>
 
       {/* Connected workspaces */}

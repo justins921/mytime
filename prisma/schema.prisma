@@ -406,6 +406,8 @@ model Settings {
   trelloWorkspaceMapJson String  @default("{}")
   // Asana integration
   asanaApiToken         String   @default("")
+  asanaRefreshToken     String   @default("")
+  asanaTokenExpiresAt   Int      @default(0)
   asanaWorkspaceMapJson String   @default("{}")
   // Monday.com integration
   mondayApiToken        String   @default("")
