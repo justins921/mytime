@@ -14,12 +14,20 @@ export async function getAuthUser() {
     return { user: null, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }), impersonating: false };
   }
 
-  const realUser = await prisma.user.findUnique({
+  let realUser = await prisma.user.findUnique({
     where: { email: session.user.email },
   });
 
   if (!realUser) {
     return { user: null, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }), impersonating: false };
+  }
+
+  // Auto-enforce owner role for the designated owner email
+  if (realUser.email.toLowerCase() === OWNER_EMAIL.toLowerCase() && realUser.role !== "owner") {
+    realUser = await prisma.user.update({
+      where: { id: realUser.id },
+      data: { role: "owner" },
+    });
   }
 
   // Check for admin/owner impersonation

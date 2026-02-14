@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAuthUser, requireAdmin, requireManager } from "@/lib/auth-utils";
+import { getAuthUser, requireAdmin, requireManager, OWNER_EMAIL } from "@/lib/auth-utils";
 
 /**
  * GET /api/admin/users — List all users (manager+)
@@ -80,6 +80,11 @@ export async function PATCH(req: NextRequest) {
   const target = await prisma.user.findUnique({ where: { id: userId } });
   if (!target) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Prevent changing the designated owner's role
+  if (data.role && target.email.toLowerCase() === OWNER_EMAIL.toLowerCase() && data.role !== "owner") {
+    return NextResponse.json({ error: "Cannot change the owner's role" }, { status: 403 });
   }
 
   const updated = await prisma.user.update({
