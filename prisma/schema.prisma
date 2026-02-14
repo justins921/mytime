@@ -412,6 +412,8 @@ model Settings {
   // Monday.com integration
   mondayApiToken        String   @default("")
   mondayWorkspaceMapJson String  @default("{}")
+  // Sidebar: JSON array of hidden nav hrefs, e.g. ["/crm","/notes"]
+  hiddenSidebarItemsJson String  @default("[]")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)

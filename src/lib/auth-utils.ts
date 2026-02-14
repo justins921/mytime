@@ -64,10 +64,10 @@ export function hasPlan(userPlan: string, requiredPlan: string): boolean {
 
 /** Plan feature limits */
 export const PLAN_LIMITS = {
-  free: { clients: 2, integrations: false, reports: false, export: false, notes: true },
-  starter: { clients: 2, integrations: false, reports: false, export: false, notes: true },
-  pro: { clients: Infinity, integrations: true, reports: true, export: true, notes: true },
-  business: { clients: Infinity, integrations: true, reports: true, export: true, notes: true },
+  free: { clients: 2, integrations: false, reports: false, export: false, notes: true, apiAccess: false, advancedReports: false, prioritySupport: false, teamMembers: 1, customIntegrations: false },
+  starter: { clients: 2, integrations: false, reports: false, export: false, notes: true, apiAccess: false, advancedReports: false, prioritySupport: false, teamMembers: 1, customIntegrations: false },
+  pro: { clients: Infinity, integrations: true, reports: true, export: true, notes: true, apiAccess: false, advancedReports: false, prioritySupport: false, teamMembers: 1, customIntegrations: false },
+  business: { clients: Infinity, integrations: true, reports: true, export: true, notes: true, apiAccess: true, advancedReports: true, prioritySupport: true, teamMembers: Infinity, customIntegrations: true },
 } as const;
 
 export function getPlanLimits(plan: string) {

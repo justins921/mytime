@@ -23,9 +23,12 @@ import {
   Lock,
   Contact,
   ClipboardCheck,
+  Pencil,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { signOut } from "next-auth/react";
 
 // requiredPlan: "free" = everyone, "pro" = pro+, "business" = business only
@@ -66,6 +69,16 @@ export function Sidebar() {
   const [plan, setPlan] = useState("free");
   const [showUpgrade, setShowUpgrade] = useState<string | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [hiddenItems, setHiddenItems] = useState<string[]>([]);
+  const [editMode, setEditMode] = useState(false);
+
+  const saveHiddenItems = useCallback((items: string[]) => {
+    fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hiddenSidebarItemsJson: JSON.stringify(items) }),
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/stripe/plan")
@@ -75,6 +88,7 @@ export function Sidebar() {
           setIsAdmin(true);
         }
         if (data.plan) setPlan(data.plan);
+        if (Array.isArray(data.hiddenSidebarItems)) setHiddenItems(data.hiddenSidebarItems);
       })
       .catch(() => {});
 
@@ -95,6 +109,9 @@ export function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
+  // Items that can never be hidden
+  const alwaysVisible = new Set(["/settings", "/support"]);
+
   const allItems: NavItem[] = isAdmin
     ? [
         ...navItems,
@@ -102,6 +119,18 @@ export function Sidebar() {
         { href: "/qa-checklist", label: "QA Checklist", icon: ClipboardCheck, requiredPlan: "free" as const },
       ]
     : navItems;
+
+  const visibleItems = editMode
+    ? allItems
+    : allItems.filter((item) => !hiddenItems.includes(item.href));
+
+  function toggleHidden(href: string) {
+    const next = hiddenItems.includes(href)
+      ? hiddenItems.filter((h) => h !== href)
+      : [...hiddenItems, href];
+    setHiddenItems(next);
+    saveHiddenItems(next);
+  }
 
   return (
     <>
@@ -167,10 +196,44 @@ export function Sidebar() {
           <p className="text-xs text-muted-foreground">Workday Manager</p>
         </div>
         <nav className="p-2 space-y-1">
-          {allItems.map((item) => {
+          {editMode && (
+            <p className="px-3 py-1 text-[10px] text-muted-foreground">
+              Click the eye icon to show or hide items
+            </p>
+          )}
+          {visibleItems.map((item) => {
             const Icon = item.icon;
             const active = pathname.startsWith(item.href);
             const locked = !isAdmin && !hasAccess(plan, item.requiredPlan);
+            const isHidden = hiddenItems.includes(item.href);
+            const canHide = !alwaysVisible.has(item.href);
+
+            if (editMode) {
+              return (
+                <div
+                  key={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                    isHidden ? "text-muted-foreground/40" : "text-muted-foreground"
+                  )}
+                >
+                  <Icon className={cn("h-4 w-4", isHidden && "opacity-40")} />
+                  <span className={cn("flex-1", isHidden && "opacity-40 line-through")}>{item.label}</span>
+                  {canHide && (
+                    <button
+                      onClick={() => toggleHidden(item.href)}
+                      className="p-0.5 rounded hover:bg-accent transition-colors"
+                    >
+                      {isHidden ? (
+                        <EyeOff className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              );
+            }
 
             if (locked) {
               return (
@@ -217,7 +280,19 @@ export function Sidebar() {
           })}
         </nav>
         <div className="absolute bottom-0 left-0 right-0 border-t">
-          <div className="p-2">
+          <div className="p-2 space-y-1">
+            <button
+              onClick={() => setEditMode(!editMode)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full transition-colors",
+                editMode
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <Pencil className="h-4 w-4" />
+              {editMode ? "Done" : "Customize"}
+            </button>
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
               className="flex items-center gap-3 px-3 py-2 rounded-md text-sm w-full text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
